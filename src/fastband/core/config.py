@@ -66,6 +66,11 @@ class FastbandConfig:
     """
     version: str = "1.2025.12"
 
+    # Project info (from detection)
+    project_name: Optional[str] = None
+    project_type: Optional[str] = None
+    primary_language: Optional[str] = None
+
     # AI Providers
     default_provider: str = "claude"
     providers: Dict[str, AIProviderConfig] = field(default_factory=dict)
@@ -98,6 +103,13 @@ class FastbandConfig:
 
         if "version" in data:
             config.version = data["version"]
+
+        # Project info
+        if "project" in data:
+            p = data["project"]
+            config.project_name = p.get("name")
+            config.project_type = p.get("type")
+            config.primary_language = p.get("language")
 
         if "ai" in data:
             ai = data["ai"]
@@ -159,52 +171,68 @@ class FastbandConfig:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
-        return {
+        result: Dict[str, Any] = {
             "fastband": {
                 "version": self.version,
-                "ai": {
-                    "default_provider": self.default_provider,
-                    "providers": {
-                        name: {
-                            "model": p.model,
-                            "max_tokens": p.max_tokens,
-                            "temperature": p.temperature,
-                        }
-                        for name, p in self.providers.items()
-                    },
-                },
-                "tools": {
-                    "max_active": self.tools.max_active,
-                    "auto_load_core": self.tools.auto_load_core,
-                    "performance_warning_threshold": self.tools.performance_warning_threshold,
-                },
-                "tickets": {
-                    "enabled": self.tickets.enabled,
-                    "mode": self.tickets.mode,
-                    "web_port": self.tickets.web_port,
-                    "review_agents": self.tickets.review_agents,
-                },
-                "backup": {
-                    "enabled": self.backup.enabled,
-                    "daily_enabled": self.backup.daily_enabled,
-                    "daily_time": self.backup.daily_time,
-                    "daily_retention": self.backup.daily_retention,
-                    "weekly_enabled": self.backup.weekly_enabled,
-                    "weekly_day": self.backup.weekly_day,
-                    "weekly_retention": self.backup.weekly_retention,
-                    "change_detection": self.backup.change_detection,
-                },
-                "github": {
-                    "enabled": self.github.enabled,
-                    "automation_level": self.github.automation_level,
-                    "default_branch": self.github.default_branch,
-                },
-                "storage": {
-                    "backend": self.storage_backend,
-                    "path": self.storage_path,
-                },
             }
         }
+
+        # Add project info if set
+        if self.project_name or self.project_type or self.primary_language:
+            result["fastband"]["project"] = {
+                "name": self.project_name,
+                "type": self.project_type,
+                "language": self.primary_language,
+            }
+
+        result["fastband"]["ai"] = {
+            "default_provider": self.default_provider,
+            "providers": {
+                name: {
+                    "model": p.model,
+                    "max_tokens": p.max_tokens,
+                    "temperature": p.temperature,
+                }
+                for name, p in self.providers.items()
+            },
+        }
+
+        result["fastband"]["tools"] = {
+            "max_active": self.tools.max_active,
+            "auto_load_core": self.tools.auto_load_core,
+            "performance_warning_threshold": self.tools.performance_warning_threshold,
+        }
+
+        result["fastband"]["tickets"] = {
+            "enabled": self.tickets.enabled,
+            "mode": self.tickets.mode,
+            "web_port": self.tickets.web_port,
+            "review_agents": self.tickets.review_agents,
+        }
+
+        result["fastband"]["backup"] = {
+            "enabled": self.backup.enabled,
+            "daily_enabled": self.backup.daily_enabled,
+            "daily_time": self.backup.daily_time,
+            "daily_retention": self.backup.daily_retention,
+            "weekly_enabled": self.backup.weekly_enabled,
+            "weekly_day": self.backup.weekly_day,
+            "weekly_retention": self.backup.weekly_retention,
+            "change_detection": self.backup.change_detection,
+        }
+
+        result["fastband"]["github"] = {
+            "enabled": self.github.enabled,
+            "automation_level": self.github.automation_level,
+            "default_branch": self.github.default_branch,
+        }
+
+        result["fastband"]["storage"] = {
+            "backend": self.storage_backend,
+            "path": self.storage_path,
+        }
+
+        return result
 
     def save(self, path: Path) -> None:
         """Save configuration to YAML file."""
