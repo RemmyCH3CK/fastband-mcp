@@ -13,14 +13,29 @@ from fastband.tools.base import (
     ToolResult,
 )
 from fastband.tools.registry import ToolRegistry, get_registry
+from fastband.tools.recommender import (
+    ToolRecommender,
+    ToolRecommendation,
+    RecommendationResult,
+    get_recommender,
+    recommend_tools,
+)
 
 __all__ = [
+    # Base
     "Tool",
     "ToolDefinition",
     "ToolParameter",
     "ToolMetadata",
     "ToolCategory",
     "ToolResult",
+    # Registry
     "ToolRegistry",
     "get_registry",
+    # Recommender
+    "ToolRecommender",
+    "ToolRecommendation",
+    "RecommendationResult",
+    "get_recommender",
+    "recommend_tools",
 ]
