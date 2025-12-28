@@ -1,0 +1,77 @@
+name: Auto Close Issues from Commits
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  close-issues:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Parse commit messages and close issues
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const commits = context.payload.commits || [];
+
+            // Keywords that trigger issue closing (GitHub default behavior)
+            const closeKeywords = [
+              'close', 'closes', 'closed',
+              'fix', 'fixes', 'fixed',
+              'resolve', 'resolves', 'resolved',
+              'complete', 'completes', 'completed'
+            ];
+
+            // Regex to match issue references
+            const issuePattern = new RegExp(
+              `(${closeKeywords.join('|')})\\s+#(\\d+)`,
+              'gi'
+            );
+
+            const issuesToClose = new Set();
+
+            for (const commit of commits) {
+              const message = commit.message;
+              let match;
+
+              while ((match = issuePattern.exec(message)) !== null) {
+                issuesToClose.add(parseInt(match[2]));
+              }
+            }
+
+            console.log(`Found issues to close: ${[...issuesToClose].join(', ') || 'none'}`);
+
+            for (const issueNumber of issuesToClose) {
+              try {
+                // Check if issue exists and is open
+                const { data: issue } = await github.rest.issues.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber
+                });
+
+                if (issue.state === 'open') {
+                  // Close the issue
+                  await github.rest.issues.update({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    state: 'closed',
+                    state_reason: 'completed'
+                  });
+
+                  // Add a comment
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    body: `Closed by commit ${context.sha.substring(0, 7)} in ${context.ref.replace('refs/heads/', '')}`
+                  });
+
+                  console.log(`Closed issue #${issueNumber}`);
+                }
+              } catch (error) {
+                console.log(`Could not close issue #${issueNumber}: ${error.message}`);
+              }
+            }
