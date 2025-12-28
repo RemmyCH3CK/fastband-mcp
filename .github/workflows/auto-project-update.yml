@@ -11,7 +11,7 @@ name: Auto Update Project
 
 on:
   issues:
-    types: [closed, reopened]
+    types: [closed, reopened, assigned, labeled]
   pull_request:
     types: [closed, opened, reopened]
 
@@ -203,6 +203,101 @@ jobs:
                 });
 
                 console.log(`Moved issue #${issue.number} to In Progress`);
+              } else {
+                console.log(`Issue #${issue.number} not found in project or Status field not configured`);
+              }
+            } catch (error) {
+              console.log(`Could not update project: ${error.message}`);
+              console.log('Note: This workflow requires a PROJECT_TOKEN secret with project scope.');
+            }
+
+      - name: Move issue to In Progress when assigned or labeled
+        if: github.event_name == 'issues' && (github.event.action == 'assigned' || (github.event.action == 'labeled' && github.event.label.name == 'in-progress'))
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
+          script: |
+            const issue = context.payload.issue;
+            const projectNumber = parseInt(process.env.PROJECT_NUMBER);
+
+            try {
+              const query = `
+                query($owner: String!, $number: Int!) {
+                  user(login: $owner) {
+                    projectV2(number: $number) {
+                      id
+                      items(first: 100) {
+                        nodes {
+                          id
+                          content {
+                            ... on Issue {
+                              number
+                            }
+                          }
+                        }
+                      }
+                      fields(first: 20) {
+                        nodes {
+                          ... on ProjectV2SingleSelectField {
+                            id
+                            name
+                            options {
+                              id
+                              name
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              `;
+
+              const result = await github.graphql(query, {
+                owner: context.repo.owner,
+                number: projectNumber
+              });
+
+              const project = result.user.projectV2;
+              if (!project) {
+                console.log(`Project #${projectNumber} not found or not accessible. Skipping.`);
+                return;
+              }
+
+              const statusField = project.fields.nodes.find(f => f.name === 'Status');
+              const inProgressOption = statusField?.options?.find(o => o.name === 'In Progress');
+
+              const projectItem = project.items.nodes.find(
+                item => item.content?.number === issue.number
+              );
+
+              if (projectItem && statusField && inProgressOption) {
+                const mutation = `
+                  mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                    updateProjectV2ItemFieldValue(input: {
+                      projectId: $projectId
+                      itemId: $itemId
+                      fieldId: $fieldId
+                      value: { singleSelectOptionId: $optionId }
+                    }) {
+                      projectV2Item {
+                        id
+                      }
+                    }
+                  }
+                `;
+
+                await github.graphql(mutation, {
+                  projectId: project.id,
+                  itemId: projectItem.id,
+                  fieldId: statusField.id,
+                  optionId: inProgressOption.id
+                });
+
+                const triggerReason = context.payload.action === 'assigned'
+                  ? `assigned to ${context.payload.assignee?.login || 'someone'}`
+                  : `labeled with '${context.payload.label?.name}'`;
+                console.log(`Moved issue #${issue.number} to In Progress (${triggerReason})`);
               } else {
                 console.log(`Issue #${issue.number} not found in project or Status field not configured`);
               }

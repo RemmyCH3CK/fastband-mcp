@@ -21,6 +21,21 @@ from fastband.tools.recommender import (
     recommend_tools,
 )
 
+# Optional git tools import - available when git module is loaded
+try:
+    from fastband.tools.git import (
+        GitStatusTool,
+        GitCommitTool,
+        GitDiffTool,
+        GitLogTool,
+        GitBranchTool,
+        GIT_TOOLS,
+    )
+    _git_available = True
+except ImportError:
+    _git_available = False
+    GIT_TOOLS = []
+
 __all__ = [
     # Base
     "Tool",
@@ -38,4 +53,16 @@ __all__ = [
     "RecommendationResult",
     "get_recommender",
     "recommend_tools",
+    # Git tools (conditionally available)
+    "GIT_TOOLS",
 ]
+
+# Add git tool classes to __all__ if available
+if _git_available:
+    __all__.extend([
+        "GitStatusTool",
+        "GitCommitTool",
+        "GitDiffTool",
+        "GitLogTool",
+        "GitBranchTool",
+    ])

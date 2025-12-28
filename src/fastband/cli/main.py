@@ -19,6 +19,7 @@ from rich import box
 from fastband import __version__
 from fastband.core.config import FastbandConfig, get_config
 from fastband.core.detection import detect_project, ProjectInfo, Language, ProjectType
+from fastband.cli.tools import tools_app
 
 # Create the main CLI app
 app = typer.Typer(
@@ -35,6 +36,9 @@ config_app = typer.Typer(
     no_args_is_help=True,
 )
 app.add_typer(config_app, name="config")
+
+# Tools subcommand group
+app.add_typer(tools_app, name="tools")
 
 # Rich console for output
 console = Console()

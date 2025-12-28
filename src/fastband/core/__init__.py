@@ -14,6 +14,25 @@ from fastband.core.detection import (
     BuildTool,
     detect_project,
 )
+from fastband.core.logging import (
+    LoggingConfig,
+    FastbandLogger,
+    JsonFormatter,
+    ColoredFormatter,
+    setup_logging,
+    get_logger,
+    set_log_level,
+    enable_debug_mode,
+    disable_debug_mode,
+    reset_logging,
+    debug,
+    info,
+    warning,
+    error,
+    critical,
+    exception,
+    LOG_LEVELS,
+)
 
 __all__ = [
     # Config
@@ -34,4 +53,22 @@ __all__ = [
     "PackageManager",
     "BuildTool",
     "detect_project",
+    # Logging
+    "LoggingConfig",
+    "FastbandLogger",
+    "JsonFormatter",
+    "ColoredFormatter",
+    "setup_logging",
+    "get_logger",
+    "set_log_level",
+    "enable_debug_mode",
+    "disable_debug_mode",
+    "reset_logging",
+    "debug",
+    "info",
+    "warning",
+    "error",
+    "critical",
+    "exception",
+    "LOG_LEVELS",
 ]
