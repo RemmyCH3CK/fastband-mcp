@@ -15,6 +15,7 @@ from fastband.tools.base import (
     tool,
 )
 from fastband.tools.registry import ToolRegistry, get_registry, reset_registry
+from fastband.tools.core import files as files_module
 
 
 # =============================================================================
@@ -357,12 +358,6 @@ class TestToolDecorator:
 class TestCoreTool:
     """Tests for core tools."""
 
-    @pytest.fixture
-    def temp_dir(self):
-        """Create a temporary directory for file tests."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            yield Path(tmpdir)
-
     @pytest.mark.asyncio
     async def test_health_check(self):
         """Test health check tool."""
@@ -389,10 +384,11 @@ class TestCoreTool:
         assert "python" in result.data
 
     @pytest.mark.asyncio
-    async def test_list_files(self, temp_dir):
+    async def test_list_files(self, temp_dir_with_security):
         """Test list files tool."""
         from fastband.tools.core.files import ListFilesTool
 
+        temp_dir = temp_dir_with_security
         # Create some test files
         (temp_dir / "file1.txt").write_text("test")
         (temp_dir / "file2.py").write_text("test")
@@ -406,10 +402,11 @@ class TestCoreTool:
         assert result.data["total_directories"] == 1
 
     @pytest.mark.asyncio
-    async def test_read_file(self, temp_dir):
+    async def test_read_file(self, temp_dir_with_security):
         """Test read file tool."""
         from fastband.tools.core.files import ReadFileTool
 
+        temp_dir = temp_dir_with_security
         test_file = temp_dir / "test.txt"
         test_file.write_text("Line 1\nLine 2\nLine 3\n")
 
@@ -421,10 +418,11 @@ class TestCoreTool:
         assert result.data["total_lines"] == 3
 
     @pytest.mark.asyncio
-    async def test_write_file(self, temp_dir):
+    async def test_write_file(self, temp_dir_with_security):
         """Test write file tool."""
         from fastband.tools.core.files import WriteFileTool
 
+        temp_dir = temp_dir_with_security
         test_file = temp_dir / "new_file.txt"
 
         tool = WriteFileTool()
@@ -438,10 +436,11 @@ class TestCoreTool:
         assert test_file.read_text() == "Hello, World!"
 
     @pytest.mark.asyncio
-    async def test_search_code(self, temp_dir):
+    async def test_search_code(self, temp_dir_with_security):
         """Test search code tool."""
         from fastband.tools.core.files import SearchCodeTool
 
+        temp_dir = temp_dir_with_security
         # Create a Python file with some content
         test_file = temp_dir / "test.py"
         test_file.write_text("def hello():\n    print('Hello')\n")

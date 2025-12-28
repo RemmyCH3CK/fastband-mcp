@@ -1,0 +1,9 @@
+{
+  "name": "sample-config",
+  "version": "1.0.0",
+  "enabled": true,
+  "settings": {
+    "theme": "dark",
+    "language": "en"
+  }
+}

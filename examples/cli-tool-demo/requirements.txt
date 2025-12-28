@@ -1,0 +1,4 @@
+# CLI Tool Demo Dependencies
+typer>=0.9.0
+rich>=13.0.0
+fastband-mcp>=1.0.0

@@ -631,12 +631,10 @@ class TestEdgeCases:
             assert result1.success is True
             assert result2.success is True
 
-    def test_validate_returns_true(self, provider_step, wizard_context):
+    @pytest.mark.asyncio
+    async def test_validate_returns_true(self, provider_step, wizard_context):
         """Test validate method returns True (default behavior)."""
-        import asyncio
-        result = asyncio.get_event_loop().run_until_complete(
-            provider_step.validate(wizard_context)
-        )
+        result = await provider_step.validate(wizard_context)
         assert result is True
 
     def test_should_skip_returns_false(self, provider_step, wizard_context):

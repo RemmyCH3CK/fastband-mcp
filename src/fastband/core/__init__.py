@@ -33,6 +33,27 @@ from fastband.core.logging import (
     exception,
     LOG_LEVELS,
 )
+from fastband.core.security import (
+    # Path security
+    PathSecurityError,
+    PathValidator,
+    validate_path,
+    # Input sanitization
+    InputSanitizer,
+    sanitize_input,
+    # SQL security
+    SQLSecurityError,
+    validate_sql_identifier,
+    build_parameterized_query,
+    # Secrets and keys
+    generate_secret_key,
+    generate_api_token,
+    mask_secret,
+    is_secret_key_secure,
+    # Environment security
+    get_env_or_default,
+    secure_config_dict,
+)
 
 __all__ = [
     # Config
@@ -71,4 +92,19 @@ __all__ = [
     "critical",
     "exception",
     "LOG_LEVELS",
+    # Security
+    "PathSecurityError",
+    "PathValidator",
+    "validate_path",
+    "InputSanitizer",
+    "sanitize_input",
+    "SQLSecurityError",
+    "validate_sql_identifier",
+    "build_parameterized_query",
+    "generate_secret_key",
+    "generate_api_token",
+    "mask_secret",
+    "is_secret_key_secure",
+    "get_env_or_default",
+    "secure_config_dict",
 ]

@@ -1,0 +1,4 @@
+This is a sample text document.
+
+It demonstrates how the file organizer categorizes files by extension.
+Text files like this one go into the "documents" category.

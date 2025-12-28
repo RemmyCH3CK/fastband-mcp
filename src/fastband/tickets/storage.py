@@ -6,6 +6,12 @@ Provides:
 - JSONTicketStore: JSON file-based storage
 - SQLiteTicketStore: SQLite database storage
 - StorageFactory: Factory for creating stores
+
+Performance Optimizations (Issue #38):
+- Result caching: Frequently accessed tickets are cached
+- Lazy loading: Tickets are only parsed from JSON when accessed
+- Query optimization: SQLite uses indexed columns for filtering
+- Thread-safe: Uses locks for concurrent access
 """
 
 import json
@@ -13,10 +19,14 @@ import sqlite3
 import shutil
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Callable
+from typing import Any, Dict, Iterator, List, Optional, Callable, Tuple
 import threading
+import time
+import logging
 
 from fastband.tickets.models import (
     Ticket,
@@ -25,6 +35,86 @@ from fastband.tickets.models import (
     TicketType,
     Agent,
 )
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(slots=True)
+class CacheStats:
+    """Statistics for cache performance monitoring."""
+    hits: int = 0
+    misses: int = 0
+    evictions: int = 0
+
+    @property
+    def hit_rate(self) -> float:
+        """Calculate cache hit rate."""
+        total = self.hits + self.misses
+        return self.hits / total if total > 0 else 0.0
+
+
+class TicketCache:
+    """
+    Simple LRU cache for ticket objects.
+
+    Caches parsed Ticket objects to avoid repeated JSON parsing
+    and object instantiation for frequently accessed tickets.
+    """
+    __slots__ = ('_cache', '_max_size', '_stats', '_lock')
+
+    def __init__(self, max_size: int = 100):
+        self._cache: Dict[str, Tuple[Ticket, float]] = {}  # id -> (ticket, timestamp)
+        self._max_size = max_size
+        self._stats = CacheStats()
+        self._lock = threading.Lock()
+
+    def get(self, ticket_id: str) -> Optional[Ticket]:
+        """Get a ticket from cache."""
+        with self._lock:
+            if ticket_id in self._cache:
+                self._stats.hits += 1
+                ticket, _ = self._cache[ticket_id]
+                # Update access time (LRU)
+                self._cache[ticket_id] = (ticket, time.time())
+                return ticket
+            self._stats.misses += 1
+            return None
+
+    def put(self, ticket: Ticket) -> None:
+        """Put a ticket in cache."""
+        with self._lock:
+            # Evict oldest if at capacity
+            if len(self._cache) >= self._max_size and ticket.id not in self._cache:
+                self._evict_oldest()
+
+            self._cache[ticket.id] = (ticket, time.time())
+
+    def invalidate(self, ticket_id: str) -> None:
+        """Remove a ticket from cache."""
+        with self._lock:
+            self._cache.pop(ticket_id, None)
+
+    def invalidate_all(self) -> None:
+        """Clear the entire cache."""
+        with self._lock:
+            self._cache.clear()
+
+    def _evict_oldest(self) -> None:
+        """Evict the least recently used entry."""
+        if not self._cache:
+            return
+
+        oldest_id = min(self._cache.keys(), key=lambda k: self._cache[k][1])
+        del self._cache[oldest_id]
+        self._stats.evictions += 1
+
+    @property
+    def stats(self) -> CacheStats:
+        """Get cache statistics."""
+        return self._stats
+
+    def __len__(self) -> int:
+        return len(self._cache)
 
 
 class TicketStore(ABC):
@@ -125,9 +215,16 @@ class JSONTicketStore(TicketStore):
         "agents": {...},
         "metadata": {...}
     }
+
+    Performance features:
+    - LRU cache for frequently accessed tickets
+    - Lazy ticket parsing (raw JSON stored until access)
+    - Batch save optimization with auto_save toggle
     """
 
-    def __init__(self, path: Path, auto_save: bool = True):
+    __slots__ = ('path', 'auto_save', '_data', '_lock', '_cache', '_dirty')
+
+    def __init__(self, path: Path, auto_save: bool = True, cache_size: int = 100):
         self.path = Path(path)
         self.auto_save = auto_save
         self._data: Dict[str, Any] = {
@@ -141,6 +238,8 @@ class JSONTicketStore(TicketStore):
             },
         }
         self._lock = threading.RLock()
+        self._cache = TicketCache(max_size=cache_size)
+        self._dirty = False  # Track if data needs saving
         self._load()
 
     def _load(self) -> None:
@@ -154,17 +253,29 @@ class JSONTicketStore(TicketStore):
                     self._data.setdefault("tickets", {})
                     self._data.setdefault("agents", {})
                     self._data.setdefault("metadata", {"next_id": 1})
+                    # Clear cache on reload
+                    self._cache.invalidate_all()
+                    self._dirty = False
                 except json.JSONDecodeError:
-                    # Start fresh if file is corrupted
-                    pass
+                    logger.warning(f"Failed to load {self.path}, starting fresh")
 
     def _save(self) -> None:
         """Save data to file."""
         with self._lock:
+            if not self._dirty and self.path.exists():
+                return  # Skip save if nothing changed
+
             self._data["metadata"]["last_modified"] = datetime.now().isoformat()
             self.path.parent.mkdir(parents=True, exist_ok=True)
             with open(self.path, "w", encoding="utf-8") as f:
                 json.dump(self._data, f, indent=2, ensure_ascii=False)
+            self._dirty = False
+
+    def _mark_dirty(self) -> None:
+        """Mark data as needing save."""
+        self._dirty = True
+        if self.auto_save:
+            self._save()
 
     def create(self, ticket: Ticket) -> Ticket:
         """Create a new ticket."""
@@ -174,18 +285,27 @@ class JSONTicketStore(TicketStore):
                 ticket.id = self.get_next_id()
 
             self._data["tickets"][ticket.id] = ticket.to_dict()
-
-            if self.auto_save:
-                self._save()
+            self._cache.put(ticket)  # Cache the new ticket
+            self._mark_dirty()
 
             return ticket
 
     def get(self, ticket_id: str) -> Optional[Ticket]:
         """Get a ticket by ID."""
+        ticket_id = str(ticket_id)
+
+        # Try cache first (fast path)
+        cached = self._cache.get(ticket_id)
+        if cached is not None:
+            return cached
+
+        # Fall back to storage
         with self._lock:
-            data = self._data["tickets"].get(str(ticket_id))
+            data = self._data["tickets"].get(ticket_id)
             if data:
-                return Ticket.from_dict(data)
+                ticket = Ticket.from_dict(data)
+                self._cache.put(ticket)  # Cache for future access
+                return ticket
             return None
 
     def update(self, ticket: Ticket) -> bool:
@@ -196,9 +316,8 @@ class JSONTicketStore(TicketStore):
 
             ticket.updated_at = datetime.now()
             self._data["tickets"][ticket.id] = ticket.to_dict()
-
-            if self.auto_save:
-                self._save()
+            self._cache.put(ticket)  # Update cache
+            self._mark_dirty()
 
             return True
 
@@ -209,9 +328,8 @@ class JSONTicketStore(TicketStore):
                 return False
 
             del self._data["tickets"][ticket_id]
-
-            if self.auto_save:
-                self._save()
+            self._cache.invalidate(ticket_id)  # Remove from cache
+            self._mark_dirty()
 
             return True
 
@@ -312,10 +430,7 @@ class JSONTicketStore(TicketStore):
         with self._lock:
             next_id = self._data["metadata"].get("next_id", 1)
             self._data["metadata"]["next_id"] = next_id + 1
-
-            if self.auto_save:
-                self._save()
-
+            self._mark_dirty()
             return str(next_id)
 
     def get_agent(self, name: str) -> Optional[Agent]:
@@ -331,10 +446,7 @@ class JSONTicketStore(TicketStore):
         with self._lock:
             agent.last_seen = datetime.now()
             self._data["agents"][agent.name] = agent.to_dict()
-
-            if self.auto_save:
-                self._save()
-
+            self._mark_dirty()
             return agent
 
     def list_agents(self, active_only: bool = True) -> List[Agent]:
@@ -374,8 +486,25 @@ class JSONTicketStore(TicketStore):
             return False
 
     def save(self) -> None:
-        """Manually save data."""
+        """Manually save data (forces save even if not dirty)."""
+        self._dirty = True
         self._save()
+
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """
+        Get cache performance statistics.
+
+        Returns:
+            Dict with hit_rate, hits, misses, evictions, and size
+        """
+        stats = self._cache.stats
+        return {
+            "hit_rate": round(stats.hit_rate * 100, 1),
+            "hits": stats.hits,
+            "misses": stats.misses,
+            "evictions": stats.evictions,
+            "size": len(self._cache),
+        }
 
 
 class SQLiteTicketStore(TicketStore):

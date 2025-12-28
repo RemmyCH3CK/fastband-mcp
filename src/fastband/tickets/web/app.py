@@ -11,6 +11,7 @@ Provides a web interface for viewing and managing tickets with:
 """
 
 import os
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -31,6 +32,8 @@ from fastband.tickets.models import (
     Agent,
 )
 from fastband.tickets.storage import TicketStore, JSONTicketStore
+
+logger = logging.getLogger(__name__)
 
 
 def create_app(
@@ -59,8 +62,15 @@ def create_app(
     )
 
     # Default configuration
+    secret_key = os.environ.get("FASTBAND_SECRET_KEY", "dev-secret-key")
+    if secret_key == "dev-secret-key":
+        logger.warning(
+            "Using default SECRET_KEY - this is insecure for production! "
+            "Set FASTBAND_SECRET_KEY environment variable to a secure random value."
+        )
+
     app.config.update(
-        SECRET_KEY=os.environ.get("FASTBAND_SECRET_KEY", "dev-secret-key"),
+        SECRET_KEY=secret_key,
         JSON_SORT_KEYS=False,
         JSONIFY_PRETTYPRINT_REGULAR=True,
     )

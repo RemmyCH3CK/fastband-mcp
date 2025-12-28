@@ -1,0 +1,6 @@
+# Web App Demo Dependencies
+flask>=2.3.0
+fastband-mcp>=1.0.0
+
+# Optional: for development
+python-dotenv>=1.0.0

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero">
+    <h1>Welcome to Web App Demo</h1>
+    <p>A simple Flask application demonstrating Fastband MCP integration.</p>
+</div>
+
+<section class="features">
+    <h2>Features</h2>
+    <div class="feature-grid">
+        <div class="feature-card">
+            <h3>Ticket Management</h3>
+            <p>Track development tasks with the built-in ticket system.</p>
+        </div>
+        <div class="feature-card">
+            <h3>AI-Powered Tools</h3>
+            <p>Use intelligent tools for code assistance and generation.</p>
+        </div>
+        <div class="feature-card">
+            <h3>Multi-Provider Support</h3>
+            <p>Works with Claude, OpenAI, Gemini, and local LLMs.</p>
+        </div>
+    </div>
+</section>
+
+<section class="getting-started">
+    <h2>Getting Started</h2>
+    <ol>
+        <li>Initialize Fastband: <code>fastband init</code></li>
+        <li>Create a ticket: <code>fastband tickets create --title "My task"</code></li>
+        <li>Start developing with AI assistance</li>
+    </ol>
+</section>
+{% endblock %}

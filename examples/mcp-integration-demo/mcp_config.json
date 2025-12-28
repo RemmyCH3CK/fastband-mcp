@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "fastband": {
+      "command": "fastband",
+      "args": ["serve"],
+      "cwd": "/path/to/your/project",
+      "env": {
+        "FASTBAND_LOG_LEVEL": "info"
+      }
+    }
+  }
+}

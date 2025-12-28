@@ -16,6 +16,39 @@ from fastband.tools.base import (
     ToolCategory,
     ToolResult,
 )
+from fastband.core.security import (
+    PathValidator,
+    PathSecurityError,
+    InputSanitizer,
+)
+
+
+# Global path validator for file operations
+# Allows symlinks for convenience but validates paths
+_path_validator: Optional[PathValidator] = None
+
+
+def get_path_validator() -> PathValidator:
+    """Get or create the path validator."""
+    global _path_validator
+    if _path_validator is None:
+        # Default: allow current directory and home
+        _path_validator = PathValidator(
+            allowed_roots=[Path.cwd(), Path.home()],
+            allow_symlinks=True,  # Allow symlinks but resolve them
+            blocked_extensions=set(),  # Don't block extensions for read
+        )
+    return _path_validator
+
+
+def set_allowed_roots(roots: List[Path]) -> None:
+    """Set allowed root directories for file operations."""
+    global _path_validator
+    _path_validator = PathValidator(
+        allowed_roots=roots,
+        allow_symlinks=True,
+        blocked_extensions=set(),
+    )
 
 
 class ListFilesTool(Tool):
@@ -71,7 +104,12 @@ class ListFilesTool(Tool):
         **kwargs
     ) -> ToolResult:
         """List files in directory."""
-        target = Path(path).resolve()
+        # Validate path for security
+        try:
+            validator = get_path_validator()
+            target = validator.validate(path)
+        except PathSecurityError as e:
+            return ToolResult(success=False, error=f"Path security error: {e}")
 
         if not target.exists():
             return ToolResult(success=False, error=f"Path does not exist: {path}")
@@ -212,7 +250,12 @@ class ReadFileTool(Tool):
         **kwargs
     ) -> ToolResult:
         """Read file contents."""
-        target = Path(path)
+        # Validate path for security
+        try:
+            validator = get_path_validator()
+            target = validator.validate(path)
+        except PathSecurityError as e:
+            return ToolResult(success=False, error=f"Path security error: {e}")
 
         if not target.exists():
             return ToolResult(success=False, error=f"File does not exist: {path}")
@@ -296,7 +339,12 @@ class WriteFileTool(Tool):
         **kwargs
     ) -> ToolResult:
         """Write content to file."""
-        target = Path(path)
+        # Validate path for security
+        try:
+            validator = get_path_validator()
+            target = validator.validate(path)
+        except PathSecurityError as e:
+            return ToolResult(success=False, error=f"Path security error: {e}")
 
         try:
             if create_dirs:
@@ -389,7 +437,12 @@ class SearchCodeTool(Tool):
         **kwargs
     ) -> ToolResult:
         """Search for pattern in files."""
-        target = Path(path)
+        # Validate path for security
+        try:
+            validator = get_path_validator()
+            target = validator.validate(path)
+        except PathSecurityError as e:
+            return ToolResult(success=False, error=f"Path security error: {e}")
 
         if not target.exists():
             return ToolResult(success=False, error=f"Path does not exist: {path}")

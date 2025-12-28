@@ -6,6 +6,7 @@ and multi-agent coordination.
 """
 
 __version__ = "1.2025.12.0-alpha.1"
+__version_tuple__ = (1, 2025, 12, 0, "alpha", 1)
 __author__ = "Fastband Team"
 
 from fastband.core.config import get_config, FastbandConfig
@@ -13,6 +14,7 @@ from fastband.providers.registry import get_provider, ProviderRegistry
 
 __all__ = [
     "__version__",
+    "__version_tuple__",
     "get_config",
     "FastbandConfig",
     "get_provider",

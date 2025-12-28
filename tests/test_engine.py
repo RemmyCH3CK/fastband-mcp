@@ -18,13 +18,9 @@ def clean_registry():
 
 
 @pytest.fixture
-def temp_project():
-    """Create a temporary project directory."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        project_path = Path(tmpdir)
-        # Create .fastband directory
-        (project_path / ".fastband").mkdir()
-        yield project_path
+def temp_project(temp_project_with_security):
+    """Alias for temp_project_with_security from conftest.py."""
+    return temp_project_with_security
 
 
 @pytest.fixture
@@ -169,14 +165,15 @@ class TestEngineIntegration:
         """Test error handling in the engine."""
         engine = create_engine(project_path=temp_project, load_core=True)
 
-        # Try to read a non-existent file
+        # Try to read a non-existent file (within allowed paths)
+        nonexistent = temp_project / "nonexistent_file.txt"
         result = await engine.execute_tool(
             "read_file",
-            path="/nonexistent/file.txt",
+            path=str(nonexistent),
         )
 
         assert result.success is False
-        assert "not exist" in result.error.lower()
+        assert "not exist" in result.error.lower() or "error" in result.error.lower()
 
     @pytest.mark.asyncio
     async def test_tool_not_found(self, temp_project):

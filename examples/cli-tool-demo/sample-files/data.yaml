@@ -1,0 +1,14 @@
+# Sample YAML data file
+
+project:
+  name: demo
+  version: 1.0.0
+
+settings:
+  debug: true
+  log_level: info
+
+features:
+  - feature_a
+  - feature_b
+  - feature_c
