@@ -89,3 +89,68 @@ def get_provider(name: Optional[str] = None) -> AIProvider:
     if name is None:
         name = os.getenv("FASTBAND_AI_PROVIDER", "claude")
     return ProviderRegistry.get(name)
+
+
+def _register_builtin_providers():
+    """Register all built-in providers (lazy imports)."""
+    # These are registered but not imported until used
+    _provider_classes = {
+        "claude": ("fastband.providers.claude", "ClaudeProvider"),
+        "openai": ("fastband.providers.openai", "OpenAIProvider"),
+        "gemini": ("fastband.providers.gemini", "GeminiProvider"),
+        "ollama": ("fastband.providers.ollama", "OllamaProvider"),
+    }
+
+    for name, (module_path, class_name) in _provider_classes.items():
+        # Create a lazy loader
+        def make_loader(mod_path: str, cls_name: str):
+            def loader(config: ProviderConfig) -> AIProvider:
+                import importlib
+                module = importlib.import_module(mod_path)
+                provider_class = getattr(module, cls_name)
+                return provider_class(config)
+            return loader
+
+        # Store the loader for lazy instantiation
+        ProviderRegistry._provider_loaders = getattr(ProviderRegistry, '_provider_loaders', {})
+        ProviderRegistry._provider_loaders[name] = make_loader(module_path, class_name)
+
+
+# Update ProviderRegistry.get to use lazy loading
+_original_get = ProviderRegistry.get
+
+
+@classmethod
+def _lazy_get(cls, name: str, config: Optional[ProviderConfig] = None) -> AIProvider:
+    """Get or create a provider instance with lazy loading."""
+    name = name.lower()
+
+    # Return cached instance if exists and no new config
+    if name in cls._instances and config is None:
+        return cls._instances[name]
+
+    # Check for lazy loader
+    loaders = getattr(cls, '_provider_loaders', {})
+    if name in loaders:
+        if config is None:
+            config = cls._config_from_env(name)
+        instance = loaders[name](config)
+        cls._instances[name] = instance
+        return instance
+
+    # Fall back to registered classes
+    if name in cls._providers:
+        if config is None:
+            config = cls._config_from_env(name)
+        instance = cls._providers[name](config)
+        cls._instances[name] = instance
+        return instance
+
+    available = list(cls._providers.keys()) + list(loaders.keys())
+    raise ValueError(f"Unknown provider: {name}. Available: {available}")
+
+
+ProviderRegistry.get = _lazy_get
+
+# Register providers on module load
+_register_builtin_providers()
