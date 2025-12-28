@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block title %}Tickets - Fastband{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">
+        <i class="bi bi-ticket-detailed me-2"></i>
+        Tickets
+        {% if search_query %}
+        <small class="text-secondary">- Search: "{{ search_query }}"</small>
+        {% endif %}
+    </h1>
+    <div class="text-secondary">
+        <span class="badge bg-secondary">{{ total }} tickets</span>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body py-3">
+        <form method="get" action="/tickets" class="row g-3 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label small text-secondary">Status</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">All Statuses</option>
+                    {% for status in statuses %}
+                    <option value="{{ status.value }}" {% if current_status == status.value %}selected{% endif %}>
+                        {{ status.display_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-secondary">Priority</label>
+                <select name="priority" class="form-select form-select-sm">
+                    <option value="">All Priorities</option>
+                    {% for priority in priorities %}
+                    <option value="{{ priority.value }}" {% if current_priority == priority.value %}selected{% endif %}>
+                        {{ priority.display_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-secondary">Type</label>
+                <select name="type" class="form-select form-select-sm">
+                    <option value="">All Types</option>
+                    {% for type in types %}
+                    <option value="{{ type.value }}" {% if current_type == type.value %}selected{% endif %}>
+                        {{ type.display_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-secondary">Assignee</label>
+                <select name="assignee" class="form-select form-select-sm">
+                    <option value="">All Assignees</option>
+                    {% for agent in agents %}
+                    <option value="{{ agent.name }}" {% if current_assignee == agent.name %}selected{% endif %}>
+                        {{ agent.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-secondary">Search</label>
+                <input type="text" name="q" class="form-control form-control-sm"
+                       placeholder="Search..." value="{{ search_query }}">
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-sm flex-grow-1">
+                    <i class="bi bi-funnel me-1"></i>Filter
+                </button>
+                <a href="/tickets" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Ticket Table -->
+<div class="card">
+    <div class="card-body p-0">
+        {% if tickets %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-3" style="width: 80px;">ID</th>
+                        <th style="width: 50px;">Type</th>
+                        <th>Title</th>
+                        <th style="width: 130px;">Status</th>
+                        <th style="width: 100px;">Priority</th>
+                        <th style="width: 120px;">Assignee</th>
+                        <th style="width: 130px;">Created</th>
+                        <th class="pe-3" style="width: 130px;">Updated</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ticket in tickets %}
+                    <tr class="ticket-row" onclick="window.location='/tickets/{{ ticket.id }}'" style="cursor: pointer;">
+                        <td class="ps-3">
+                            <a href="/tickets/{{ ticket.id }}" class="text-decoration-none fw-medium" onclick="event.stopPropagation()">
+                                #{{ ticket.id }}
+                            </a>
+                        </td>
+                        <td>
+                            <i class="{{ ticket.ticket_type|type_icon }} text-secondary"
+                               title="{{ ticket.ticket_type.display_name }}"></i>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <span class="text-truncate" style="max-width: 300px;">{{ ticket.title }}</span>
+                                {% if ticket.labels %}
+                                <div class="ms-2">
+                                    {% for label in ticket.labels[:2] %}
+                                    <span class="badge bg-secondary opacity-75 small">{{ label }}</span>
+                                    {% endfor %}
+                                    {% if ticket.labels|length > 2 %}
+                                    <span class="badge bg-secondary opacity-50 small">+{{ ticket.labels|length - 2 }}</span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge badge-status bg-{{ ticket.status|status_color }}">
+                                {{ ticket.status.display_name }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge badge-status bg-{{ ticket.priority|priority_color }}">
+                                {{ ticket.priority.display_name }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if ticket.assigned_to %}
+                            <span class="d-flex align-items-center">
+                                <span class="agent-avatar me-1" style="width: 20px; height: 20px; font-size: 0.6rem;">
+                                    {{ ticket.assigned_to[0]|upper }}
+                                </span>
+                                <span class="text-truncate" style="max-width: 80px;">{{ ticket.assigned_to }}</span>
+                            </span>
+                            {% else %}
+                            <span class="text-secondary small">Unassigned</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-secondary small">
+                            {{ ticket.created_at|datetime }}
+                        </td>
+                        <td class="pe-3 text-secondary small">
+                            {{ ticket.updated_at|relative_time }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if total_pages > 1 %}
+        <div class="card-footer bg-transparent">
+            <nav aria-label="Ticket pagination">
+                <ul class="pagination pagination-sm justify-content-center mb-0">
+                    <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+                        <a class="page-link" href="?page={{ page - 1 }}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_priority %}&priority={{ current_priority }}{% endif %}{% if current_type %}&type={{ current_type }}{% endif %}{% if current_assignee %}&assignee={{ current_assignee }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+
+                    {% for p in range(1, total_pages + 1) %}
+                        {% if p == page %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ p }}</span>
+                        </li>
+                        {% elif p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ p }}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_priority %}&priority={{ current_priority }}{% endif %}{% if current_type %}&type={{ current_type }}{% endif %}{% if current_assignee %}&assignee={{ current_assignee }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">{{ p }}</a>
+                        </li>
+                        {% elif p == 2 or p == total_pages - 1 %}
+                        <li class="page-item disabled">
+                            <span class="page-link">...</span>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+                        <a class="page-link" href="?page={{ page + 1 }}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_priority %}&priority={{ current_priority }}{% endif %}{% if current_type %}&type={{ current_type }}{% endif %}{% if current_assignee %}&assignee={{ current_assignee }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            <div class="text-center text-secondary small mt-2">
+                Showing {{ (page - 1) * per_page + 1 }}-{{ [page * per_page, total]|min }} of {{ total }} tickets
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="empty-state py-5">
+            <i class="bi bi-ticket-detailed"></i>
+            <h5>No tickets found</h5>
+            <p class="text-secondary mb-3">
+                {% if search_query or current_status or current_priority or current_type or current_assignee %}
+                Try adjusting your filters or search query.
+                {% else %}
+                There are no tickets in the system yet.
+                {% endif %}
+            </p>
+            {% if search_query or current_status or current_priority or current_type or current_assignee %}
+            <a href="/tickets" class="btn btn-outline-primary">
+                <i class="bi bi-x-lg me-1"></i>Clear Filters
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Fastband Tickets{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">
+        <i class="bi bi-speedometer2 me-2"></i>Dashboard
+    </h1>
+    <div class="text-secondary small">
+        <i class="bi bi-clock me-1"></i>
+        Last updated: {{ now|datetime if now is defined else '' }}
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="stat-card">
+            <div class="stat-value">{{ stats.total }}</div>
+            <div class="stat-label">Total Tickets</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="stat-card">
+            <div class="stat-value text-danger">{{ stats.open }}</div>
+            <div class="stat-label">Open</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="stat-card">
+            <div class="stat-value text-warning">{{ stats.in_progress }}</div>
+            <div class="stat-label">In Progress</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="stat-card">
+            <div class="stat-value text-info">{{ stats.under_review }}</div>
+            <div class="stat-label">Under Review</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="stat-card">
+            <div class="stat-value text-primary">{{ stats.awaiting_approval }}</div>
+            <div class="stat-label">Awaiting Approval</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="stat-card">
+            <div class="stat-value text-success">{{ stats.resolved }}</div>
+            <div class="stat-label">Resolved</div>
+        </div>
+    </div>
+</div>
+
+<!-- Priority Summary -->
+<div class="row g-3 mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-flag-fill me-2"></i>Priority Overview
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-3">
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-danger me-2">{{ stats.critical }}</span>
+                            <span>Critical</span>
+                        </div>
+                        <div class="progress mt-2" style="height: 6px;">
+                            <div class="progress-bar bg-danger" role="progressbar"
+                                 style="width: {{ (stats.critical / stats.total * 100) if stats.total > 0 else 0 }}%"></div>
+                        </div>
+                    </div>
+                    <div class="col-3">
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-warning me-2">{{ stats.high }}</span>
+                            <span>High</span>
+                        </div>
+                        <div class="progress mt-2" style="height: 6px;">
+                            <div class="progress-bar bg-warning" role="progressbar"
+                                 style="width: {{ (stats.high / stats.total * 100) if stats.total > 0 else 0 }}%"></div>
+                        </div>
+                    </div>
+                    <div class="col-3">
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-info me-2">{{ stats.medium }}</span>
+                            <span>Medium</span>
+                        </div>
+                        <div class="progress mt-2" style="height: 6px;">
+                            <div class="progress-bar bg-info" role="progressbar"
+                                 style="width: {{ (stats.medium / stats.total * 100) if stats.total > 0 else 0 }}%"></div>
+                        </div>
+                    </div>
+                    <div class="col-3">
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-success me-2">{{ stats.low }}</span>
+                            <span>Low</span>
+                        </div>
+                        <div class="progress mt-2" style="height: 6px;">
+                            <div class="progress-bar bg-success" role="progressbar"
+                                 style="width: {{ (stats.low / stats.total * 100) if stats.total > 0 else 0 }}%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Recent Tickets -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-ticket-detailed me-2"></i>Recent Tickets
+                </h5>
+                <a href="/tickets" class="btn btn-sm btn-outline-primary">
+                    View All <i class="bi bi-arrow-right ms-1"></i>
+                </a>
+            </div>
+            <div class="card-body p-0">
+                {% if recent_tickets %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th class="ps-3">ID</th>
+                                <th>Title</th>
+                                <th>Status</th>
+                                <th>Priority</th>
+                                <th>Assignee</th>
+                                <th class="pe-3">Updated</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ticket in recent_tickets %}
+                            <tr class="ticket-row" onclick="window.location='/tickets/{{ ticket.id }}'" style="cursor: pointer;">
+                                <td class="ps-3">
+                                    <span class="text-secondary">#{{ ticket.id }}</span>
+                                </td>
+                                <td>
+                                    <i class="{{ ticket.ticket_type|type_icon }} me-1 text-secondary"></i>
+                                    {{ ticket.title|truncate(40) }}
+                                </td>
+                                <td>
+                                    <span class="badge badge-status bg-{{ ticket.status|status_color }}">
+                                        {{ ticket.status.display_name }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge badge-status bg-{{ ticket.priority|priority_color }}">
+                                        {{ ticket.priority.display_name }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if ticket.assigned_to %}
+                                    <span class="text-truncate d-inline-block" style="max-width: 100px;">
+                                        {{ ticket.assigned_to }}
+                                    </span>
+                                    {% else %}
+                                    <span class="text-secondary">Unassigned</span>
+                                    {% endif %}
+                                </td>
+                                <td class="pe-3 text-secondary small">
+                                    {{ ticket.updated_at|relative_time }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-ticket-detailed"></i>
+                    <p class="mb-0">No tickets yet</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Agents Panel -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-robot me-2"></i>Active Agents
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if agents %}
+                <div class="d-flex flex-column gap-2">
+                    {% for agent in agents %}
+                    <div class="agent-card d-flex align-items-center">
+                        <div class="agent-avatar me-3">
+                            {{ agent.name[0]|upper }}
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center">
+                                <span class="fw-medium me-2">{{ agent.name }}</span>
+                                <span class="status-indicator {{ 'active' if agent.active else 'inactive' }}"></span>
+                            </div>
+                            <div class="small text-secondary">
+                                {{ agent.tickets_completed }} completed
+                                {% if agent.tickets_in_progress > 0 %}
+                                | {{ agent.tickets_in_progress }} in progress
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="text-secondary small">
+                            {{ agent.last_seen|relative_time }}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state py-4">
+                    <i class="bi bi-robot"></i>
+                    <p class="mb-0">No active agents</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-lightning-charge me-2"></i>Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="/tickets?status=open" class="btn btn-outline-danger">
+                        <i class="bi bi-exclamation-circle me-2"></i>
+                        View Open Tickets ({{ stats.open }})
+                    </a>
+                    <a href="/tickets?priority=critical" class="btn btn-outline-warning">
+                        <i class="bi bi-fire me-2"></i>
+                        Critical Issues ({{ stats.critical }})
+                    </a>
+                    <a href="/tickets?status=awaiting_approval" class="btn btn-outline-primary">
+                        <i class="bi bi-check2-circle me-2"></i>
+                        Awaiting Approval ({{ stats.awaiting_approval }})
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Dashboard-specific JS for real-time updates
+    async function refreshStats() {
+        try {
+            const response = await fetch('/api/stats');
+            const data = await response.json();
+            // Update stat cards if needed
+            console.log('Stats refreshed:', data);
+        } catch (error) {
+            console.error('Failed to refresh stats:', error);
+        }
+    }
+</script>
+{% endblock %}

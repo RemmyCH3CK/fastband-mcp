@@ -36,6 +36,24 @@ except ImportError:
     _git_available = False
     GIT_TOOLS = []
 
+# Ticket tools - always available
+try:
+    from fastband.tools.tickets import (
+        ListTicketsTool,
+        GetTicketDetailsTool,
+        CreateTicketTool,
+        ClaimTicketTool,
+        CompleteTicketSafelyTool,
+        UpdateTicketTool,
+        SearchTicketsTool,
+        AddTicketCommentTool,
+        TICKET_TOOLS,
+    )
+    _tickets_available = True
+except ImportError:
+    _tickets_available = False
+    TICKET_TOOLS = []
+
 __all__ = [
     # Base
     "Tool",
@@ -55,6 +73,8 @@ __all__ = [
     "recommend_tools",
     # Git tools (conditionally available)
     "GIT_TOOLS",
+    # Ticket tools
+    "TICKET_TOOLS",
 ]
 
 # Add git tool classes to __all__ if available
@@ -65,4 +85,17 @@ if _git_available:
         "GitDiffTool",
         "GitLogTool",
         "GitBranchTool",
+    ])
+
+# Add ticket tool classes to __all__ if available
+if _tickets_available:
+    __all__.extend([
+        "ListTicketsTool",
+        "GetTicketDetailsTool",
+        "CreateTicketTool",
+        "ClaimTicketTool",
+        "CompleteTicketSafelyTool",
+        "UpdateTicketTool",
+        "SearchTicketsTool",
+        "AddTicketCommentTool",
     ])

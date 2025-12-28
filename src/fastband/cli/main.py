@@ -20,6 +20,7 @@ from fastband import __version__
 from fastband.core.config import FastbandConfig, get_config
 from fastband.core.detection import detect_project, ProjectInfo, Language, ProjectType
 from fastband.cli.tools import tools_app
+from fastband.cli.tickets import tickets_app
 
 # Create the main CLI app
 app = typer.Typer(
@@ -39,6 +40,9 @@ app.add_typer(config_app, name="config")
 
 # Tools subcommand group
 app.add_typer(tools_app, name="tools")
+
+# Tickets subcommand group
+app.add_typer(tickets_app, name="tickets")
 
 # Rich console for output
 console = Console()

@@ -1,0 +1,512 @@
+{% extends "base.html" %}
+
+{% block title %}{% if ticket %}#{{ ticket.id }} - {{ ticket.title }}{% else %}Ticket Not Found{% endif %} - Fastband{% endblock %}
+
+{% block content %}
+{% if ticket %}
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb small">
+        <li class="breadcrumb-item"><a href="/">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="/tickets">Tickets</a></li>
+        <li class="breadcrumb-item active">#{{ ticket.id }}</li>
+    </ol>
+</nav>
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="badge badge-status bg-{{ ticket.status|status_color }}">
+                {{ ticket.status.display_name }}
+            </span>
+            <span class="badge badge-status bg-{{ ticket.priority|priority_color }}">
+                {{ ticket.priority.display_name }}
+            </span>
+            <span class="badge bg-secondary">
+                <i class="{{ ticket.ticket_type|type_icon }} me-1"></i>
+                {{ ticket.ticket_type.display_name }}
+            </span>
+        </div>
+        <h1 class="h3 mb-0">
+            <span class="text-secondary">#{{ ticket.id }}</span>
+            {{ ticket.title }}
+        </h1>
+    </div>
+    <div class="text-end text-secondary small">
+        <div>Created: {{ ticket.created_at|datetime }}</div>
+        <div>Updated: {{ ticket.updated_at|relative_time }}</div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Main Content -->
+    <div class="col-lg-8">
+        <!-- Description -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-file-text me-2"></i>Description
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if ticket.description %}
+                <div class="ticket-description">
+                    {{ ticket.description|e|replace('\n', '<br>')|safe }}
+                </div>
+                {% else %}
+                <p class="text-secondary mb-0 fst-italic">No description provided.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Requirements -->
+        {% if ticket.requirements %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-list-check me-2"></i>Requirements
+                </h5>
+            </div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    {% for req in ticket.requirements %}
+                    <li>{{ req }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Work Summary (if completed) -->
+        {% if ticket.problem_summary or ticket.solution_summary %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-clipboard-check me-2"></i>Work Summary
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if ticket.problem_summary %}
+                <div class="mb-3">
+                    <h6 class="text-secondary small text-uppercase">Problem</h6>
+                    <p class="mb-0">{{ ticket.problem_summary }}</p>
+                </div>
+                {% endif %}
+
+                {% if ticket.solution_summary %}
+                <div class="mb-3">
+                    <h6 class="text-secondary small text-uppercase">Solution</h6>
+                    <p class="mb-0">{{ ticket.solution_summary }}</p>
+                </div>
+                {% endif %}
+
+                {% if ticket.testing_notes %}
+                <div class="mb-0">
+                    <h6 class="text-secondary small text-uppercase">Testing Notes</h6>
+                    <p class="mb-0">{{ ticket.testing_notes }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Screenshots -->
+        {% if ticket.before_screenshot or ticket.after_screenshot %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-image me-2"></i>Screenshots
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    {% if ticket.before_screenshot %}
+                    <div class="col-md-6">
+                        <h6 class="text-secondary small text-uppercase">Before</h6>
+                        <div class="border rounded p-2 text-center bg-body-secondary">
+                            <i class="bi bi-image text-secondary" style="font-size: 3rem;"></i>
+                            <div class="small text-truncate mt-2">{{ ticket.before_screenshot }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if ticket.after_screenshot %}
+                    <div class="col-md-6">
+                        <h6 class="text-secondary small text-uppercase">After</h6>
+                        <div class="border rounded p-2 text-center bg-body-secondary">
+                            <i class="bi bi-image text-secondary" style="font-size: 3rem;"></i>
+                            <div class="small text-truncate mt-2">{{ ticket.after_screenshot }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Notes -->
+        {% if ticket.notes %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-sticky me-2"></i>Notes
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="ticket-notes">
+                    {{ ticket.notes|e|replace('\n', '<br>')|safe }}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Resolution -->
+        {% if ticket.resolution %}
+        <div class="card mb-4 border-success">
+            <div class="card-header bg-success bg-opacity-10">
+                <h5 class="card-title mb-0 text-success">
+                    <i class="bi bi-check-circle me-2"></i>Resolution
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="resolution-text">
+                    {{ ticket.resolution|e|replace('\n', '<br>')|safe }}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Comments -->
+        {% if ticket.comments %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-chat-left-text me-2"></i>Comments ({{ ticket.comments|length }})
+                </h5>
+            </div>
+            <div class="card-body">
+                {% for comment in ticket.comments %}
+                <div class="comment-card {% if comment.comment_type == 'review' %}border-start border-4 border-warning{% endif %}">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="d-flex align-items-center">
+                            <span class="agent-avatar me-2" style="width: 24px; height: 24px; font-size: 0.7rem;">
+                                {{ comment.author[0]|upper if comment.author else '?' }}
+                            </span>
+                            <span class="fw-medium">{{ comment.author or 'Unknown' }}</span>
+                            {% if comment.comment_type != 'comment' %}
+                            <span class="badge bg-secondary ms-2 small">{{ comment.comment_type }}</span>
+                            {% endif %}
+                            {% if comment.review_result %}
+                            <span class="badge ms-2 {% if comment.review_result == 'approved' %}bg-success{% else %}bg-warning{% endif %}">
+                                {{ comment.review_result }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        <span class="text-secondary small">{{ comment.created_at|relative_time }}</span>
+                    </div>
+                    <div class="comment-content">
+                        {{ comment.content|e|replace('\n', '<br>')|safe }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- History -->
+        {% if ticket.history %}
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-clock-history me-2"></i>History
+                </h5>
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#historyCollapse">
+                    Toggle
+                </button>
+            </div>
+            <div class="collapse show" id="historyCollapse">
+                <div class="card-body py-2">
+                    {% for entry in ticket.history|reverse %}
+                    <div class="history-item py-2 {% if not loop.last %}border-bottom{% endif %}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <span class="fw-medium">{{ entry.actor or 'System' }}</span>
+                                <span class="text-secondary">{{ entry.message or entry.action }}</span>
+                            </div>
+                            <span class="text-secondary small">{{ entry.timestamp|relative_time }}</span>
+                        </div>
+                        {% if entry.field_changed %}
+                        <div class="small text-secondary mt-1">
+                            <code>{{ entry.field_changed }}</code>:
+                            <span class="text-danger">{{ entry.old_value or 'none' }}</span>
+                            <i class="bi bi-arrow-right mx-1"></i>
+                            <span class="text-success">{{ entry.new_value or 'none' }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Details Card -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-info-circle me-2"></i>Details
+                </h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm table-borderless mb-0">
+                    <tbody>
+                        <tr>
+                            <td class="text-secondary">Status</td>
+                            <td>
+                                <span class="badge badge-status bg-{{ ticket.status|status_color }}">
+                                    {{ ticket.status.display_name }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary">Priority</td>
+                            <td>
+                                <span class="badge badge-status bg-{{ ticket.priority|priority_color }}">
+                                    {{ ticket.priority.display_name }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary">Type</td>
+                            <td>
+                                <i class="{{ ticket.ticket_type|type_icon }} me-1"></i>
+                                {{ ticket.ticket_type.display_name }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary">Assignee</td>
+                            <td>
+                                {% if ticket.assigned_to %}
+                                <span class="d-flex align-items-center">
+                                    <span class="agent-avatar me-2" style="width: 20px; height: 20px; font-size: 0.6rem;">
+                                        {{ ticket.assigned_to[0]|upper }}
+                                    </span>
+                                    {{ ticket.assigned_to }}
+                                </span>
+                                {% else %}
+                                <span class="text-secondary">Unassigned</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary">Created by</td>
+                            <td>{{ ticket.created_by or 'Unknown' }}</td>
+                        </tr>
+                        {% if ticket.app %}
+                        <tr>
+                            <td class="text-secondary">Application</td>
+                            <td>{{ ticket.app }}{% if ticket.app_version %} v{{ ticket.app_version }}{% endif %}</td>
+                        </tr>
+                        {% endif %}
+                        {% if ticket.review_status %}
+                        <tr>
+                            <td class="text-secondary">Review</td>
+                            <td>
+                                <span class="badge {% if ticket.review_status == 'approved' %}bg-success{% elif ticket.review_status == 'changes_requested' %}bg-warning{% else %}bg-info{% endif %}">
+                                    {{ ticket.review_status }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Timestamps -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-calendar3 me-2"></i>Timestamps
+                </h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm table-borderless mb-0">
+                    <tbody>
+                        <tr>
+                            <td class="text-secondary">Created</td>
+                            <td>{{ ticket.created_at|datetime }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary">Updated</td>
+                            <td>{{ ticket.updated_at|datetime }}</td>
+                        </tr>
+                        {% if ticket.started_at %}
+                        <tr>
+                            <td class="text-secondary">Started</td>
+                            <td>{{ ticket.started_at|datetime }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if ticket.completed_at %}
+                        <tr>
+                            <td class="text-secondary">Completed</td>
+                            <td>{{ ticket.completed_at|datetime }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if ticket.due_date %}
+                        <tr>
+                            <td class="text-secondary">Due</td>
+                            <td>
+                                {{ ticket.due_date|datetime('%Y-%m-%d') }}
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Labels -->
+        {% if ticket.labels %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-tags me-2"></i>Labels
+                </h5>
+            </div>
+            <div class="card-body">
+                {% for label in ticket.labels %}
+                <span class="badge bg-secondary me-1 mb-1">{{ label }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Files to Modify -->
+        {% if ticket.files_to_modify or ticket.files_modified %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-file-code me-2"></i>Files
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if ticket.files_modified %}
+                <h6 class="small text-uppercase text-secondary mb-2">Modified</h6>
+                <ul class="list-unstyled mb-3">
+                    {% for file in ticket.files_modified %}
+                    <li class="small">
+                        <i class="bi bi-check-circle text-success me-1"></i>
+                        <code>{{ file }}</code>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+
+                {% if ticket.files_to_modify %}
+                <h6 class="small text-uppercase text-secondary mb-2">Planned</h6>
+                <ul class="list-unstyled mb-0">
+                    {% for file in ticket.files_to_modify %}
+                    <li class="small">
+                        <i class="bi bi-file-earmark me-1 text-secondary"></i>
+                        <code>{{ file }}</code>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Related Tickets -->
+        {% if related_tickets or ticket.blocked_by or ticket.blocks %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-link-45deg me-2"></i>Related
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if ticket.blocked_by %}
+                <h6 class="small text-uppercase text-secondary mb-2">Blocked By</h6>
+                <ul class="list-unstyled mb-3">
+                    {% for id in ticket.blocked_by %}
+                    <li>
+                        <a href="/tickets/{{ id }}" class="text-danger text-decoration-none">
+                            <i class="bi bi-exclamation-circle me-1"></i>#{{ id }}
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+
+                {% if ticket.blocks %}
+                <h6 class="small text-uppercase text-secondary mb-2">Blocks</h6>
+                <ul class="list-unstyled mb-3">
+                    {% for id in ticket.blocks %}
+                    <li>
+                        <a href="/tickets/{{ id }}" class="text-warning text-decoration-none">
+                            <i class="bi bi-arrow-right me-1"></i>#{{ id }}
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+
+                {% if related_tickets %}
+                <h6 class="small text-uppercase text-secondary mb-2">Related</h6>
+                <ul class="list-unstyled mb-0">
+                    {% for related in related_tickets %}
+                    <li class="mb-2">
+                        <a href="/tickets/{{ related.id }}" class="text-decoration-none">
+                            <span class="badge badge-status bg-{{ related.status|status_color }} me-1">
+                                {{ related.status.value }}
+                            </span>
+                            #{{ related.id }} {{ related.title|truncate(25) }}
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Reviewers -->
+        {% if ticket.reviewers %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-people me-2"></i>Reviewers
+                </h5>
+            </div>
+            <div class="card-body">
+                {% for reviewer in ticket.reviewers %}
+                <div class="d-flex align-items-center {% if not loop.last %}mb-2{% endif %}">
+                    <span class="agent-avatar me-2" style="width: 24px; height: 24px; font-size: 0.7rem;">
+                        {{ reviewer[0]|upper }}
+                    </span>
+                    {{ reviewer }}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% else %}
+<!-- Ticket Not Found -->
+<div class="text-center py-5">
+    <i class="bi bi-ticket-detailed text-secondary" style="font-size: 4rem;"></i>
+    <h3 class="mt-3">Ticket Not Found</h3>
+    <p class="text-secondary">{{ error or 'The requested ticket could not be found.' }}</p>
+    <a href="/tickets" class="btn btn-primary mt-3">
+        <i class="bi bi-arrow-left me-2"></i>Back to Tickets
+    </a>
+</div>
+{% endif %}
+{% endblock %}
