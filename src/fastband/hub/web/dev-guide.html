@@ -1012,6 +1012,198 @@
                     <p style="margin-top: 1rem; color: var(--success);"><strong>Estimated cost: $0/month to start</strong></p>
                 </div>
 
+                <!-- AWS Cloud Infrastructure (Production SaaS) -->
+                <div class="card" style="margin-bottom: 1.5rem; border: 2px solid var(--warning);">
+                    <h3 class="card-title" style="margin-bottom: 1rem;">☁️ AWS Cloud Infrastructure (Production SaaS)</h3>
+                    <p style="margin-bottom: 1rem; color: var(--text-muted);">
+                        For offering cloud-based instances to clients, you need AWS infrastructure.
+                        Terraform configs are in <code>hub/infra/terraform/</code>
+                    </p>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>AWS Service</th>
+                                <th>Purpose</th>
+                                <th>Est. Monthly Cost</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>ECS Fargate</strong></td>
+                                <td>Container orchestration (runs the Hub)</td>
+                                <td>$150-200 (3 tasks)</td>
+                                <td>
+                                    <input type="checkbox" data-field="aws.ecs.configured" style="width: auto;">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Aurora Serverless v2</strong></td>
+                                <td>PostgreSQL database (auto-scales)</td>
+                                <td>$50-500 (usage-based)</td>
+                                <td>
+                                    <input type="checkbox" data-field="aws.aurora.configured" style="width: auto;">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>ElastiCache (Redis)</strong></td>
+                                <td>Session cache, rate limiting</td>
+                                <td>$100-150</td>
+                                <td>
+                                    <input type="checkbox" data-field="aws.redis.configured" style="width: auto;">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>S3</strong></td>
+                                <td>File storage, assets, backups</td>
+                                <td>$5-50</td>
+                                <td>
+                                    <input type="checkbox" data-field="aws.s3.configured" style="width: auto;">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>ALB</strong></td>
+                                <td>Load balancer + SSL termination</td>
+                                <td>$20-30</td>
+                                <td>
+                                    <input type="checkbox" data-field="aws.alb.configured" style="width: auto;">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>CloudWatch</strong></td>
+                                <td>Monitoring, logs, alerts</td>
+                                <td>$10-30</td>
+                                <td>
+                                    <input type="checkbox" data-field="aws.cloudwatch.configured" style="width: auto;">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Secrets Manager</strong></td>
+                                <td>API keys, credentials</td>
+                                <td>$5</td>
+                                <td>
+                                    <input type="checkbox" data-field="aws.secrets.configured" style="width: auto;">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>ECR</strong></td>
+                                <td>Docker container registry</td>
+                                <td>$5-10</td>
+                                <td>
+                                    <input type="checkbox" data-field="aws.ecr.configured" style="width: auto;">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Route 53</strong></td>
+                                <td>DNS + domain management</td>
+                                <td>$1-5</td>
+                                <td>
+                                    <input type="checkbox" data-field="aws.route53.configured" style="width: auto;">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>VPC</strong></td>
+                                <td>Networking (included)</td>
+                                <td>$0</td>
+                                <td>
+                                    <input type="checkbox" data-field="aws.vpc.configured" style="width: auto;">
+                                </td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr style="background: var(--bg); font-weight: bold;">
+                                <td colspan="2">Estimated Production Total</td>
+                                <td colspan="2" style="color: var(--warning);">$350-800+/month</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <!-- AWS Setup Checklist -->
+                <div class="card" style="margin-bottom: 1.5rem;">
+                    <h3 class="card-title" style="margin-bottom: 1rem;">🔧 AWS Setup Checklist</h3>
+                    <ul class="checklist">
+                        <li class="checklist-item">
+                            <input type="checkbox" data-field="aws.setup.account">
+                            <span>Create AWS account + billing alerts</span>
+                        </li>
+                        <li class="checklist-item">
+                            <input type="checkbox" data-field="aws.setup.iam">
+                            <span>Set up IAM user with Terraform permissions</span>
+                        </li>
+                        <li class="checklist-item">
+                            <input type="checkbox" data-field="aws.setup.tfstate">
+                            <span>Create S3 bucket for Terraform state</span>
+                        </li>
+                        <li class="checklist-item">
+                            <input type="checkbox" data-field="aws.setup.dynamodb">
+                            <span>Create DynamoDB table for state locking</span>
+                        </li>
+                        <li class="checklist-item">
+                            <input type="checkbox" data-field="aws.setup.secrets">
+                            <span>Store API keys in Secrets Manager</span>
+                        </li>
+                        <li class="checklist-item">
+                            <input type="checkbox" data-field="aws.setup.domain">
+                            <span>Register domain in Route 53</span>
+                        </li>
+                        <li class="checklist-item">
+                            <input type="checkbox" data-field="aws.setup.acm">
+                            <span>Request SSL certificate in ACM</span>
+                        </li>
+                        <li class="checklist-item">
+                            <input type="checkbox" data-field="aws.setup.terraform">
+                            <span>Run terraform init + apply</span>
+                        </li>
+                        <li class="checklist-item">
+                            <input type="checkbox" data-field="aws.setup.deploy">
+                            <span>Deploy first container image</span>
+                        </li>
+                    </ul>
+                    <div style="margin-top: 1rem; padding: 1rem; background: var(--bg); border-radius: var(--radius);">
+                        <strong>Terraform Commands:</strong>
+                        <pre style="margin: 0.5rem 0; font-size: 0.85rem;"><code>cd hub/infra/terraform
+terraform init
+terraform plan -var-file=environments/dev.tfvars
+terraform apply -var-file=environments/dev.tfvars</code></pre>
+                    </div>
+                </div>
+
+                <!-- AWS Environment Variables -->
+                <div class="card" style="margin-bottom: 1.5rem;">
+                    <h3 class="card-title" style="margin-bottom: 1rem;">🔑 AWS Credentials Required</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Variable</th>
+                                <th>Purpose</th>
+                                <th>Where to Get</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>AWS_ACCESS_KEY_ID</code></td>
+                                <td>AWS IAM credentials</td>
+                                <td><a href="https://console.aws.amazon.com/iam" target="_blank">IAM Console</a></td>
+                            </tr>
+                            <tr>
+                                <td><code>AWS_SECRET_ACCESS_KEY</code></td>
+                                <td>AWS IAM secret</td>
+                                <td>IAM → Users → Security credentials</td>
+                            </tr>
+                            <tr>
+                                <td><code>AWS_REGION</code></td>
+                                <td>Deployment region</td>
+                                <td>Default: us-west-2</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p style="margin-top: 1rem; color: var(--text-muted); font-size: 0.85rem;">
+                        <strong>Note:</strong> API keys (Anthropic, Supabase, Stripe) are stored in AWS Secrets Manager,
+                        not environment variables, for production security.
+                    </p>
+                </div>
+
                 <!-- Environment Variables Reference -->
                 <div class="card" style="margin-bottom: 1.5rem;">
                     <h3 class="card-title" style="margin-bottom: 1rem;">🔧 Environment Variables Required</h3>
