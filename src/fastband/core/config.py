@@ -34,6 +34,7 @@ class TicketsConfig:
     mode: str = "cli_web"  # cli, cli_web, embedded
     web_port: int = 5050
     review_agents: bool = True
+    prefix: str = "FB"  # Ticket number prefix (e.g., FB-001, FB-002)
 
 
 @dataclass
@@ -165,6 +166,7 @@ class FastbandConfig:
                 mode=t.get("mode", "cli_web"),
                 web_port=t.get("web_port", 5050),
                 review_agents=t.get("review_agents", True),
+                prefix=t.get("prefix", "FB"),
             )
 
         if "backup" in data:
@@ -247,6 +249,7 @@ class FastbandConfig:
             "mode": self.tickets.mode,
             "web_port": self.tickets.web_port,
             "review_agents": self.tickets.review_agents,
+            "prefix": self.tickets.prefix,
         }
 
         result["fastband"]["backup"] = {

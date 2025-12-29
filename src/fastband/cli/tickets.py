@@ -97,6 +97,7 @@ def _ticket_to_dict(ticket: Ticket) -> dict:
     """Convert ticket to dictionary for JSON output."""
     return {
         "id": ticket.id,
+        "ticket_number": ticket.ticket_number,
         "title": ticket.title,
         "description": ticket.description,
         "type": ticket.ticket_type.value,
@@ -107,6 +108,13 @@ def _ticket_to_dict(ticket: Ticket) -> dict:
         "updated_at": ticket.updated_at.isoformat(),
         "labels": ticket.labels,
     }
+
+
+def _format_ticket_id(ticket: Ticket) -> str:
+    """Format ticket ID for display (prefer ticket_number)."""
+    if ticket.ticket_number:
+        return f"[bold cyan]{ticket.ticket_number}[/bold cyan]"
+    return f"[dim]{ticket.id[:8]}[/dim]"
 
 
 # =============================================================================
@@ -239,7 +247,7 @@ def list_tickets(
         show_header=True,
         header_style="bold cyan",
     )
-    table.add_column("ID", style="bold", width=6)
+    table.add_column("ID", style="bold cyan", width=10)
     table.add_column("Title", max_width=40)
     table.add_column("Status")
     table.add_column("Priority")
@@ -247,8 +255,9 @@ def list_tickets(
     table.add_column("Assigned To", max_width=15)
 
     for ticket in tickets:
+        ticket_id = ticket.ticket_number or ticket.id[:8]
         table.add_row(
-            str(ticket.id),
+            ticket_id,
             ticket.title[:40] + "..." if len(ticket.title) > 40 else ticket.title,
             _format_status(ticket.status),
             _format_priority(ticket.priority),
@@ -395,7 +404,8 @@ def create_ticket(
         console.print(json.dumps(_ticket_to_dict(created), indent=2, ensure_ascii=False))
         raise typer.Exit(0)
 
-    console.print(f"[green]Created ticket #{created.id}[/green]")
+    ticket_id = created.ticket_number or created.id[:8]
+    console.print(f"[green]Created ticket {ticket_id}[/green]")
     console.print(f"  Title: {created.title}")
     console.print(f"  Type: {_format_type(created.ticket_type)}")
     console.print(f"  Priority: {_format_priority(created.priority)}")
@@ -446,8 +456,9 @@ def show_ticket(
         raise typer.Exit(0)
 
     # Header panel
+    ticket_id = ticket.ticket_number or ticket.id[:8]
     console.print(Panel.fit(
-        f"[bold blue]#{ticket.id}[/bold blue] {ticket.title}\n"
+        f"[bold blue]{ticket_id}[/bold blue] {ticket.title}\n"
         f"[dim]{ticket.description or 'No description'}[/dim]",
         title="Ticket Details",
         border_style="blue",
@@ -591,16 +602,18 @@ def claim_ticket(
     # Save
     store.update(ticket)
 
+    display_id = ticket.ticket_number or ticket.id[:8]
     if json_output:
         console.print(json.dumps({
             "success": True,
             "ticket_id": ticket.id,
+            "ticket_number": ticket.ticket_number,
             "agent": agent,
             "status": ticket.status.value,
         }, indent=2, ensure_ascii=False))
         raise typer.Exit(0)
 
-    console.print(f"[green]Claimed ticket #{ticket.id}[/green]")
+    console.print(f"[green]Claimed ticket {display_id}[/green]")
     console.print(f"  Title: {ticket.title}")
     console.print(f"  Assigned to: {agent}")
     console.print(f"  Status: {_format_status(ticket.status)}")
@@ -695,10 +708,12 @@ def complete_ticket(
     # Save
     store.update(ticket)
 
+    display_id = ticket.ticket_number or ticket.id[:8]
     if json_output:
         console.print(json.dumps({
             "success": True,
             "ticket_id": ticket.id,
+            "ticket_number": ticket.ticket_number,
             "status": ticket.status.value,
             "problem_summary": problem,
             "solution_summary": solution,
@@ -706,7 +721,7 @@ def complete_ticket(
         }, indent=2, ensure_ascii=False))
         raise typer.Exit(0)
 
-    console.print(f"[green]Completed ticket #{ticket.id}[/green]")
+    console.print(f"[green]Completed ticket {display_id}[/green]")
     console.print(f"  Status: {_format_status(ticket.status)}")
     console.print(f"  Problem: {problem}")
     console.print(f"  Solution: {solution}")
@@ -785,15 +800,16 @@ def search_tickets(
         show_header=True,
         header_style="bold cyan",
     )
-    table.add_column("ID", style="bold", width=6)
+    table.add_column("ID", style="bold cyan", width=10)
     table.add_column("Title", max_width=40)
     table.add_column("Status")
     table.add_column("Priority")
     table.add_column("Type")
 
     for ticket in results:
+        ticket_id = ticket.ticket_number or ticket.id[:8]
         table.add_row(
-            str(ticket.id),
+            ticket_id,
             ticket.title[:40] + "..." if len(ticket.title) > 40 else ticket.title,
             _format_status(ticket.status),
             _format_priority(ticket.priority),
@@ -972,15 +988,17 @@ def update_ticket(
     # Save
     store.update(ticket)
 
+    display_id = ticket.ticket_number or ticket.id[:8]
     if json_output:
         console.print(json.dumps({
             "success": True,
             "ticket_id": ticket.id,
+            "ticket_number": ticket.ticket_number,
             "changes": changes,
         }, indent=2, ensure_ascii=False))
         raise typer.Exit(0)
 
-    console.print(f"[green]Updated ticket #{ticket.id}[/green]")
+    console.print(f"[green]Updated ticket {display_id}[/green]")
     for change in changes:
         console.print(f"  - {change}")
 

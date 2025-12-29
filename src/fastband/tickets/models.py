@@ -349,6 +349,7 @@ class Ticket:
     """
     # Core fields
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    ticket_number: Optional[str] = None  # Human-friendly ID (e.g., "FB-042")
     title: str = ""
     description: str = ""
 
@@ -667,6 +668,7 @@ class Ticket:
         """Convert to dictionary for serialization."""
         return {
             "id": self.id,
+            "ticket_number": self.ticket_number,
             "title": self.title,
             "description": self.description,
             "ticket_type": self.ticket_type.value,
@@ -732,6 +734,7 @@ class Ticket:
 
         return cls(
             id=data.get("id", str(uuid.uuid4())),
+            ticket_number=data.get("ticket_number"),
             title=data.get("title", ""),
             description=data.get("description", ""),
             ticket_type=ticket_type,
@@ -770,4 +773,5 @@ class Ticket:
         )
 
     def __repr__(self) -> str:
-        return f"Ticket(id={self.id!r}, title={self.title!r}, status={self.status.value!r})"
+        num = self.ticket_number or self.id[:8]
+        return f"Ticket({num}, title={self.title!r}, status={self.status.value!r})"

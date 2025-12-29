@@ -125,13 +125,20 @@ class TicketStore(ABC):
     """
 
     @abstractmethod
-    def create(self, ticket: Ticket) -> Ticket:
-        """Create a new ticket."""
+    def create(self, ticket: Ticket, prefix: str = "FB") -> Ticket:
+        """Create a new ticket with auto-generated ticket_number."""
         pass
 
     @abstractmethod
     def get(self, ticket_id: str) -> Optional[Ticket]:
-        """Get a ticket by ID."""
+        """
+        Get a ticket by ID or ticket_number.
+
+        Accepts:
+        - UUID: "ea81b2e3-272f-4618-809a-d2c03873b003"
+        - Ticket number: "FB-042"
+        - Short number: "42" (assumes configured prefix)
+        """
         pass
 
     @abstractmethod
@@ -174,7 +181,17 @@ class TicketStore(ABC):
 
     @abstractmethod
     def get_next_id(self) -> str:
-        """Get the next available ticket ID."""
+        """Get the next available sequence number (internal)."""
+        pass
+
+    @abstractmethod
+    def get_next_ticket_number(self, prefix: str = "FB") -> str:
+        """Get the next ticket number (e.g., FB-001)."""
+        pass
+
+    @abstractmethod
+    def get_by_number(self, ticket_number: str) -> Optional[Ticket]:
+        """Get a ticket by its human-friendly ticket_number."""
         pass
 
     # Agent management
@@ -277,12 +294,16 @@ class JSONTicketStore(TicketStore):
         if self.auto_save:
             self._save()
 
-    def create(self, ticket: Ticket) -> Ticket:
-        """Create a new ticket."""
+    def create(self, ticket: Ticket, prefix: str = "FB") -> Ticket:
+        """Create a new ticket with auto-generated ticket_number."""
         with self._lock:
-            # Assign ID if not set
+            # Assign UUID if not set
             if not ticket.id or ticket.id in self._data["tickets"]:
-                ticket.id = self.get_next_id()
+                ticket.id = str(__import__("uuid").uuid4())
+
+            # Assign ticket_number if not set
+            if not ticket.ticket_number:
+                ticket.ticket_number = self.get_next_ticket_number(prefix)
 
             self._data["tickets"][ticket.id] = ticket.to_dict()
             self._cache.put(ticket)  # Cache the new ticket
@@ -291,15 +312,28 @@ class JSONTicketStore(TicketStore):
             return ticket
 
     def get(self, ticket_id: str) -> Optional[Ticket]:
-        """Get a ticket by ID."""
-        ticket_id = str(ticket_id)
+        """
+        Get a ticket by ID or ticket_number.
+
+        Accepts:
+        - UUID: "ea81b2e3-272f-4618-809a-d2c03873b003"
+        - Ticket number: "FB-042"
+        - Short number: "42" (will try to find by number suffix)
+        """
+        ticket_id = str(ticket_id).strip()
 
         # Try cache first (fast path)
         cached = self._cache.get(ticket_id)
         if cached is not None:
             return cached
 
-        # Fall back to storage
+        # Check if it looks like a ticket number (contains hyphen or is numeric)
+        if "-" in ticket_id or ticket_id.isdigit():
+            ticket = self.get_by_number(ticket_id)
+            if ticket:
+                return ticket
+
+        # Fall back to UUID lookup
         with self._lock:
             data = self._data["tickets"].get(ticket_id)
             if data:
@@ -426,12 +460,49 @@ class JSONTicketStore(TicketStore):
             return count
 
     def get_next_id(self) -> str:
-        """Get the next available ticket ID."""
+        """Get the next available sequence number (internal)."""
         with self._lock:
             next_id = self._data["metadata"].get("next_id", 1)
             self._data["metadata"]["next_id"] = next_id + 1
             self._mark_dirty()
             return str(next_id)
+
+    def get_next_ticket_number(self, prefix: str = "FB") -> str:
+        """Get the next ticket number (e.g., FB-001)."""
+        seq = int(self.get_next_id())
+        return f"{prefix}-{seq:03d}"
+
+    def get_by_number(self, ticket_number: str) -> Optional[Ticket]:
+        """
+        Get a ticket by its human-friendly ticket_number.
+
+        Supports:
+        - Full number: "FB-042"
+        - Just number: "42" (matches any prefix ending with -42)
+        """
+        ticket_number = ticket_number.strip().upper()
+
+        with self._lock:
+            for data in self._data["tickets"].values():
+                stored_num = data.get("ticket_number", "")
+                if not stored_num:
+                    continue
+
+                # Exact match
+                if stored_num.upper() == ticket_number:
+                    ticket = Ticket.from_dict(data)
+                    self._cache.put(ticket)
+                    return ticket
+
+                # Partial match (just the number part)
+                if ticket_number.isdigit():
+                    # Match if stored number ends with the same digits
+                    if stored_num.upper().endswith(f"-{int(ticket_number):03d}"):
+                        ticket = Ticket.from_dict(data)
+                        self._cache.put(ticket)
+                        return ticket
+
+        return None
 
     def get_agent(self, name: str) -> Optional[Agent]:
         """Get an agent by name."""
@@ -551,6 +622,7 @@ class SQLiteTicketStore(TicketStore):
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS tickets (
                     id TEXT PRIMARY KEY,
+                    ticket_number TEXT UNIQUE,
                     title TEXT NOT NULL,
                     description TEXT,
                     ticket_type TEXT NOT NULL DEFAULT 'task',
@@ -576,6 +648,12 @@ class SQLiteTicketStore(TicketStore):
                     data TEXT NOT NULL  -- Full JSON data
                 )
             """)
+
+            # Add ticket_number column if it doesn't exist (migration)
+            try:
+                cursor.execute("ALTER TABLE tickets ADD COLUMN ticket_number TEXT UNIQUE")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
 
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS agents (
@@ -610,29 +688,37 @@ class SQLiteTicketStore(TicketStore):
             cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_tickets_assigned ON tickets(assigned_to)"
             )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_tickets_number ON tickets(ticket_number)"
+            )
 
-    def create(self, ticket: Ticket) -> Ticket:
-        """Create a new ticket."""
+    def create(self, ticket: Ticket, prefix: str = "FB") -> Ticket:
+        """Create a new ticket with auto-generated ticket_number."""
         if not ticket.id:
-            ticket.id = self.get_next_id()
+            ticket.id = str(__import__("uuid").uuid4())
+
+        # Assign ticket_number if not set
+        if not ticket.ticket_number:
+            ticket.ticket_number = self.get_next_ticket_number(prefix)
 
         with self._cursor() as cursor:
             data = ticket.to_dict()
             cursor.execute(
                 """
                 INSERT INTO tickets (
-                    id, title, description, ticket_type, priority, status,
+                    id, ticket_number, title, description, ticket_type, priority, status,
                     assigned_to, created_by, created_at, updated_at,
                     started_at, completed_at, due_date, notes, resolution,
                     app, app_version, problem_summary, solution_summary,
                     testing_notes, before_screenshot, after_screenshot,
                     review_status, data
                 ) VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                 )
             """,
                 (
                     ticket.id,
+                    ticket.ticket_number,
                     ticket.title,
                     ticket.description,
                     ticket.ticket_type.value,
@@ -662,9 +748,25 @@ class SQLiteTicketStore(TicketStore):
         return ticket
 
     def get(self, ticket_id: str) -> Optional[Ticket]:
-        """Get a ticket by ID."""
+        """
+        Get a ticket by ID or ticket_number.
+
+        Accepts:
+        - UUID: "ea81b2e3-272f-4618-809a-d2c03873b003"
+        - Ticket number: "FB-042"
+        - Short number: "42" (will try to find by number suffix)
+        """
+        ticket_id = str(ticket_id).strip()
+
+        # Check if it looks like a ticket number (contains hyphen or is numeric)
+        if "-" in ticket_id or ticket_id.isdigit():
+            ticket = self.get_by_number(ticket_id)
+            if ticket:
+                return ticket
+
+        # Fall back to UUID lookup
         with self._cursor() as cursor:
-            cursor.execute("SELECT data FROM tickets WHERE id = ?", (str(ticket_id),))
+            cursor.execute("SELECT data FROM tickets WHERE id = ?", (ticket_id,))
             row = cursor.fetchone()
             if row:
                 return Ticket.from_dict(json.loads(row["data"]))
@@ -805,7 +907,7 @@ class SQLiteTicketStore(TicketStore):
             return row["count"] if row else 0
 
     def get_next_id(self) -> str:
-        """Get the next available ticket ID."""
+        """Get the next available sequence number (internal)."""
         with self._cursor() as cursor:
             cursor.execute("SELECT value FROM metadata WHERE key = 'next_id'")
             row = cursor.fetchone()
@@ -817,6 +919,44 @@ class SQLiteTicketStore(TicketStore):
             )
 
             return str(next_id)
+
+    def get_next_ticket_number(self, prefix: str = "FB") -> str:
+        """Get the next ticket number (e.g., FB-001)."""
+        seq = int(self.get_next_id())
+        return f"{prefix}-{seq:03d}"
+
+    def get_by_number(self, ticket_number: str) -> Optional[Ticket]:
+        """
+        Get a ticket by its human-friendly ticket_number.
+
+        Supports:
+        - Full number: "FB-042"
+        - Just number: "42" (matches any prefix ending with -042)
+        """
+        ticket_number = ticket_number.strip().upper()
+
+        with self._cursor() as cursor:
+            # Try exact match first
+            cursor.execute(
+                "SELECT data FROM tickets WHERE UPPER(ticket_number) = ?",
+                (ticket_number,)
+            )
+            row = cursor.fetchone()
+            if row:
+                return Ticket.from_dict(json.loads(row["data"]))
+
+            # Try partial match (just the number part)
+            if ticket_number.isdigit():
+                pattern = f"%-{int(ticket_number):03d}"
+                cursor.execute(
+                    "SELECT data FROM tickets WHERE UPPER(ticket_number) LIKE ?",
+                    (pattern,)
+                )
+                row = cursor.fetchone()
+                if row:
+                    return Ticket.from_dict(json.loads(row["data"]))
+
+        return None
 
     def get_agent(self, name: str) -> Optional[Agent]:
         """Get an agent by name."""
