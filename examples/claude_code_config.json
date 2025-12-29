@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "my-ticket-server": {
+      "command": "python",
+      "args": ["/path/to/custom_ticket_server.py"],
+      "env": {
+        "PYTHONPATH": "/path/to/fastband-mcp/src"
+      }
+    }
+  }
+}
