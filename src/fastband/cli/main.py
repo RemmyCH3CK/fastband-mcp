@@ -143,9 +143,9 @@ def init(
     if project_info:
         # Set default providers based on project type
         if project_info.primary_language == Language.PYTHON:
-            config.providers["claude"] = FastbandConfig().providers.get(
-                "claude",
-                type("obj", (object,), {"model": "claude-sonnet-4-20250514"})()
+            from fastband.core.config import AIProviderConfig
+            config.providers["claude"] = AIProviderConfig(
+                model="claude-sonnet-4-20250514"
             )
 
     # Save configuration
@@ -472,19 +472,31 @@ def serve(
         "--no-core",
         help="Don't load core tools",
     ),
+    all_tools: bool = typer.Option(
+        False,
+        "--all",
+        "-a",
+        help="Load all tools (core, git, tickets, context) - recommended for full functionality",
+    ),
 ):
     """
     Start the Fastband MCP server.
 
     Launches the MCP server for the current project,
     loading configured tools and providers.
+
+    By default, only core tools are loaded. Use --all to load all available tools
+    including git, tickets, and context/semantic search tools.
     """
     from fastband.core.engine import run_server
 
     project_path = (path or Path.cwd()).resolve()
 
+    tool_mode = "all" if all_tools else ("minimal" if no_core else "core")
     console.print(Panel.fit(
-        f"[bold blue]Starting Fastband MCP Server[/bold blue]\n[dim]{project_path}[/dim]",
+        f"[bold blue]Starting Fastband MCP Server[/bold blue]\n"
+        f"[dim]{project_path}[/dim]\n"
+        f"[dim]Tool mode: {tool_mode}[/dim]",
         border_style="blue",
     ))
 
@@ -492,6 +504,7 @@ def serve(
     asyncio.run(run_server(
         project_path=project_path,
         load_core=not no_core,
+        load_all=all_tools,
     ))
 
 

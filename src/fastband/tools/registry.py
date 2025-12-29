@@ -480,6 +480,15 @@ class ToolRegistry:
         names.update(self._lazy_specs.keys())
         return list(names)
 
+    def get_lazy_tool_names(self) -> List[str]:
+        """
+        Get names of all lazily registered tools.
+
+        These are tools that have been registered but not yet instantiated.
+        Useful for loading all available tools at once.
+        """
+        return list(self._lazy_specs.keys())
+
     def get_tools_by_category(self, category: ToolCategory) -> List[Tool]:
         """
         Get all tools in a specific category.

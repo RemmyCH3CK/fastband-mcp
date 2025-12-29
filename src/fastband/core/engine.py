@@ -98,6 +98,32 @@ class FastbandEngine:
 
         logger.info(f"Loaded {len(CORE_TOOLS)} core tools")
 
+    def register_all_tools(self) -> None:
+        """
+        Register and load all available tools including core, git, tickets, and context tools.
+
+        This method:
+        1. Loads core tools (file operations, config, etc.)
+        2. Loads lazily registered tools (git, tickets, context/semantic search)
+        """
+        # First, load core tools
+        self.register_core_tools()
+
+        # Import tools module to trigger lazy registration
+        import fastband.tools  # noqa: F401
+
+        # Load all lazily registered tools
+        lazy_tools = self.registry.get_lazy_tool_names()
+        loaded_count = 0
+        for tool_name in lazy_tools:
+            try:
+                self.registry.load(tool_name)
+                loaded_count += 1
+            except Exception as e:
+                logger.warning(f"Failed to load tool '{tool_name}': {e}")
+
+        logger.info(f"Loaded {loaded_count} additional tools (git, tickets, context)")
+
     def register_tools(self, tools: List[Tool]) -> None:
         """Register and load multiple tools."""
         for tool in tools:
@@ -155,20 +181,25 @@ class FastbandEngine:
 def create_engine(
     project_path: Optional[Path] = None,
     load_core: bool = True,
+    load_all: bool = False,
 ) -> FastbandEngine:
     """
     Create and configure a Fastband engine.
 
     Args:
         project_path: Project directory (default: current directory)
-        load_core: Whether to load core tools (default: True)
+        load_core: Whether to load core tools only (default: True)
+        load_all: Whether to load ALL tools including git, tickets, context (default: False)
+                  If True, overrides load_core
 
     Returns:
         Configured FastbandEngine
     """
     engine = FastbandEngine(project_path=project_path)
 
-    if load_core:
+    if load_all:
+        engine.register_all_tools()
+    elif load_core:
         engine.register_core_tools()
 
     return engine
@@ -177,15 +208,17 @@ def create_engine(
 async def run_server(
     project_path: Optional[Path] = None,
     load_core: bool = True,
+    load_all: bool = False,
 ):
     """
     Run the Fastband MCP server.
 
     Args:
         project_path: Project directory (default: current directory)
-        load_core: Whether to load core tools (default: True)
+        load_core: Whether to load core tools only (default: True)
+        load_all: Whether to load ALL tools (default: False)
     """
-    engine = create_engine(project_path=project_path, load_core=load_core)
+    engine = create_engine(project_path=project_path, load_core=load_core, load_all=load_all)
     await engine.start()
 
 

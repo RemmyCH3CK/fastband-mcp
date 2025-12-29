@@ -93,6 +93,20 @@ def _register_builtin_tools() -> None:
             ToolCategory.TICKETS
         )
 
+    # Context/Semantic Search tools
+    context_tools = [
+        ("index_codebase", "IndexCodebaseTool"),
+        ("semantic_search", "SemanticSearchTool"),
+        ("index_status", "IndexStatusTool"),
+    ]
+    for name, class_name in context_tools:
+        registry.register_lazy(
+            name,
+            "fastband.tools.context",
+            class_name,
+            ToolCategory.AI
+        )
+
 
 # Register on import (but don't import tool modules yet)
 _register_builtin_tools()
