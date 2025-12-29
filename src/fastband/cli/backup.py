@@ -9,6 +9,7 @@ Provides commands for managing project backups:
 - prune: Remove old backups
 - stats: Show backup statistics
 - scheduler: Manage the backup scheduler daemon
+- alerts: View and manage backup alerts
 - config: Configure backup settings interactively
 """
 
@@ -23,7 +24,17 @@ from rich.table import Table
 from rich.panel import Panel
 from rich import box
 
-from fastband.backup import BackupManager, BackupInfo, BackupType, BackupScheduler, get_scheduler
+from fastband.backup import (
+    BackupManager,
+    BackupInfo,
+    BackupType,
+    BackupScheduler,
+    get_scheduler,
+    AlertManager,
+    AlertConfig,
+    AlertLevel,
+    get_alert_manager,
+)
 
 # Create the backup subcommand app
 backup_app = typer.Typer(
@@ -1156,3 +1167,584 @@ def backup_configure(
         for change in changes:
             console.print(f"  - {change}")
         console.print("\n[dim]Restart scheduler for changes to take effect: fastband backup scheduler restart[/dim]")
+
+
+# =============================================================================
+# ALERTS SUBCOMMAND GROUP
+# =============================================================================
+
+alerts_app = typer.Typer(
+    name="alerts",
+    help="Backup alert management",
+    no_args_is_help=True,
+)
+backup_app.add_typer(alerts_app, name="alerts")
+
+
+def _get_alert_manager(path: Optional[Path] = None) -> AlertManager:
+    """Get the alert manager for the project."""
+    project_path = (path or Path.cwd()).resolve()
+    return get_alert_manager(project_path=project_path)
+
+
+def _format_alert_level(level: AlertLevel) -> str:
+    """Format alert level with color and emoji."""
+    color_map = {
+        AlertLevel.INFO: "blue",
+        AlertLevel.WARNING: "yellow",
+        AlertLevel.ERROR: "red",
+        AlertLevel.CRITICAL: "bold red",
+    }
+    color = color_map.get(level, "white")
+    return f"[{color}]{level.emoji} {level.value.upper()}[/{color}]"
+
+
+@alerts_app.command("list")
+def alerts_list(
+    limit: int = typer.Option(
+        20,
+        "--limit",
+        "-l",
+        help="Maximum number of alerts to show",
+    ),
+    level: Optional[str] = typer.Option(
+        None,
+        "--level",
+        help="Filter by alert level (info, warning, error, critical)",
+    ),
+    unacked: bool = typer.Option(
+        False,
+        "--unacked",
+        "-u",
+        help="Show only unacknowledged alerts",
+    ),
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Output as JSON",
+    ),
+    path: Optional[Path] = typer.Option(
+        None,
+        "--path",
+        "-p",
+        help="Project path (default: current directory)",
+    ),
+):
+    """
+    List recent backup alerts.
+
+    Shows alerts from the backup system including failures, warnings,
+    and critical events (fire alarms).
+    """
+    manager = _get_alert_manager(path)
+    alerts = manager.get_recent_alerts(limit=limit)
+
+    # Filter by level
+    if level:
+        try:
+            filter_level = AlertLevel(level.lower())
+            alerts = [a for a in alerts if a.level == filter_level]
+        except ValueError:
+            console.print(f"[red]Invalid level: {level}[/red]")
+            valid = [l.value for l in AlertLevel]
+            console.print(f"[dim]Valid levels: {', '.join(valid)}[/dim]")
+            raise typer.Exit(1)
+
+    # Filter unacknowledged
+    if unacked:
+        alerts = [a for a in alerts if not a.acknowledged]
+
+    if not alerts:
+        if json_output:
+            console.print("[]")
+        else:
+            console.print("[green]No alerts found.[/green]")
+        raise typer.Exit(0)
+
+    if json_output:
+        output = [a.to_dict() for a in alerts]
+        console.print(json.dumps(output, indent=2))
+        raise typer.Exit(0)
+
+    # Create table
+    table = Table(
+        title="Backup Alerts",
+        box=box.ROUNDED,
+        show_header=True,
+        header_style="bold cyan",
+    )
+    table.add_column("Time", width=18)
+    table.add_column("Level")
+    table.add_column("Title", max_width=30)
+    table.add_column("Message", max_width=40)
+    table.add_column("Ack", justify="center", width=3)
+
+    for alert in alerts:
+        ack_status = "[green]✓[/green]" if alert.acknowledged else "[dim]-[/dim]"
+        message = alert.message[:40] + "..." if len(alert.message) > 40 else alert.message
+        title = alert.title[:30] + "..." if len(alert.title) > 30 else alert.title
+
+        table.add_row(
+            alert.timestamp.strftime("%Y-%m-%d %H:%M"),
+            _format_alert_level(alert.level),
+            title,
+            message,
+            ack_status,
+        )
+
+    console.print(table)
+
+    # Summary
+    unacked_count = sum(1 for a in alerts if not a.acknowledged)
+    if unacked_count > 0:
+        console.print(f"\n[yellow]{unacked_count} unacknowledged alert(s)[/yellow]")
+    console.print(f"[dim]Showing {len(alerts)} alert(s)[/dim]")
+
+
+@alerts_app.command("show")
+def alerts_show(
+    alert_id: str = typer.Argument(
+        ...,
+        help="Alert ID to show (or partial ID)",
+    ),
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Output as JSON",
+    ),
+    path: Optional[Path] = typer.Option(
+        None,
+        "--path",
+        "-p",
+        help="Project path (default: current directory)",
+    ),
+):
+    """
+    Show detailed information about a specific alert.
+
+    You can use a partial alert ID - it will match the first alert
+    that starts with the provided string.
+    """
+    manager = _get_alert_manager(path)
+    alerts = manager.get_recent_alerts(limit=100)
+
+    # Find matching alert
+    alert = None
+    for a in alerts:
+        if a.id == alert_id or a.id.startswith(alert_id):
+            alert = a
+            break
+
+    if not alert:
+        if json_output:
+            console.print(json.dumps({"error": f"Alert not found: {alert_id}"}, indent=2))
+        else:
+            console.print(f"[red]Alert not found: {alert_id}[/red]")
+        raise typer.Exit(1)
+
+    if json_output:
+        console.print(json.dumps(alert.to_dict(), indent=2))
+        raise typer.Exit(0)
+
+    # Header panel
+    console.print(Panel.fit(
+        f"{_format_alert_level(alert.level)}\n"
+        f"[bold]{alert.title}[/bold]",
+        title="Alert Details",
+        border_style="red" if alert.level == AlertLevel.CRITICAL else "yellow",
+    ))
+
+    # Info table
+    info_table = Table(
+        box=box.ROUNDED,
+        show_header=False,
+    )
+    info_table.add_column("Field", style="cyan")
+    info_table.add_column("Value")
+
+    info_table.add_row("ID", alert.id)
+    info_table.add_row("Level", alert.level.value.upper())
+    info_table.add_row("Time", alert.timestamp.strftime("%Y-%m-%d %H:%M:%S"))
+    info_table.add_row("Acknowledged", "[green]Yes[/green]" if alert.acknowledged else "[yellow]No[/yellow]")
+
+    console.print(info_table)
+
+    # Message
+    console.print(f"\n[bold]Message:[/bold]\n{alert.message}")
+
+    # Error details
+    if alert.error:
+        console.print(f"\n[bold red]Error:[/bold red]\n{alert.error}")
+
+    # Context
+    if alert.context:
+        console.print("\n[bold]Context:[/bold]")
+        for key, value in alert.context.items():
+            console.print(f"  {key}: {value}")
+
+    # Channels
+    if alert.sent_to:
+        console.print(f"\n[dim]Sent via: {', '.join(alert.sent_to)}[/dim]")
+
+
+@alerts_app.command("ack")
+def alerts_ack(
+    alert_id: str = typer.Argument(
+        ...,
+        help="Alert ID to acknowledge (or 'all' for all unacknowledged)",
+    ),
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Output as JSON",
+    ),
+    path: Optional[Path] = typer.Option(
+        None,
+        "--path",
+        "-p",
+        help="Project path (default: current directory)",
+    ),
+):
+    """
+    Acknowledge an alert (mark as read).
+
+    Acknowledging an alert indicates you've seen it and are aware of the issue.
+    Use 'all' as the alert_id to acknowledge all unacknowledged alerts.
+    """
+    manager = _get_alert_manager(path)
+
+    if alert_id.lower() == "all":
+        # Acknowledge all unacked alerts
+        alerts = manager.get_recent_alerts(limit=100)
+        unacked = [a for a in alerts if not a.acknowledged]
+
+        if not unacked:
+            if json_output:
+                console.print(json.dumps({
+                    "success": True,
+                    "acknowledged": 0,
+                    "message": "No unacknowledged alerts",
+                }, indent=2))
+            else:
+                console.print("[green]No unacknowledged alerts[/green]")
+            raise typer.Exit(0)
+
+        acked_count = 0
+        for alert in unacked:
+            if manager.acknowledge_alert(alert.id):
+                acked_count += 1
+
+        if json_output:
+            console.print(json.dumps({
+                "success": True,
+                "acknowledged": acked_count,
+            }, indent=2))
+        else:
+            console.print(f"[green]Acknowledged {acked_count} alert(s)[/green]")
+
+    else:
+        # Find matching alert
+        alerts = manager.get_recent_alerts(limit=100)
+        alert = None
+        for a in alerts:
+            if a.id == alert_id or a.id.startswith(alert_id):
+                alert = a
+                break
+
+        if not alert:
+            if json_output:
+                console.print(json.dumps({"error": f"Alert not found: {alert_id}"}, indent=2))
+            else:
+                console.print(f"[red]Alert not found: {alert_id}[/red]")
+            raise typer.Exit(1)
+
+        if alert.acknowledged:
+            if json_output:
+                console.print(json.dumps({
+                    "success": True,
+                    "message": "Alert already acknowledged",
+                    "alert_id": alert.id,
+                }, indent=2))
+            else:
+                console.print(f"[yellow]Alert already acknowledged: {alert.id}[/yellow]")
+            raise typer.Exit(0)
+
+        success = manager.acknowledge_alert(alert.id)
+
+        if json_output:
+            console.print(json.dumps({
+                "success": success,
+                "alert_id": alert.id,
+            }, indent=2))
+        else:
+            if success:
+                console.print(f"[green]Acknowledged alert: {alert.id}[/green]")
+            else:
+                console.print(f"[red]Failed to acknowledge alert[/red]")
+                raise typer.Exit(1)
+
+
+@alerts_app.command("clear")
+def alerts_clear(
+    force: bool = typer.Option(
+        False,
+        "--force",
+        "-f",
+        help="Skip confirmation prompt",
+    ),
+    keep_recent: int = typer.Option(
+        0,
+        "--keep",
+        "-k",
+        help="Keep this many recent alerts",
+    ),
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Output as JSON",
+    ),
+    path: Optional[Path] = typer.Option(
+        None,
+        "--path",
+        "-p",
+        help="Project path (default: current directory)",
+    ),
+):
+    """
+    Clear all backup alerts.
+
+    Removes all alerts from the alert log. Use --keep to preserve
+    the most recent alerts.
+    """
+    manager = _get_alert_manager(path)
+    alert_log_path = manager.config.alert_log_path
+
+    if not alert_log_path.exists():
+        if json_output:
+            console.print(json.dumps({
+                "success": True,
+                "cleared": 0,
+                "message": "No alerts to clear",
+            }, indent=2))
+        else:
+            console.print("[green]No alerts to clear[/green]")
+        raise typer.Exit(0)
+
+    # Read current alerts
+    try:
+        alerts_data = json.loads(alert_log_path.read_text())
+    except json.JSONDecodeError:
+        alerts_data = []
+
+    if not alerts_data:
+        if json_output:
+            console.print(json.dumps({
+                "success": True,
+                "cleared": 0,
+                "message": "No alerts to clear",
+            }, indent=2))
+        else:
+            console.print("[green]No alerts to clear[/green]")
+        raise typer.Exit(0)
+
+    # Calculate how many to clear
+    to_clear = len(alerts_data) - keep_recent if keep_recent > 0 else len(alerts_data)
+
+    if to_clear <= 0:
+        if json_output:
+            console.print(json.dumps({
+                "success": True,
+                "cleared": 0,
+                "message": "Nothing to clear (keeping recent alerts)",
+            }, indent=2))
+        else:
+            console.print("[green]Nothing to clear (keeping recent alerts)[/green]")
+        raise typer.Exit(0)
+
+    # Confirm
+    if not force and not json_output:
+        console.print(f"[yellow]Will clear {to_clear} alert(s)[/yellow]")
+        if keep_recent > 0:
+            console.print(f"[dim]Keeping {keep_recent} most recent alert(s)[/dim]")
+        confirm = typer.confirm("Proceed?")
+        if not confirm:
+            console.print("[yellow]Clear cancelled[/yellow]")
+            raise typer.Exit(0)
+
+    # Clear alerts
+    if keep_recent > 0:
+        alerts_data = alerts_data[-keep_recent:]
+    else:
+        alerts_data = []
+
+    alert_log_path.write_text(json.dumps(alerts_data, indent=2))
+
+    if json_output:
+        console.print(json.dumps({
+            "success": True,
+            "cleared": to_clear,
+            "remaining": len(alerts_data),
+        }, indent=2))
+    else:
+        console.print(f"[green]Cleared {to_clear} alert(s)[/green]")
+
+
+@alerts_app.command("stats")
+def alerts_stats(
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Output as JSON",
+    ),
+    path: Optional[Path] = typer.Option(
+        None,
+        "--path",
+        "-p",
+        help="Project path (default: current directory)",
+    ),
+):
+    """
+    Show backup alert statistics.
+
+    Displays summary of alerts including counts by level, acknowledgment
+    status, and recent activity.
+    """
+    manager = _get_alert_manager(path)
+    alerts = manager.get_recent_alerts(limit=100)
+
+    # Calculate stats
+    total = len(alerts)
+    by_level = {}
+    for level in AlertLevel:
+        by_level[level.value] = sum(1 for a in alerts if a.level == level)
+
+    unacked = sum(1 for a in alerts if not a.acknowledged)
+    acked = total - unacked
+
+    # Recent (last 24h)
+    now = datetime.now()
+    recent_24h = sum(1 for a in alerts if (now - a.timestamp).total_seconds() < 86400)
+
+    # Critical count
+    critical = by_level.get("critical", 0)
+
+    stats = {
+        "total": total,
+        "by_level": by_level,
+        "acknowledged": acked,
+        "unacknowledged": unacked,
+        "last_24h": recent_24h,
+        "critical": critical,
+        "channels_configured": [c.name for c in manager._channels],
+    }
+
+    if json_output:
+        console.print(json.dumps(stats, indent=2))
+        raise typer.Exit(0)
+
+    console.print(Panel.fit(
+        "[bold blue]Alert Statistics[/bold blue]",
+        border_style="blue",
+    ))
+
+    # Overview table
+    table = Table(
+        box=box.ROUNDED,
+        show_header=False,
+    )
+    table.add_column("Metric", style="cyan")
+    table.add_column("Value")
+
+    table.add_row("Total Alerts", str(total))
+    table.add_row("Last 24 Hours", str(recent_24h))
+    table.add_row("Acknowledged", f"[green]{acked}[/green]")
+    table.add_row("Unacknowledged", f"[yellow]{unacked}[/yellow]" if unacked > 0 else "0")
+
+    if critical > 0:
+        table.add_row("Critical (Fire Alarms)", f"[bold red]{critical}[/bold red]")
+
+    console.print(table)
+
+    # By level breakdown
+    console.print("\n[bold]By Level:[/bold]")
+    for level in AlertLevel:
+        count = by_level.get(level.value, 0)
+        if count > 0:
+            console.print(f"  {level.emoji} {level.value}: {count}")
+
+    # Channels
+    console.print("\n[bold]Configured Channels:[/bold]")
+    for channel in manager._channels:
+        console.print(f"  - {channel.name}")
+
+
+@alerts_app.command("test")
+def alerts_test(
+    level: str = typer.Option(
+        "warning",
+        "--level",
+        "-l",
+        help="Alert level to test (info, warning, error, critical)",
+    ),
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Output as JSON",
+    ),
+    path: Optional[Path] = typer.Option(
+        None,
+        "--path",
+        "-p",
+        help="Project path (default: current directory)",
+    ),
+):
+    """
+    Send a test alert to verify alert channels are working.
+
+    Use this to confirm that alerts are being received through
+    configured channels (logging, file, system notifications, etc.).
+    """
+    from fastband.backup import send_backup_alert
+
+    # Parse level
+    try:
+        alert_level = AlertLevel(level.lower())
+    except ValueError:
+        console.print(f"[red]Invalid level: {level}[/red]")
+        valid = [l.value for l in AlertLevel]
+        console.print(f"[dim]Valid levels: {', '.join(valid)}[/dim]")
+        raise typer.Exit(1)
+
+    project_path = (path or Path.cwd()).resolve()
+
+    # Send test alert
+    alert = send_backup_alert(
+        level=alert_level,
+        title="Test Alert",
+        message=f"This is a test {alert_level.value} alert from Fastband backup system.",
+        context={"test": True, "timestamp": datetime.now().isoformat()},
+        project_path=project_path,
+    )
+
+    if alert:
+        if json_output:
+            console.print(json.dumps({
+                "success": True,
+                "alert_id": alert.id,
+                "level": alert.level.value,
+                "sent_to": alert.sent_to,
+            }, indent=2))
+        else:
+            console.print(f"[green]Test alert sent successfully[/green]")
+            console.print(f"  ID: {alert.id}")
+            console.print(f"  Level: {_format_alert_level(alert.level)}")
+            console.print(f"  Channels: {', '.join(alert.sent_to)}")
+    else:
+        if json_output:
+            console.print(json.dumps({
+                "success": False,
+                "message": "Alert was rate-limited or below threshold",
+            }, indent=2))
+        else:
+            console.print("[yellow]Alert was rate-limited or below threshold[/yellow]")
+            console.print("[dim]Try using --level critical to bypass rate limits[/dim]")
