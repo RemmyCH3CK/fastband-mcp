@@ -1365,79 +1365,558 @@ terraform apply -var-file=environments/dev.tfvars</code></pre>
             <div class="section" id="credentials">
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">Test Accounts & Credentials</h3>
+                        <h3 class="card-title">Credentials & API Keys</h3>
+                        <span class="badge badge-pending" id="credentialsBadge">Incomplete</span>
                     </div>
                     <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
-                        Store test user accounts and service credentials for development.
+                        Store all API keys, service logins, and test accounts. All data is encrypted locally.
                     </p>
                 </div>
 
-                <div class="grid grid-2">
-                    <div class="card">
-                        <h3 class="card-title" style="margin-bottom: 1rem;">Admin Account</h3>
-                        <div class="form-group">
-                            <label>Email</label>
-                            <input type="email" data-field="creds.admin.email" placeholder="admin@example.com">
-                        </div>
-                        <div class="form-group">
-                            <label>Password</label>
-                            <div class="password-field">
-                                <input type="password" data-field="creds.admin.password" placeholder="Admin password">
-                                <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                <!-- API Keys Section -->
+                <div class="card" style="margin-bottom: 1.5rem;">
+                    <h3 class="card-title" style="margin-bottom: 1rem;">🔑 API Keys</h3>
+                    <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.9rem;">
+                        These are the actual API keys used in your .env file and AWS Secrets Manager.
+                    </p>
+
+                    <div class="grid grid-2">
+                        <div style="padding: 1rem; background: var(--bg); border-radius: var(--radius); margin-bottom: 1rem;">
+                            <h4 style="margin-bottom: 0.75rem; color: var(--primary);">Claude (Anthropic)</h4>
+                            <div class="form-group">
+                                <label>API Key</label>
+                                <div class="password-field">
+                                    <input type="password" data-field="apiKeys.anthropic.key" placeholder="sk-ant-...">
+                                    <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                                </div>
                             </div>
+                            <ul class="checklist" style="margin-top: 0.5rem;">
+                                <li class="checklist-item">
+                                    <input type="checkbox" data-field="apiKeys.anthropic.created">
+                                    <span>Account created</span>
+                                </li>
+                                <li class="checklist-item">
+                                    <input type="checkbox" data-field="apiKeys.anthropic.verified">
+                                    <span>API key verified working</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div style="padding: 1rem; background: var(--bg); border-radius: var(--radius); margin-bottom: 1rem;">
+                            <h4 style="margin-bottom: 0.75rem; color: var(--primary);">OpenAI</h4>
+                            <div class="form-group">
+                                <label>API Key</label>
+                                <div class="password-field">
+                                    <input type="password" data-field="apiKeys.openai.key" placeholder="sk-...">
+                                    <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                                </div>
+                            </div>
+                            <ul class="checklist" style="margin-top: 0.5rem;">
+                                <li class="checklist-item">
+                                    <input type="checkbox" data-field="apiKeys.openai.created">
+                                    <span>Account created</span>
+                                </li>
+                                <li class="checklist-item">
+                                    <input type="checkbox" data-field="apiKeys.openai.verified">
+                                    <span>API key verified working</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div style="padding: 1rem; background: var(--bg); border-radius: var(--radius); margin-bottom: 1rem;">
+                            <h4 style="margin-bottom: 0.75rem; color: var(--primary);">Google (Gemini)</h4>
+                            <div class="form-group">
+                                <label>API Key</label>
+                                <div class="password-field">
+                                    <input type="password" data-field="apiKeys.google.key" placeholder="AIza...">
+                                    <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                                </div>
+                            </div>
+                            <ul class="checklist" style="margin-top: 0.5rem;">
+                                <li class="checklist-item">
+                                    <input type="checkbox" data-field="apiKeys.google.created">
+                                    <span>Account created</span>
+                                </li>
+                                <li class="checklist-item">
+                                    <input type="checkbox" data-field="apiKeys.google.verified">
+                                    <span>API key verified working</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div style="padding: 1rem; background: var(--bg); border-radius: var(--radius); margin-bottom: 1rem;">
+                            <h4 style="margin-bottom: 0.75rem; color: var(--primary);">Supabase</h4>
+                            <div class="form-group">
+                                <label>Project URL</label>
+                                <input type="text" data-field="apiKeys.supabase.url" placeholder="https://xxx.supabase.co">
+                            </div>
+                            <div class="form-group">
+                                <label>Anon/Public Key</label>
+                                <div class="password-field">
+                                    <input type="password" data-field="apiKeys.supabase.anonKey" placeholder="eyJ...">
+                                    <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Service Role Key</label>
+                                <div class="password-field">
+                                    <input type="password" data-field="apiKeys.supabase.serviceKey" placeholder="eyJ...">
+                                    <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>JWT Secret</label>
+                                <div class="password-field">
+                                    <input type="password" data-field="apiKeys.supabase.jwtSecret" placeholder="your-jwt-secret">
+                                    <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                                </div>
+                            </div>
+                            <ul class="checklist" style="margin-top: 0.5rem;">
+                                <li class="checklist-item">
+                                    <input type="checkbox" data-field="apiKeys.supabase.created">
+                                    <span>Project created</span>
+                                </li>
+                                <li class="checklist-item">
+                                    <input type="checkbox" data-field="apiKeys.supabase.verified">
+                                    <span>Auth tested working</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div style="padding: 1rem; background: var(--bg); border-radius: var(--radius); margin-bottom: 1rem;">
+                            <h4 style="margin-bottom: 0.75rem; color: var(--primary);">Stripe</h4>
+                            <div class="form-group">
+                                <label>Publishable Key</label>
+                                <div class="password-field">
+                                    <input type="password" data-field="apiKeys.stripe.publishable" placeholder="pk_test_...">
+                                    <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Secret Key</label>
+                                <div class="password-field">
+                                    <input type="password" data-field="apiKeys.stripe.secret" placeholder="sk_test_...">
+                                    <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Webhook Secret</label>
+                                <div class="password-field">
+                                    <input type="password" data-field="apiKeys.stripe.webhook" placeholder="whsec_...">
+                                    <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Pro Price ID</label>
+                                <input type="text" data-field="apiKeys.stripe.proPriceId" placeholder="price_...">
+                            </div>
+                            <ul class="checklist" style="margin-top: 0.5rem;">
+                                <li class="checklist-item">
+                                    <input type="checkbox" data-field="apiKeys.stripe.created">
+                                    <span>Account created</span>
+                                </li>
+                                <li class="checklist-item">
+                                    <input type="checkbox" data-field="apiKeys.stripe.products">
+                                    <span>Products/prices created</span>
+                                </li>
+                                <li class="checklist-item">
+                                    <input type="checkbox" data-field="apiKeys.stripe.webhook">
+                                    <span>Webhook configured</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div style="padding: 1rem; background: var(--bg); border-radius: var(--radius); margin-bottom: 1rem;">
+                            <h4 style="margin-bottom: 0.75rem; color: var(--primary);">AWS</h4>
+                            <div class="form-group">
+                                <label>Access Key ID</label>
+                                <div class="password-field">
+                                    <input type="password" data-field="apiKeys.aws.accessKey" placeholder="AKIA...">
+                                    <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Secret Access Key</label>
+                                <div class="password-field">
+                                    <input type="password" data-field="apiKeys.aws.secretKey" placeholder="...">
+                                    <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Region</label>
+                                <input type="text" data-field="apiKeys.aws.region" placeholder="us-west-2" value="us-west-2">
+                            </div>
+                            <div class="form-group">
+                                <label>Account ID</label>
+                                <input type="text" data-field="apiKeys.aws.accountId" placeholder="123456789012">
+                            </div>
+                            <ul class="checklist" style="margin-top: 0.5rem;">
+                                <li class="checklist-item">
+                                    <input type="checkbox" data-field="apiKeys.aws.created">
+                                    <span>Account created</span>
+                                </li>
+                                <li class="checklist-item">
+                                    <input type="checkbox" data-field="apiKeys.aws.iamUser">
+                                    <span>IAM user created</span>
+                                </li>
+                                <li class="checklist-item">
+                                    <input type="checkbox" data-field="apiKeys.aws.verified">
+                                    <span>Credentials verified</span>
+                                </li>
+                            </ul>
                         </div>
                     </div>
+                </div>
 
-                    <div class="card">
-                        <h3 class="card-title" style="margin-bottom: 1rem;">Test User (Free Tier)</h3>
-                        <div class="form-group">
-                            <label>Email</label>
-                            <input type="email" data-field="creds.testFree.email" placeholder="test-free@example.com">
-                        </div>
-                        <div class="form-group">
-                            <label>Password</label>
-                            <div class="password-field">
-                                <input type="password" data-field="creds.testFree.password" placeholder="Test password">
-                                <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                <!-- Service Dashboard Logins -->
+                <div class="card" style="margin-bottom: 1.5rem;">
+                    <h3 class="card-title" style="margin-bottom: 1rem;">🔐 Service Dashboard Logins</h3>
+                    <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.9rem;">
+                        Login credentials for each service's admin dashboard.
+                    </p>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Service</th>
+                                <th>Dashboard URL</th>
+                                <th>Email</th>
+                                <th>Password</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Anthropic</strong></td>
+                                <td><a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a></td>
+                                <td><input type="email" data-field="logins.anthropic.email" placeholder="email" style="width: 150px;"></td>
+                                <td>
+                                    <div class="password-field" style="width: 150px;">
+                                        <input type="password" data-field="logins.anthropic.password" placeholder="password">
+                                        <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>OpenAI</strong></td>
+                                <td><a href="https://platform.openai.com" target="_blank">platform.openai.com</a></td>
+                                <td><input type="email" data-field="logins.openai.email" placeholder="email" style="width: 150px;"></td>
+                                <td>
+                                    <div class="password-field" style="width: 150px;">
+                                        <input type="password" data-field="logins.openai.password" placeholder="password">
+                                        <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Google Cloud</strong></td>
+                                <td><a href="https://aistudio.google.com" target="_blank">aistudio.google.com</a></td>
+                                <td><input type="email" data-field="logins.google.email" placeholder="email" style="width: 150px;"></td>
+                                <td>
+                                    <div class="password-field" style="width: 150px;">
+                                        <input type="password" data-field="logins.google.password" placeholder="password">
+                                        <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Supabase</strong></td>
+                                <td><a href="https://supabase.com/dashboard" target="_blank">supabase.com/dashboard</a></td>
+                                <td><input type="email" data-field="logins.supabase.email" placeholder="email" style="width: 150px;"></td>
+                                <td>
+                                    <div class="password-field" style="width: 150px;">
+                                        <input type="password" data-field="logins.supabase.password" placeholder="password">
+                                        <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Stripe</strong></td>
+                                <td><a href="https://dashboard.stripe.com" target="_blank">dashboard.stripe.com</a></td>
+                                <td><input type="email" data-field="logins.stripe.email" placeholder="email" style="width: 150px;"></td>
+                                <td>
+                                    <div class="password-field" style="width: 150px;">
+                                        <input type="password" data-field="logins.stripe.password" placeholder="password">
+                                        <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>AWS</strong></td>
+                                <td><a href="https://console.aws.amazon.com" target="_blank">console.aws.amazon.com</a></td>
+                                <td><input type="email" data-field="logins.aws.email" placeholder="email" style="width: 150px;"></td>
+                                <td>
+                                    <div class="password-field" style="width: 150px;">
+                                        <input type="password" data-field="logins.aws.password" placeholder="password">
+                                        <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>GitHub</strong></td>
+                                <td><a href="https://github.com" target="_blank">github.com</a></td>
+                                <td><input type="email" data-field="logins.github.email" placeholder="email" style="width: 150px;"></td>
+                                <td>
+                                    <div class="password-field" style="width: 150px;">
+                                        <input type="password" data-field="logins.github.password" placeholder="password">
+                                        <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Step-by-Step Setup Guides -->
+                <div class="card" style="margin-bottom: 1.5rem;">
+                    <h3 class="card-title" style="margin-bottom: 1rem;">📚 Step-by-Step Service Setup</h3>
+
+                    <!-- Supabase Setup -->
+                    <details style="margin-bottom: 1rem; padding: 1rem; background: var(--bg); border-radius: var(--radius);">
+                        <summary style="cursor: pointer; font-weight: bold; color: var(--primary);">🔐 Supabase Setup (Auth + Database)</summary>
+                        <ol style="padding-left: 1.5rem; margin-top: 1rem; color: var(--text);">
+                            <li>Go to <a href="https://supabase.com" target="_blank">supabase.com</a> and sign up</li>
+                            <li>Click "New Project" → choose organization</li>
+                            <li>Enter project name: <code>fastband-hub</code></li>
+                            <li>Set a strong database password (save it!)</li>
+                            <li>Choose region closest to your users</li>
+                            <li>Wait for project to provision (~2 min)</li>
+                            <li>Go to Settings → API:
+                                <ul>
+                                    <li>Copy "Project URL" → <code>SUPABASE_URL</code></li>
+                                    <li>Copy "anon public" key → <code>SUPABASE_KEY</code></li>
+                                    <li>Copy "JWT Secret" → <code>SUPABASE_JWT_SECRET</code></li>
+                                </ul>
+                            </li>
+                            <li>Go to Authentication → Providers → enable Email</li>
+                            <li>Optional: Enable Google/GitHub OAuth</li>
+                        </ol>
+                        <ul class="checklist" style="margin-top: 1rem;">
+                            <li class="checklist-item">
+                                <input type="checkbox" data-field="setup.supabase.complete">
+                                <span>Supabase setup complete</span>
+                            </li>
+                        </ul>
+                    </details>
+
+                    <!-- Stripe Setup -->
+                    <details style="margin-bottom: 1rem; padding: 1rem; background: var(--bg); border-radius: var(--radius);">
+                        <summary style="cursor: pointer; font-weight: bold; color: var(--primary);">💳 Stripe Setup (Payments)</summary>
+                        <ol style="padding-left: 1.5rem; margin-top: 1rem; color: var(--text);">
+                            <li>Go to <a href="https://dashboard.stripe.com/register" target="_blank">stripe.com</a> and create account</li>
+                            <li>Complete business verification (can skip for test mode)</li>
+                            <li>Go to Developers → API Keys:
+                                <ul>
+                                    <li>Copy "Publishable key" → <code>STRIPE_PUBLISHABLE_KEY</code></li>
+                                    <li>Copy "Secret key" → <code>STRIPE_SECRET_KEY</code></li>
+                                </ul>
+                            </li>
+                            <li>Create Products:
+                                <ul>
+                                    <li>Products → Add Product → "Fastband Hub Pro"</li>
+                                    <li>Add pricing: $29/month (or your price)</li>
+                                    <li>Copy the Price ID → <code>STRIPE_PRO_PRICE_ID</code></li>
+                                </ul>
+                            </li>
+                            <li>Set up Webhook:
+                                <ul>
+                                    <li>Developers → Webhooks → Add endpoint</li>
+                                    <li>URL: <code>https://your-domain.com/api/stripe/webhook</code></li>
+                                    <li>Events: checkout.session.completed, customer.subscription.*</li>
+                                    <li>Copy Signing secret → <code>STRIPE_WEBHOOK_SECRET</code></li>
+                                </ul>
+                            </li>
+                        </ol>
+                        <ul class="checklist" style="margin-top: 1rem;">
+                            <li class="checklist-item">
+                                <input type="checkbox" data-field="setup.stripe.complete">
+                                <span>Stripe setup complete</span>
+                            </li>
+                        </ul>
+                    </details>
+
+                    <!-- Anthropic Setup -->
+                    <details style="margin-bottom: 1rem; padding: 1rem; background: var(--bg); border-radius: var(--radius);">
+                        <summary style="cursor: pointer; font-weight: bold; color: var(--primary);">🤖 Claude/Anthropic Setup</summary>
+                        <ol style="padding-left: 1.5rem; margin-top: 1rem; color: var(--text);">
+                            <li>Go to <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a></li>
+                            <li>Sign up / Log in</li>
+                            <li>Add payment method (Settings → Billing)</li>
+                            <li>Go to API Keys → Create Key</li>
+                            <li>Name it: <code>fastband-hub-production</code></li>
+                            <li>Copy the key → <code>ANTHROPIC_API_KEY</code></li>
+                            <li>Set usage limits if desired</li>
+                        </ol>
+                        <ul class="checklist" style="margin-top: 1rem;">
+                            <li class="checklist-item">
+                                <input type="checkbox" data-field="setup.anthropic.complete">
+                                <span>Anthropic setup complete</span>
+                            </li>
+                        </ul>
+                    </details>
+
+                    <!-- OpenAI Setup -->
+                    <details style="margin-bottom: 1rem; padding: 1rem; background: var(--bg); border-radius: var(--radius);">
+                        <summary style="cursor: pointer; font-weight: bold; color: var(--primary);">🧠 OpenAI Setup</summary>
+                        <ol style="padding-left: 1.5rem; margin-top: 1rem; color: var(--text);">
+                            <li>Go to <a href="https://platform.openai.com" target="_blank">platform.openai.com</a></li>
+                            <li>Sign up / Log in</li>
+                            <li>Add payment method (Settings → Billing)</li>
+                            <li>Go to API Keys → Create new secret key</li>
+                            <li>Name it: <code>fastband-hub</code></li>
+                            <li>Copy the key → <code>OPENAI_API_KEY</code></li>
+                            <li>Set usage limits (Settings → Limits)</li>
+                        </ol>
+                        <ul class="checklist" style="margin-top: 1rem;">
+                            <li class="checklist-item">
+                                <input type="checkbox" data-field="setup.openai.complete">
+                                <span>OpenAI setup complete</span>
+                            </li>
+                        </ul>
+                    </details>
+
+                    <!-- Google/Gemini Setup -->
+                    <details style="margin-bottom: 1rem; padding: 1rem; background: var(--bg); border-radius: var(--radius);">
+                        <summary style="cursor: pointer; font-weight: bold; color: var(--primary);">✨ Google Gemini Setup (Free Tier)</summary>
+                        <ol style="padding-left: 1.5rem; margin-top: 1rem; color: var(--text);">
+                            <li>Go to <a href="https://aistudio.google.com" target="_blank">aistudio.google.com</a></li>
+                            <li>Sign in with Google account</li>
+                            <li>Click "Get API Key" in sidebar</li>
+                            <li>Create API key in new project</li>
+                            <li>Copy the key → <code>GOOGLE_API_KEY</code></li>
+                            <li>Free tier: 15 requests/minute, 1M tokens/day</li>
+                        </ol>
+                        <ul class="checklist" style="margin-top: 1rem;">
+                            <li class="checklist-item">
+                                <input type="checkbox" data-field="setup.google.complete">
+                                <span>Google Gemini setup complete</span>
+                            </li>
+                        </ul>
+                    </details>
+
+                    <!-- AWS Setup -->
+                    <details style="margin-bottom: 1rem; padding: 1rem; background: var(--bg); border-radius: var(--radius);">
+                        <summary style="cursor: pointer; font-weight: bold; color: var(--primary);">☁️ AWS Setup (Production Cloud)</summary>
+                        <ol style="padding-left: 1.5rem; margin-top: 1rem; color: var(--text);">
+                            <li>Go to <a href="https://aws.amazon.com" target="_blank">aws.amazon.com</a> → Create Account</li>
+                            <li>Complete verification (credit card required)</li>
+                            <li>Set up billing alerts:
+                                <ul>
+                                    <li>Billing → Budgets → Create budget</li>
+                                    <li>Set monthly budget (e.g., $500)</li>
+                                </ul>
+                            </li>
+                            <li>Create IAM user for Terraform:
+                                <ul>
+                                    <li>IAM → Users → Create user</li>
+                                    <li>Name: <code>fastband-terraform</code></li>
+                                    <li>Attach policy: <code>AdministratorAccess</code> (or custom)</li>
+                                    <li>Security credentials → Create access key</li>
+                                    <li>Copy Access Key ID → <code>AWS_ACCESS_KEY_ID</code></li>
+                                    <li>Copy Secret Access Key → <code>AWS_SECRET_ACCESS_KEY</code></li>
+                                </ul>
+                            </li>
+                            <li>Create S3 bucket for Terraform state:
+                                <ul>
+                                    <li>S3 → Create bucket: <code>fastband-terraform-state</code></li>
+                                    <li>Enable versioning</li>
+                                </ul>
+                            </li>
+                            <li>Create DynamoDB table for state locking:
+                                <ul>
+                                    <li>DynamoDB → Create table: <code>fastband-terraform-locks</code></li>
+                                    <li>Partition key: <code>LockID</code> (String)</li>
+                                </ul>
+                            </li>
+                            <li>Store secrets in Secrets Manager:
+                                <ul>
+                                    <li>Secrets Manager → Store new secret</li>
+                                    <li>Create secrets for: Anthropic, Supabase, Stripe keys</li>
+                                </ul>
+                            </li>
+                        </ol>
+                        <ul class="checklist" style="margin-top: 1rem;">
+                            <li class="checklist-item">
+                                <input type="checkbox" data-field="setup.aws.complete">
+                                <span>AWS setup complete</span>
+                            </li>
+                        </ul>
+                    </details>
+                </div>
+
+                <!-- Test Accounts Section -->
+                <div class="card" style="margin-bottom: 1.5rem;">
+                    <h3 class="card-title" style="margin-bottom: 1rem;">👤 Hub Test Accounts</h3>
+                    <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.9rem;">
+                        Test user accounts for the Hub application itself.
+                    </p>
+
+                    <div class="grid grid-2">
+                        <div style="padding: 1rem; background: var(--bg); border-radius: var(--radius);">
+                            <h4 style="margin-bottom: 0.75rem;">Admin Account</h4>
+                            <div class="form-group">
+                                <label>Email</label>
+                                <input type="email" data-field="creds.admin.email" placeholder="admin@example.com">
+                            </div>
+                            <div class="form-group">
+                                <label>Password</label>
+                                <div class="password-field">
+                                    <input type="password" data-field="creds.admin.password" placeholder="Admin password">
+                                    <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="card">
-                        <h3 class="card-title" style="margin-bottom: 1rem;">Test User (Pro Tier)</h3>
-                        <div class="form-group">
-                            <label>Email</label>
-                            <input type="email" data-field="creds.testPro.email" placeholder="test-pro@example.com">
-                        </div>
-                        <div class="form-group">
-                            <label>Password</label>
-                            <div class="password-field">
-                                <input type="password" data-field="creds.testPro.password" placeholder="Test password">
-                                <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                        <div style="padding: 1rem; background: var(--bg); border-radius: var(--radius);">
+                            <h4 style="margin-bottom: 0.75rem;">Test User (Free Tier)</h4>
+                            <div class="form-group">
+                                <label>Email</label>
+                                <input type="email" data-field="creds.testFree.email" placeholder="test-free@example.com">
+                            </div>
+                            <div class="form-group">
+                                <label>Password</label>
+                                <div class="password-field">
+                                    <input type="password" data-field="creds.testFree.password" placeholder="Test password">
+                                    <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="card">
-                        <h3 class="card-title" style="margin-bottom: 1rem;">Database Credentials</h3>
-                        <div class="form-group">
-                            <label>DB Host</label>
-                            <input type="text" data-field="creds.db.host" placeholder="localhost">
-                        </div>
-                        <div class="form-group">
-                            <label>DB User</label>
-                            <input type="text" data-field="creds.db.user" placeholder="fastband">
-                        </div>
-                        <div class="form-group">
-                            <label>DB Password</label>
-                            <div class="password-field">
-                                <input type="password" data-field="creds.db.password" placeholder="Database password">
-                                <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                        <div style="padding: 1rem; background: var(--bg); border-radius: var(--radius);">
+                            <h4 style="margin-bottom: 0.75rem;">Test User (Pro Tier)</h4>
+                            <div class="form-group">
+                                <label>Email</label>
+                                <input type="email" data-field="creds.testPro.email" placeholder="test-pro@example.com">
+                            </div>
+                            <div class="form-group">
+                                <label>Password</label>
+                                <div class="password-field">
+                                    <input type="password" data-field="creds.testPro.password" placeholder="Test password">
+                                    <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                                </div>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label>DB Name</label>
-                            <input type="text" data-field="creds.db.name" placeholder="fastband_hub">
+
+                        <div style="padding: 1rem; background: var(--bg); border-radius: var(--radius);">
+                            <h4 style="margin-bottom: 0.75rem;">Database Credentials</h4>
+                            <div class="form-group">
+                                <label>DB Host</label>
+                                <input type="text" data-field="creds.db.host" placeholder="localhost">
+                            </div>
+                            <div class="form-group">
+                                <label>DB User</label>
+                                <input type="text" data-field="creds.db.user" placeholder="fastband">
+                            </div>
+                            <div class="form-group">
+                                <label>DB Password</label>
+                                <div class="password-field">
+                                    <input type="password" data-field="creds.db.password" placeholder="Database password">
+                                    <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>DB Name</label>
+                                <input type="text" data-field="creds.db.name" placeholder="fastband_hub">
+                            </div>
                         </div>
                     </div>
                 </div>
