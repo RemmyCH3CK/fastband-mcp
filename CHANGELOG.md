@@ -7,10 +7,40 @@ and this project adheres to a hybrid versioning scheme: `vMAJOR.YYYY.MM.PATCH[-p
 
 ## [Unreleased]
 
-### Added
-- CHANGELOG.md following Keep a Changelog format
-- VERSION file for CI/CD integration
-- Version tuple in `__init__.py`
+## [1.2025.12.0] - 2025-12-29
+
+### 🚀 First Stable Release
+
+Fastband MCP v1.0 - A universal MCP server for AI-powered development.
+
+### AI Hub (New!)
+
+#### Added
+- **Session Management** - LRU pooling, idle cleanup, rate limiting
+- **Semantic Memory** - SQLite-backed RAG with vector search
+- **Embeddings System** - OpenAI, Gemini, Ollama providers
+- **Text Chunkers** - Fixed-size and semantic chunking strategies
+- **Billing Integration** - Stripe subscriptions and usage tracking
+- **Chat Orchestration** - Multi-turn conversations with tool execution
+- **Web Frontend** - React/TypeScript dashboard (src/fastband/hub/web)
+- **Infrastructure** - Terraform modules for AWS deployment
+- 63 comprehensive Hub tests
+
+#### Fixed
+- Thread-local SQLite connection leaks in MemoryStore
+- datetime.utcnow() deprecation warnings (Python 3.12+)
+
+### Phase 6: Polish & Launch
+
+#### Added
+- Complete API documentation and guides
+- GitHub Actions CI/CD pipeline
+- 1400+ tests with 84% coverage
+- Performance benchmarks and optimization
+- Security review with path validation
+- Example projects (CLI, web app, MCP demos)
+- PyPI package configuration
+- CHANGELOG.md and VERSION file
 
 ## [1.2025.12.0-alpha.1] - 2025-12-28
 
@@ -117,5 +147,6 @@ This project uses a hybrid versioning format: `vMAJOR.YYYY.MM.PATCH[-prerelease]
 | PATCH       | Bug fixes and minor improvements      | 0, 1, 2      |
 | prerelease  | Development stage (optional)          | alpha.1, beta.1, rc.1 |
 
-[Unreleased]: https://github.com/RemmyCH3CK/fastband-mcp/compare/v1.2025.12.0-alpha.1...HEAD
+[Unreleased]: https://github.com/RemmyCH3CK/fastband-mcp/compare/v1.2025.12.0...HEAD
+[1.2025.12.0]: https://github.com/RemmyCH3CK/fastband-mcp/releases/tag/v1.2025.12.0
 [1.2025.12.0-alpha.1]: https://github.com/RemmyCH3CK/fastband-mcp/releases/tag/v1.2025.12.0-alpha.1

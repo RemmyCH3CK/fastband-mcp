@@ -5,8 +5,8 @@ An AI-agnostic MCP server with adaptive tools, ticket management,
 and multi-agent coordination.
 """
 
-__version__ = "1.2025.12.0-alpha.1"
-__version_tuple__ = (1, 2025, 12, 0, "alpha", 1)
+__version__ = "1.2025.12.0"
+__version_tuple__ = (1, 2025, 12, 0)
 __author__ = "Fastband Team"
 
 from fastband.core.config import get_config, FastbandConfig

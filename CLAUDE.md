@@ -11,7 +11,7 @@ Fastband MCP is a universal MCP (Model Context Protocol) server that enables AI 
 
 ## Current Status
 
-**Version**: v1.2025.12.0-alpha.1 (ready for PyPI release)
+**Version**: v1.2025.12.0 (ready for PyPI release)
 
 ### Completed Phases
 
