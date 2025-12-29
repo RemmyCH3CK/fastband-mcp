@@ -221,9 +221,13 @@ class BackupManager:
         return current_checksum != last_checksum
 
     def _generate_backup_id(self) -> str:
-        """Generate a unique backup ID."""
+        """Generate a unique backup ID with microseconds for uniqueness."""
+        import uuid
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        return timestamp
+        # Add short UUID suffix to prevent collisions when multiple backups
+        # are created in the same second (e.g., pre-restore backup)
+        suffix = uuid.uuid4().hex[:6]
+        return f"{timestamp}_{suffix}"
 
     def _should_exclude(self, path: Path) -> bool:
         """Check if a path should be excluded from backup."""
@@ -443,16 +447,17 @@ class BackupManager:
             if pre_restore_backup:
                 logger.info(f"Created pre-restore backup: {pre_restore_backup.id}")
 
-            # Extract backup
-            with tarfile.open(backup_path, "r:gz") as tar:
-                # Extract to temp directory first
-                temp_dir = self.backup_dir / f".restore_{backup_id}"
-                temp_dir.mkdir(parents=True, exist_ok=True)
+            # Extract backup to system temp directory (outside project path)
+            # to avoid deleting extracted content when restoring .fastband
+            import tempfile
+            with tempfile.TemporaryDirectory(prefix=f"fastband_restore_{backup_id}_") as temp_dir:
+                temp_path = Path(temp_dir)
 
-                tar.extractall(temp_dir)
+                with tarfile.open(backup_path, "r:gz") as tar:
+                    tar.extractall(temp_path)
 
-                # Move files to target
-                for item in temp_dir.iterdir():
+                # Move files to target (outside tarfile context)
+                for item in temp_path.iterdir():
                     target = restore_path / item.name
                     if item.is_dir():
                         if target.exists():
@@ -461,9 +466,6 @@ class BackupManager:
                     else:
                         target.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(item, target)
-
-                # Clean up temp directory
-                shutil.rmtree(temp_dir)
 
             logger.info(f"Restore completed: {backup_info.files_count} files")
             return True

@@ -183,7 +183,10 @@ class TestProviderRegistryPerformance:
         """Test that checking provider registration is fast."""
         from fastband.providers.registry import ProviderRegistry
 
-        # Built-in providers are registered on import
+        # Warm up call to trigger any lazy initialization
+        ProviderRegistry.is_registered("claude")
+
+        # Now time the actual call (should be pure dict lookup)
         elapsed = time_function(ProviderRegistry.is_registered, "claude")
         # Allow up to 1ms - very fast but accounts for system variability
         assert elapsed < 1.0, f"is_registered took {elapsed:.2f}ms (target: <1.0ms)"

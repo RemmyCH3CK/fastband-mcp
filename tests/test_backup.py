@@ -530,7 +530,8 @@ class TestBackupScheduler:
         time_str = backup_scheduler._time_until_next_backup(state)
 
         assert "1h" in time_str
-        assert "30m" in time_str
+        # Allow for slight timing variation (29m or 30m are both acceptable)
+        assert "29m" in time_str or "30m" in time_str
 
     def test_time_until_next_backup_imminent(self, backup_scheduler):
         """Test next backup time when imminent."""
@@ -683,12 +684,11 @@ class TestBackupIntegration:
             max_backups=3,
             retention_days=1,
         )
-        manager = BackupManager(project_path=temp_project, config=config)
         scheduler = BackupScheduler(project_path=temp_project, config=config)
 
-        # Create more backups than max
+        # Create more backups than max using scheduler's manager
         for i in range(5):
-            manager.create_backup(
+            scheduler.manager.create_backup(
                 backup_type=BackupType.FULL,
                 description=f"Backup {i}",
                 force=True,
@@ -699,7 +699,7 @@ class TestBackupIntegration:
         scheduler._prune_old_backups()
 
         # Should be at or below max
-        backups = manager.list_backups()
+        backups = scheduler.manager.list_backups()
         assert len(backups) <= config.max_backups
 
 
