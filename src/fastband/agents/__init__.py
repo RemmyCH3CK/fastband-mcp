@@ -6,6 +6,7 @@ Provides multi-agent coordination capabilities:
 - Clearance/hold system for workflow coordination
 - Conflict detection and resolution
 - Rebuild announcements and status tracking
+- Agent onboarding and bible enforcement
 """
 
 from fastband.agents.ops_log import (
@@ -21,6 +22,13 @@ from fastband.agents.coordination import (
     announce_rebuild,
     get_agent_status,
 )
+from fastband.agents.onboarding import (
+    AgentOnboarding,
+    AgentSession,
+    OnboardingRequirement,
+    get_onboarding,
+    reset_onboarding,
+)
 
 __all__ = [
     # Core ops log
@@ -34,4 +42,10 @@ __all__ = [
     "request_clearance",
     "announce_rebuild",
     "get_agent_status",
+    # Agent onboarding
+    "AgentOnboarding",
+    "AgentSession",
+    "OnboardingRequirement",
+    "get_onboarding",
+    "reset_onboarding",
 ]

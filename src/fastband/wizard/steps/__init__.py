@@ -22,6 +22,7 @@ def get_default_steps() -> List[WizardStep]:
     from fastband.wizard.steps.github import GitHubIntegrationStep
     from fastband.wizard.steps.tickets import TicketManagerStep
     from fastband.wizard.steps.backup import BackupConfigurationStep
+    from fastband.wizard.steps.bible import AgentBibleStep
 
     return [
         ProjectDetectionStep(),
@@ -30,6 +31,7 @@ def get_default_steps() -> List[WizardStep]:
         GitHubIntegrationStep(),
         TicketManagerStep(),
         BackupConfigurationStep(),
+        AgentBibleStep(),  # Must be last - generates bible from all collected config
     ]
 
 

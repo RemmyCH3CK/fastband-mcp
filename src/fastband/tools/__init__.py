@@ -107,6 +107,21 @@ def _register_builtin_tools() -> None:
             ToolCategory.AI
         )
 
+    # Agent onboarding tools
+    agent_tools = [
+        ("start_onboarding", "StartOnboardingTool"),
+        ("acknowledge_document", "AcknowledgeDocumentTool"),
+        ("complete_onboarding", "CompleteOnboardingTool"),
+        ("get_onboarding_status", "GetOnboardingStatusTool"),
+    ]
+    for name, class_name in agent_tools:
+        registry.register_lazy(
+            name,
+            "fastband.tools.agents",
+            class_name,
+            ToolCategory.CORE
+        )
+
 
 # Register on import (but don't import tool modules yet)
 _register_builtin_tools()
@@ -151,6 +166,20 @@ except ImportError:
     _tickets_available = False
     TICKET_TOOLS = []
 
+# Agent onboarding tools
+try:
+    from fastband.tools.agents import (
+        StartOnboardingTool,
+        AcknowledgeDocumentTool,
+        CompleteOnboardingTool,
+        GetOnboardingStatusTool,
+        AGENT_TOOLS,
+    )
+    _agents_available = True
+except ImportError:
+    _agents_available = False
+    AGENT_TOOLS = []
+
 __all__ = [
     # Base
     "Tool",
@@ -173,6 +202,8 @@ __all__ = [
     "GIT_TOOLS",
     # Ticket tools
     "TICKET_TOOLS",
+    # Agent tools
+    "AGENT_TOOLS",
 ]
 
 # Add git tool classes to __all__ if available
@@ -196,4 +227,13 @@ if _tickets_available:
         "UpdateTicketTool",
         "SearchTicketsTool",
         "AddTicketCommentTool",
+    ])
+
+# Add agent tool classes to __all__ if available
+if _agents_available:
+    __all__.extend([
+        "StartOnboardingTool",
+        "AcknowledgeDocumentTool",
+        "CompleteOnboardingTool",
+        "GetOnboardingStatusTool",
     ])
