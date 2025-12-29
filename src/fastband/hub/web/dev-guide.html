@@ -1,0 +1,1983 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fastband Hub - Development Guide</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --primary-light: #818cf8;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --bg: #0f172a;
+            --bg-card: #1e293b;
+            --bg-input: #334155;
+            --text: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border: #475569;
+            --radius: 8px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* Lock Screen */
+        #lockScreen {
+            position: fixed;
+            inset: 0;
+            background: var(--bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .lock-container {
+            background: var(--bg-card);
+            padding: 2rem;
+            border-radius: var(--radius);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .lock-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .lock-container h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .lock-container p {
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        /* Main Layout */
+        #app {
+            display: none;
+            min-height: 100vh;
+        }
+
+        header {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 600;
+            font-size: 1.25rem;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        /* Navigation */
+        nav {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            padding: 0 2rem;
+            overflow-x: auto;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 0.25rem;
+        }
+
+        .tab {
+            padding: 1rem 1.25rem;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.9rem;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .tab:hover {
+            color: var(--text);
+        }
+
+        .tab.active {
+            color: var(--primary-light);
+            border-bottom-color: var(--primary);
+        }
+
+        /* Content */
+        main {
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        /* Forms */
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 0.35rem;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 0.65rem 0.85rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-size: 0.9rem;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .input-group input {
+            flex: 1;
+        }
+
+        /* Buttons */
+        button {
+            padding: 0.65rem 1.25rem;
+            border-radius: var(--radius);
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-secondary {
+            background: var(--bg-input);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border);
+        }
+
+        .btn-danger {
+            background: var(--error);
+            color: white;
+        }
+
+        .btn-small {
+            padding: 0.4rem 0.75rem;
+            font-size: 0.8rem;
+        }
+
+        .btn-icon {
+            padding: 0.5rem;
+            background: transparent;
+            border: 1px solid var(--border);
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.25rem 0.6rem;
+            border-radius: 99px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .badge-pending {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--warning);
+        }
+
+        .badge-configured {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--success);
+        }
+
+        .badge-error {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--error);
+        }
+
+        .badge-info {
+            background: rgba(99, 102, 241, 0.15);
+            color: var(--primary-light);
+        }
+
+        /* Progress */
+        .progress-container {
+            margin-bottom: 1.5rem;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: var(--bg-input);
+            border-radius: 99px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--success));
+            border-radius: 99px;
+            transition: width 0.3s;
+        }
+
+        /* Checklist */
+        .checklist {
+            list-style: none;
+        }
+
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .checklist-item:last-child {
+            border-bottom: none;
+        }
+
+        .checklist-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--primary);
+        }
+
+        /* Grid */
+        .grid {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .grid-2 {
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        }
+
+        .grid-3 {
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        }
+
+        /* Quick Links */
+        .quick-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .quick-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: var(--bg-input);
+            border-radius: var(--radius);
+            text-decoration: none;
+            color: var(--text);
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+
+        .quick-link:hover {
+            background: var(--border);
+        }
+
+        /* Service Item */
+        .service-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 1rem;
+            background: var(--bg);
+            border-radius: var(--radius);
+            margin-bottom: 0.75rem;
+        }
+
+        .service-info h4 {
+            font-size: 0.95rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .service-info p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* Phase Timeline */
+        .timeline {
+            position: relative;
+            padding-left: 2rem;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 7px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--border);
+        }
+
+        .timeline-item {
+            position: relative;
+            padding-bottom: 1.5rem;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -2rem;
+            top: 0.35rem;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--border);
+            border: 2px solid var(--bg);
+        }
+
+        .timeline-item.completed::before {
+            background: var(--success);
+        }
+
+        .timeline-item.in-progress::before {
+            background: var(--primary);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
+        }
+
+        .timeline-item h4 {
+            font-size: 1rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .timeline-item p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .timeline-tasks {
+            margin-top: 0.75rem;
+            padding-left: 1rem;
+        }
+
+        .timeline-task {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 0.35rem;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            font-weight: 600;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        td {
+            font-size: 0.9rem;
+        }
+
+        code {
+            background: var(--bg);
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 0.85rem;
+        }
+
+        /* Password Toggle */
+        .password-field {
+            position: relative;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 0.25rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            header {
+                padding: 1rem;
+            }
+            nav {
+                padding: 0 1rem;
+            }
+            main {
+                padding: 1rem;
+            }
+            .grid-2, .grid-3 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Print */
+        @media print {
+            #lockScreen, header, nav, .btn-icon, .password-toggle {
+                display: none !important;
+            }
+            body {
+                background: white;
+                color: black;
+            }
+            .card {
+                break-inside: avoid;
+                border: 1px solid #ddd;
+            }
+        }
+
+        /* Toast Notifications */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            padding: 1rem 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            opacity: 0;
+            transform: translateY(1rem);
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .toast-success {
+            border-color: var(--success);
+        }
+    </style>
+</head>
+<body>
+    <!-- Lock Screen -->
+    <div id="lockScreen">
+        <div class="lock-container">
+            <div class="lock-icon">🔐</div>
+            <h1>Fastband Hub Dev Guide</h1>
+            <p id="lockMessage">Enter your password to access the development configuration</p>
+            <form id="lockForm">
+                <div class="form-group">
+                    <input type="password" id="passwordInput" placeholder="Enter password" autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn-primary" style="width: 100%;" id="unlockBtn">Unlock</button>
+            </form>
+            <div id="setupMode" style="display: none; margin-top: 1rem;">
+                <p style="color: var(--warning); margin-bottom: 1rem;">First time setup - create your password</p>
+                <div class="form-group">
+                    <input type="password" id="newPassword" placeholder="Create password (min 8 chars)">
+                </div>
+                <div class="form-group">
+                    <input type="password" id="confirmPassword" placeholder="Confirm password">
+                </div>
+                <button type="button" class="btn-primary" style="width: 100%;" onclick="setupPassword()">Create Password</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">⚡</div>
+                <span>Fastband Hub Dev Guide</span>
+            </div>
+            <div class="header-actions">
+                <button class="btn-secondary btn-small" onclick="exportConfig()">📤 Export</button>
+                <button class="btn-secondary btn-small" onclick="lockApp()">🔒 Lock</button>
+            </div>
+        </header>
+
+        <nav>
+            <div class="tabs">
+                <button class="tab active" data-tab="overview">Overview</button>
+                <button class="tab" data-tab="providers">AI Providers</button>
+                <button class="tab" data-tab="services">Services</button>
+                <button class="tab" data-tab="credentials">Credentials</button>
+                <button class="tab" data-tab="config">Configuration</button>
+                <button class="tab" data-tab="database">Database</button>
+                <button class="tab" data-tab="roadmap">Roadmap</button>
+                <button class="tab" data-tab="notes">Dev Notes</button>
+            </div>
+        </nav>
+
+        <main>
+            <!-- Overview Section -->
+            <div class="section active" id="overview">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Hub Implementation Progress</h3>
+                        <span class="badge badge-info" id="overallProgress">0%</span>
+                    </div>
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-2">
+                    <div class="card">
+                        <h3 class="card-title" style="margin-bottom: 1rem;">Quick Status</h3>
+                        <ul class="checklist">
+                            <li class="checklist-item">
+                                <input type="checkbox" data-field="status.coreModels">
+                                <span>Core data models defined</span>
+                            </li>
+                            <li class="checklist-item">
+                                <input type="checkbox" data-field="status.sessionMgmt">
+                                <span>Session management working</span>
+                            </li>
+                            <li class="checklist-item">
+                                <input type="checkbox" data-field="status.chatManager">
+                                <span>Chat manager implemented</span>
+                            </li>
+                            <li class="checklist-item">
+                                <input type="checkbox" data-field="status.toolExecution">
+                                <span>Tool execution pipeline</span>
+                            </li>
+                            <li class="checklist-item">
+                                <input type="checkbox" data-field="status.ragMemory">
+                                <span>RAG memory system</span>
+                            </li>
+                            <li class="checklist-item">
+                                <input type="checkbox" data-field="status.webApi">
+                                <span>REST API endpoints</span>
+                            </li>
+                            <li class="checklist-item">
+                                <input type="checkbox" data-field="status.webUi">
+                                <span>Web UI (React/Vite)</span>
+                            </li>
+                            <li class="checklist-item">
+                                <input type="checkbox" data-field="status.streaming">
+                                <span>SSE streaming responses</span>
+                            </li>
+                            <li class="checklist-item">
+                                <input type="checkbox" data-field="status.auth">
+                                <span>Authentication system</span>
+                            </li>
+                            <li class="checklist-item">
+                                <input type="checkbox" data-field="status.deployment">
+                                <span>Docker deployment ready</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="card-title" style="margin-bottom: 1rem;">Quick Links</h3>
+                        <div class="quick-links">
+                            <a href="#" class="quick-link" data-field="links.hubLocal">
+                                🌐 Hub Local
+                            </a>
+                            <a href="#" class="quick-link" data-field="links.apiDocs">
+                                📚 API Docs
+                            </a>
+                            <a href="#" class="quick-link" data-field="links.github">
+                                🐙 GitHub Repo
+                            </a>
+                            <a href="#" class="quick-link" data-field="links.ticketDash">
+                                🎫 Ticket Dashboard
+                            </a>
+                        </div>
+                        <div style="margin-top: 1.5rem;">
+                            <h4 style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.75rem;">Edit Quick Links</h4>
+                            <div class="form-group">
+                                <label>Hub Local URL</label>
+                                <input type="url" data-field="links.hubLocalUrl" placeholder="http://localhost:5051">
+                            </div>
+                            <div class="form-group">
+                                <label>API Docs URL</label>
+                                <input type="url" data-field="links.apiDocsUrl" placeholder="http://localhost:5051/docs">
+                            </div>
+                            <div class="form-group">
+                                <label>GitHub Repo URL</label>
+                                <input type="url" data-field="links.githubUrl" placeholder="https://github.com/...">
+                            </div>
+                            <div class="form-group">
+                                <label>Ticket Dashboard URL</label>
+                                <input type="url" data-field="links.ticketDashUrl" placeholder="http://localhost:5050">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Providers Section -->
+            <div class="section" id="providers">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">AI Provider Configuration</h3>
+                        <span class="badge badge-pending" id="providersBadge">Pending</span>
+                    </div>
+                    <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
+                        Configure API keys for the AI providers the Hub will use for chat completions.
+                    </p>
+
+                    <div class="grid grid-2">
+                        <div class="service-item">
+                            <div class="service-info">
+                                <h4>🟣 Claude (Anthropic)</h4>
+                                <p>Primary provider for code understanding</p>
+                            </div>
+                            <span class="badge badge-pending" data-status="claude">Pending</span>
+                        </div>
+                        <div class="service-item">
+                            <div class="service-info">
+                                <h4>🟢 OpenAI (GPT-4)</h4>
+                                <p>Alternative provider</p>
+                            </div>
+                            <span class="badge badge-pending" data-status="openai">Pending</span>
+                        </div>
+                        <div class="service-item">
+                            <div class="service-info">
+                                <h4>🔵 Google Gemini</h4>
+                                <p>Multi-modal support</p>
+                            </div>
+                            <span class="badge badge-pending" data-status="gemini">Pending</span>
+                        </div>
+                        <div class="service-item">
+                            <div class="service-info">
+                                <h4>🟠 Ollama (Local)</h4>
+                                <p>Self-hosted LLMs</p>
+                            </div>
+                            <span class="badge badge-pending" data-status="ollama">Pending</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-2">
+                    <div class="card">
+                        <h3 class="card-title" style="margin-bottom: 1rem;">Claude (Anthropic)</h3>
+                        <div class="form-group">
+                            <label>API Key</label>
+                            <div class="password-field">
+                                <input type="password" data-field="providers.claude.apiKey" placeholder="sk-ant-...">
+                                <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Default Model</label>
+                            <select data-field="providers.claude.model">
+                                <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+                                <option value="claude-opus-4-20250514">Claude Opus 4</option>
+                                <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                                <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Max Tokens</label>
+                            <input type="number" data-field="providers.claude.maxTokens" placeholder="4096" value="4096">
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="card-title" style="margin-bottom: 1rem;">OpenAI</h3>
+                        <div class="form-group">
+                            <label>API Key</label>
+                            <div class="password-field">
+                                <input type="password" data-field="providers.openai.apiKey" placeholder="sk-...">
+                                <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Default Model</label>
+                            <select data-field="providers.openai.model">
+                                <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                                <option value="gpt-4o">GPT-4o</option>
+                                <option value="gpt-4o-mini">GPT-4o Mini</option>
+                                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Organization ID (optional)</label>
+                            <input type="text" data-field="providers.openai.orgId" placeholder="org-...">
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="card-title" style="margin-bottom: 1rem;">Google Gemini</h3>
+                        <div class="form-group">
+                            <label>API Key</label>
+                            <div class="password-field">
+                                <input type="password" data-field="providers.gemini.apiKey" placeholder="AIza...">
+                                <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Default Model</label>
+                            <select data-field="providers.gemini.model">
+                                <option value="gemini-pro">Gemini Pro</option>
+                                <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                                <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="card-title" style="margin-bottom: 1rem;">Ollama (Local)</h3>
+                        <div class="form-group">
+                            <label>Ollama Host</label>
+                            <input type="url" data-field="providers.ollama.host" placeholder="http://localhost:11434">
+                        </div>
+                        <div class="form-group">
+                            <label>Default Model</label>
+                            <input type="text" data-field="providers.ollama.model" placeholder="llama3">
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" data-field="providers.ollama.enabled" style="width: auto; margin-right: 0.5rem;">
+                                Enable Ollama
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Services Section -->
+            <div class="section" id="services">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">External Services</h3>
+                        <span class="badge badge-pending" id="servicesBadge">Pending</span>
+                    </div>
+                    <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
+                        Configure third-party services for embeddings, auth, storage, etc.
+                    </p>
+                </div>
+
+                <div class="grid grid-2">
+                    <div class="card">
+                        <h3 class="card-title" style="margin-bottom: 1rem;">🧠 Embeddings Provider</h3>
+                        <div class="form-group">
+                            <label>Provider</label>
+                            <select data-field="services.embeddings.provider">
+                                <option value="openai">OpenAI (text-embedding-3-small)</option>
+                                <option value="cohere">Cohere</option>
+                                <option value="local">Local (sentence-transformers)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Model</label>
+                            <input type="text" data-field="services.embeddings.model" placeholder="text-embedding-3-small">
+                        </div>
+                        <div class="form-group">
+                            <label>Dimensions</label>
+                            <input type="number" data-field="services.embeddings.dimensions" placeholder="1536" value="1536">
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="card-title" style="margin-bottom: 1rem;">🗄️ Vector Database</h3>
+                        <div class="form-group">
+                            <label>Backend</label>
+                            <select data-field="services.vectorDb.backend">
+                                <option value="sqlite-vec">SQLite-vec (embedded)</option>
+                                <option value="chromadb">ChromaDB</option>
+                                <option value="pinecone">Pinecone</option>
+                                <option value="qdrant">Qdrant</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Connection URL</label>
+                            <input type="text" data-field="services.vectorDb.url" placeholder="Local or remote URL">
+                        </div>
+                        <div class="form-group">
+                            <label>API Key (if remote)</label>
+                            <div class="password-field">
+                                <input type="password" data-field="services.vectorDb.apiKey" placeholder="API key">
+                                <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="card-title" style="margin-bottom: 1rem;">🔐 Authentication</h3>
+                        <div class="form-group">
+                            <label>Auth Provider</label>
+                            <select data-field="services.auth.provider">
+                                <option value="local">Local (username/password)</option>
+                                <option value="oauth">OAuth 2.0</option>
+                                <option value="supabase">Supabase Auth</option>
+                                <option value="clerk">Clerk</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>JWT Secret</label>
+                            <div class="password-field">
+                                <input type="password" data-field="services.auth.jwtSecret" placeholder="Random secret key">
+                                <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Session Duration (hours)</label>
+                            <input type="number" data-field="services.auth.sessionHours" placeholder="24" value="24">
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="card-title" style="margin-bottom: 1rem;">📊 Analytics (Optional)</h3>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" data-field="services.analytics.enabled" style="width: auto; margin-right: 0.5rem;">
+                                Enable Analytics
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>Provider</label>
+                            <select data-field="services.analytics.provider">
+                                <option value="none">None</option>
+                                <option value="posthog">PostHog</option>
+                                <option value="plausible">Plausible</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>API Key</label>
+                            <div class="password-field">
+                                <input type="password" data-field="services.analytics.apiKey" placeholder="Analytics API key">
+                                <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Credentials Section -->
+            <div class="section" id="credentials">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Test Accounts & Credentials</h3>
+                    </div>
+                    <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
+                        Store test user accounts and service credentials for development.
+                    </p>
+                </div>
+
+                <div class="grid grid-2">
+                    <div class="card">
+                        <h3 class="card-title" style="margin-bottom: 1rem;">Admin Account</h3>
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" data-field="creds.admin.email" placeholder="admin@example.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Password</label>
+                            <div class="password-field">
+                                <input type="password" data-field="creds.admin.password" placeholder="Admin password">
+                                <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="card-title" style="margin-bottom: 1rem;">Test User (Free Tier)</h3>
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" data-field="creds.testFree.email" placeholder="test-free@example.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Password</label>
+                            <div class="password-field">
+                                <input type="password" data-field="creds.testFree.password" placeholder="Test password">
+                                <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="card-title" style="margin-bottom: 1rem;">Test User (Pro Tier)</h3>
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" data-field="creds.testPro.email" placeholder="test-pro@example.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Password</label>
+                            <div class="password-field">
+                                <input type="password" data-field="creds.testPro.password" placeholder="Test password">
+                                <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="card-title" style="margin-bottom: 1rem;">Database Credentials</h3>
+                        <div class="form-group">
+                            <label>DB Host</label>
+                            <input type="text" data-field="creds.db.host" placeholder="localhost">
+                        </div>
+                        <div class="form-group">
+                            <label>DB User</label>
+                            <input type="text" data-field="creds.db.user" placeholder="fastband">
+                        </div>
+                        <div class="form-group">
+                            <label>DB Password</label>
+                            <div class="password-field">
+                                <input type="password" data-field="creds.db.password" placeholder="Database password">
+                                <button class="password-toggle" onclick="togglePassword(this)">👁</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>DB Name</label>
+                            <input type="text" data-field="creds.db.name" placeholder="fastband_hub">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configuration Section -->
+            <div class="section" id="config">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Hub Configuration</h3>
+                    </div>
+                </div>
+
+                <div class="grid grid-2">
+                    <div class="card">
+                        <h3 class="card-title" style="margin-bottom: 1rem;">Server Settings</h3>
+                        <div class="form-group">
+                            <label>Hub Port</label>
+                            <input type="number" data-field="config.server.port" placeholder="5051" value="5051">
+                        </div>
+                        <div class="form-group">
+                            <label>Host</label>
+                            <input type="text" data-field="config.server.host" placeholder="0.0.0.0" value="0.0.0.0">
+                        </div>
+                        <div class="form-group">
+                            <label>Environment</label>
+                            <select data-field="config.server.env">
+                                <option value="development">Development</option>
+                                <option value="staging">Staging</option>
+                                <option value="production">Production</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" data-field="config.server.debug" style="width: auto; margin-right: 0.5rem;" checked>
+                                Debug Mode
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" data-field="config.server.cors" style="width: auto; margin-right: 0.5rem;" checked>
+                                Enable CORS
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="card-title" style="margin-bottom: 1rem;">Rate Limits</h3>
+                        <div class="form-group">
+                            <label>Free Tier - Messages/Minute</label>
+                            <input type="number" data-field="config.limits.freePerMin" placeholder="5" value="5">
+                        </div>
+                        <div class="form-group">
+                            <label>Free Tier - Messages/Day</label>
+                            <input type="number" data-field="config.limits.freePerDay" placeholder="50" value="50">
+                        </div>
+                        <div class="form-group">
+                            <label>Pro Tier - Messages/Minute</label>
+                            <input type="number" data-field="config.limits.proPerMin" placeholder="20" value="20">
+                        </div>
+                        <div class="form-group">
+                            <label>Pro Tier - Messages/Day</label>
+                            <input type="number" data-field="config.limits.proPerDay" placeholder="500" value="500">
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="card-title" style="margin-bottom: 1rem;">Memory Settings</h3>
+                        <div class="form-group">
+                            <label>Max Memory Entries (Free)</label>
+                            <input type="number" data-field="config.memory.maxFree" placeholder="100" value="100">
+                        </div>
+                        <div class="form-group">
+                            <label>Max Memory Entries (Pro)</label>
+                            <input type="number" data-field="config.memory.maxPro" placeholder="10000" value="10000">
+                        </div>
+                        <div class="form-group">
+                            <label>Context Window (tokens)</label>
+                            <input type="number" data-field="config.memory.contextWindow" placeholder="8192" value="8192">
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" data-field="config.memory.autoSummarize" style="width: auto; margin-right: 0.5rem;" checked>
+                                Auto-summarize long conversations
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="card-title" style="margin-bottom: 1rem;">Feature Flags</h3>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" data-field="config.features.streaming" style="width: auto; margin-right: 0.5rem;" checked>
+                                SSE Streaming Responses
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" data-field="config.features.toolExecution" style="width: auto; margin-right: 0.5rem;" checked>
+                                Tool Execution
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" data-field="config.features.ragMemory" style="width: auto; margin-right: 0.5rem;" checked>
+                                RAG Memory
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" data-field="config.features.codeAnalysis" style="width: auto; margin-right: 0.5rem;" checked>
+                                Codebase Analysis
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" data-field="config.features.billing" style="width: auto; margin-right: 0.5rem;">
+                                Billing/Subscriptions
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Database Section -->
+            <div class="section" id="database">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Database Setup</h3>
+                    </div>
+                </div>
+
+                <div class="grid grid-2">
+                    <div class="card">
+                        <h3 class="card-title" style="margin-bottom: 1rem;">Database Type</h3>
+                        <div class="form-group">
+                            <label>Primary Database</label>
+                            <select data-field="database.type">
+                                <option value="sqlite">SQLite (Development)</option>
+                                <option value="postgresql">PostgreSQL (Production)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Database URL</label>
+                            <input type="text" data-field="database.url" placeholder="sqlite:///hub.db or postgresql://...">
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="card-title" style="margin-bottom: 1rem;">Migration Status</h3>
+                        <ul class="checklist">
+                            <li class="checklist-item">
+                                <input type="checkbox" data-field="database.migrations.users">
+                                <span>Users table</span>
+                            </li>
+                            <li class="checklist-item">
+                                <input type="checkbox" data-field="database.migrations.sessions">
+                                <span>Sessions table</span>
+                            </li>
+                            <li class="checklist-item">
+                                <input type="checkbox" data-field="database.migrations.conversations">
+                                <span>Conversations table</span>
+                            </li>
+                            <li class="checklist-item">
+                                <input type="checkbox" data-field="database.migrations.messages">
+                                <span>Messages table</span>
+                            </li>
+                            <li class="checklist-item">
+                                <input type="checkbox" data-field="database.migrations.memory">
+                                <span>Memory entries table</span>
+                            </li>
+                            <li class="checklist-item">
+                                <input type="checkbox" data-field="database.migrations.vectors">
+                                <span>Vector embeddings table</span>
+                            </li>
+                            <li class="checklist-item">
+                                <input type="checkbox" data-field="database.migrations.usage">
+                                <span>Usage/billing table</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title" style="margin-bottom: 1rem;">Schema Reference</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Table</th>
+                                <th>Key Columns</th>
+                                <th>Purpose</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>users</code></td>
+                                <td>id, email, tier, created_at</td>
+                                <td>User accounts and subscription tier</td>
+                            </tr>
+                            <tr>
+                                <td><code>sessions</code></td>
+                                <td>id, user_id, status, expires_at</td>
+                                <td>Active user sessions</td>
+                            </tr>
+                            <tr>
+                                <td><code>conversations</code></td>
+                                <td>id, user_id, title, status</td>
+                                <td>Chat conversation containers</td>
+                            </tr>
+                            <tr>
+                                <td><code>messages</code></td>
+                                <td>id, conversation_id, role, content</td>
+                                <td>Individual chat messages</td>
+                            </tr>
+                            <tr>
+                                <td><code>memory_entries</code></td>
+                                <td>id, user_id, content, embedding_id</td>
+                                <td>RAG memory entries</td>
+                            </tr>
+                            <tr>
+                                <td><code>embeddings</code></td>
+                                <td>id, vector, metadata</td>
+                                <td>Vector embeddings for semantic search</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Roadmap Section -->
+            <div class="section" id="roadmap">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Implementation Roadmap</h3>
+                    </div>
+
+                    <div class="timeline">
+                        <div class="timeline-item completed">
+                            <h4>Phase 1: Core Models ✓</h4>
+                            <p>Data structures and base classes</p>
+                            <div class="timeline-tasks">
+                                <div class="timeline-task">✅ HubSession, SessionConfig models</div>
+                                <div class="timeline-task">✅ ChatMessage, Conversation models</div>
+                                <div class="timeline-task">✅ MemoryEntry, MemoryContext models</div>
+                                <div class="timeline-task">✅ SubscriptionTier, TierLimits models</div>
+                            </div>
+                        </div>
+
+                        <div class="timeline-item in-progress">
+                            <h4>Phase 2: Session & Chat Management</h4>
+                            <p>Core conversation handling</p>
+                            <div class="timeline-tasks">
+                                <div class="timeline-task">
+                                    <input type="checkbox" data-field="roadmap.phase2.sessionManager">
+                                    SessionManager implementation
+                                </div>
+                                <div class="timeline-task">
+                                    <input type="checkbox" data-field="roadmap.phase2.chatManager">
+                                    ChatManager with tool execution
+                                </div>
+                                <div class="timeline-task">
+                                    <input type="checkbox" data-field="roadmap.phase2.toolExecutor">
+                                    ToolExecutor with timeouts
+                                </div>
+                                <div class="timeline-task">
+                                    <input type="checkbox" data-field="roadmap.phase2.pipeline">
+                                    MessagePipeline orchestration
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="timeline-item">
+                            <h4>Phase 3: RAG Memory System</h4>
+                            <p>Long-term memory with semantic search</p>
+                            <div class="timeline-tasks">
+                                <div class="timeline-task">
+                                    <input type="checkbox" data-field="roadmap.phase3.embeddings">
+                                    Embedding generation
+                                </div>
+                                <div class="timeline-task">
+                                    <input type="checkbox" data-field="roadmap.phase3.vectorStore">
+                                    Vector store integration
+                                </div>
+                                <div class="timeline-task">
+                                    <input type="checkbox" data-field="roadmap.phase3.retrieval">
+                                    Semantic retrieval
+                                </div>
+                                <div class="timeline-task">
+                                    <input type="checkbox" data-field="roadmap.phase3.contextInjection">
+                                    Context injection into prompts
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="timeline-item">
+                            <h4>Phase 4: REST API</h4>
+                            <p>HTTP endpoints for the Hub</p>
+                            <div class="timeline-tasks">
+                                <div class="timeline-task">
+                                    <input type="checkbox" data-field="roadmap.phase4.auth">
+                                    Auth endpoints (login, register, logout)
+                                </div>
+                                <div class="timeline-task">
+                                    <input type="checkbox" data-field="roadmap.phase4.chat">
+                                    Chat endpoints (send, stream, history)
+                                </div>
+                                <div class="timeline-task">
+                                    <input type="checkbox" data-field="roadmap.phase4.conversations">
+                                    Conversation management endpoints
+                                </div>
+                                <div class="timeline-task">
+                                    <input type="checkbox" data-field="roadmap.phase4.sse">
+                                    SSE streaming endpoint
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="timeline-item">
+                            <h4>Phase 5: Web UI (React)</h4>
+                            <p>Frontend chat interface</p>
+                            <div class="timeline-tasks">
+                                <div class="timeline-task">
+                                    <input type="checkbox" data-field="roadmap.phase5.viteSetup">
+                                    Vite + React + Tailwind setup
+                                </div>
+                                <div class="timeline-task">
+                                    <input type="checkbox" data-field="roadmap.phase5.chatUi">
+                                    Chat UI components
+                                </div>
+                                <div class="timeline-task">
+                                    <input type="checkbox" data-field="roadmap.phase5.streaming">
+                                    SSE streaming integration
+                                </div>
+                                <div class="timeline-task">
+                                    <input type="checkbox" data-field="roadmap.phase5.auth">
+                                    Auth pages (login, register)
+                                </div>
+                                <div class="timeline-task">
+                                    <input type="checkbox" data-field="roadmap.phase5.history">
+                                    Conversation history sidebar
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="timeline-item">
+                            <h4>Phase 6: Platform Analysis</h4>
+                            <p>Codebase understanding & recommendations</p>
+                            <div class="timeline-tasks">
+                                <div class="timeline-task">
+                                    <input type="checkbox" data-field="roadmap.phase6.analyzer">
+                                    PlatformAnalyzer implementation
+                                </div>
+                                <div class="timeline-task">
+                                    <input type="checkbox" data-field="roadmap.phase6.projectDetection">
+                                    Project type detection
+                                </div>
+                                <div class="timeline-task">
+                                    <input type="checkbox" data-field="roadmap.phase6.recommendations">
+                                    MCP workflow recommendations
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="timeline-item">
+                            <h4>Phase 7: Deployment</h4>
+                            <p>Docker and production setup</p>
+                            <div class="timeline-tasks">
+                                <div class="timeline-task">
+                                    <input type="checkbox" data-field="roadmap.phase7.dockerfile">
+                                    Dockerfile
+                                </div>
+                                <div class="timeline-task">
+                                    <input type="checkbox" data-field="roadmap.phase7.compose">
+                                    Docker Compose config
+                                </div>
+                                <div class="timeline-task">
+                                    <input type="checkbox" data-field="roadmap.phase7.envConfig">
+                                    Environment configuration
+                                </div>
+                                <div class="timeline-task">
+                                    <input type="checkbox" data-field="roadmap.phase7.healthChecks">
+                                    Health check endpoints
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dev Notes Section -->
+            <div class="section" id="notes">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Development Notes</h3>
+                    </div>
+                    <div class="form-group">
+                        <label>Free-form notes</label>
+                        <textarea data-field="notes.content" placeholder="Add your development notes here..." style="min-height: 200px;"></textarea>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title" style="margin-bottom: 1rem;">Key Files Reference</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>File</th>
+                                <th>Purpose</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>hub/__init__.py</code></td>
+                                <td>Module exports and docstring</td>
+                                <td><span class="badge badge-configured">Done</span></td>
+                            </tr>
+                            <tr>
+                                <td><code>hub/models.py</code></td>
+                                <td>Pydantic/dataclass models</td>
+                                <td><span class="badge badge-configured">Done</span></td>
+                            </tr>
+                            <tr>
+                                <td><code>hub/session.py</code></td>
+                                <td>Session management</td>
+                                <td><span class="badge badge-info">In Progress</span></td>
+                            </tr>
+                            <tr>
+                                <td><code>hub/chat.py</code></td>
+                                <td>Chat orchestration</td>
+                                <td><span class="badge badge-info">In Progress</span></td>
+                            </tr>
+                            <tr>
+                                <td><code>hub/memory.py</code></td>
+                                <td>RAG memory system</td>
+                                <td><span class="badge badge-info">In Progress</span></td>
+                            </tr>
+                            <tr>
+                                <td><code>hub/analyzer.py</code></td>
+                                <td>Codebase analysis</td>
+                                <td><span class="badge badge-pending">Pending</span></td>
+                            </tr>
+                            <tr>
+                                <td><code>hub/api/</code></td>
+                                <td>REST API routes</td>
+                                <td><span class="badge badge-pending">Pending</span></td>
+                            </tr>
+                            <tr>
+                                <td><code>hub/web/</code></td>
+                                <td>React frontend</td>
+                                <td><span class="badge badge-pending">Pending</span></td>
+                            </tr>
+                            <tr>
+                                <td><code>hub/auth/</code></td>
+                                <td>Authentication</td>
+                                <td><span class="badge badge-pending">Pending</span></td>
+                            </tr>
+                            <tr>
+                                <td><code>hub/Dockerfile</code></td>
+                                <td>Docker configuration</td>
+                                <td><span class="badge badge-configured">Done</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title" style="margin-bottom: 1rem;">Quick Commands</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Command</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>cd src/fastband/hub/web && npm run dev</code></td>
+                                <td>Start frontend dev server</td>
+                            </tr>
+                            <tr>
+                                <td><code>fastband hub serve --port 5051</code></td>
+                                <td>Start Hub API server</td>
+                            </tr>
+                            <tr>
+                                <td><code>pytest tests/test_hub*.py -v</code></td>
+                                <td>Run Hub tests</td>
+                            </tr>
+                            <tr>
+                                <td><code>docker-compose -f hub/docker-compose.yml up</code></td>
+                                <td>Start Hub in Docker</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="card" style="border-color: var(--error);">
+                    <h3 class="card-title" style="margin-bottom: 1rem; color: var(--error);">⚠️ Danger Zone</h3>
+                    <p style="color: var(--text-muted); margin-bottom: 1rem;">
+                        Reset all configuration data. This cannot be undone.
+                    </p>
+                    <button class="btn-danger" onclick="resetAllData()">Reset All Data</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // =====================================================================
+        // ENCRYPTION UTILITIES (Web Crypto API)
+        // =====================================================================
+
+        const STORAGE_KEYS = {
+            SALT: 'fb_hub_salt',
+            VERIFY: 'fb_hub_verify',
+            DATA: 'fb_hub_data',
+            SESSION: 'fb_hub_session'
+        };
+
+        async function deriveKey(password, salt) {
+            const encoder = new TextEncoder();
+            const keyMaterial = await crypto.subtle.importKey(
+                'raw',
+                encoder.encode(password),
+                'PBKDF2',
+                false,
+                ['deriveKey']
+            );
+
+            return crypto.subtle.deriveKey(
+                {
+                    name: 'PBKDF2',
+                    salt: salt,
+                    iterations: 100000,
+                    hash: 'SHA-256'
+                },
+                keyMaterial,
+                { name: 'AES-GCM', length: 256 },
+                false,
+                ['encrypt', 'decrypt']
+            );
+        }
+
+        async function encrypt(data, key) {
+            const encoder = new TextEncoder();
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+            const encrypted = await crypto.subtle.encrypt(
+                { name: 'AES-GCM', iv: iv },
+                key,
+                encoder.encode(JSON.stringify(data))
+            );
+
+            return {
+                iv: Array.from(iv).map(b => b.toString(16).padStart(2, '0')).join(''),
+                data: Array.from(new Uint8Array(encrypted)).map(b => b.toString(16).padStart(2, '0')).join('')
+            };
+        }
+
+        async function decrypt(encrypted, key) {
+            const iv = new Uint8Array(encrypted.iv.match(/.{2}/g).map(b => parseInt(b, 16)));
+            const data = new Uint8Array(encrypted.data.match(/.{2}/g).map(b => parseInt(b, 16)));
+
+            const decrypted = await crypto.subtle.decrypt(
+                { name: 'AES-GCM', iv: iv },
+                key,
+                data
+            );
+
+            return JSON.parse(new TextDecoder().decode(decrypted));
+        }
+
+        function generateSalt() {
+            return crypto.getRandomValues(new Uint8Array(16));
+        }
+
+        function saltToHex(salt) {
+            return Array.from(salt).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        function hexToSalt(hex) {
+            return new Uint8Array(hex.match(/.{2}/g).map(b => parseInt(b, 16)));
+        }
+
+        // =====================================================================
+        // STATE MANAGEMENT
+        // =====================================================================
+
+        let configData = {};
+        let cryptoKey = null;
+
+        function getDefaultConfig() {
+            return {
+                status: {},
+                links: {
+                    hubLocalUrl: 'http://localhost:5051',
+                    apiDocsUrl: 'http://localhost:5051/docs',
+                    githubUrl: 'https://github.com/RemmyCH3CK/fastband-mcp',
+                    ticketDashUrl: 'http://localhost:5050'
+                },
+                providers: {
+                    claude: { model: 'claude-sonnet-4-20250514', maxTokens: 4096 },
+                    openai: { model: 'gpt-4-turbo' },
+                    gemini: { model: 'gemini-pro' },
+                    ollama: { host: 'http://localhost:11434', model: 'llama3', enabled: false }
+                },
+                services: {
+                    embeddings: { provider: 'openai', model: 'text-embedding-3-small', dimensions: 1536 },
+                    vectorDb: { backend: 'sqlite-vec' },
+                    auth: { provider: 'local', sessionHours: 24 },
+                    analytics: { enabled: false, provider: 'none' }
+                },
+                creds: {
+                    admin: {},
+                    testFree: {},
+                    testPro: {},
+                    db: { host: 'localhost', name: 'fastband_hub' }
+                },
+                config: {
+                    server: { port: 5051, host: '0.0.0.0', env: 'development', debug: true, cors: true },
+                    limits: { freePerMin: 5, freePerDay: 50, proPerMin: 20, proPerDay: 500 },
+                    memory: { maxFree: 100, maxPro: 10000, contextWindow: 8192, autoSummarize: true },
+                    features: { streaming: true, toolExecution: true, ragMemory: true, codeAnalysis: true, billing: false }
+                },
+                database: {
+                    type: 'sqlite',
+                    url: 'sqlite:///hub.db',
+                    migrations: {}
+                },
+                roadmap: {
+                    phase2: {},
+                    phase3: {},
+                    phase4: {},
+                    phase5: {},
+                    phase6: {},
+                    phase7: {}
+                },
+                notes: { content: '' }
+            };
+        }
+
+        // =====================================================================
+        // AUTHENTICATION
+        // =====================================================================
+
+        async function checkFirstTime() {
+            const salt = localStorage.getItem(STORAGE_KEYS.SALT);
+            return !salt;
+        }
+
+        async function setupPassword() {
+            const password = document.getElementById('newPassword').value;
+            const confirm = document.getElementById('confirmPassword').value;
+
+            if (password.length < 8) {
+                showToast('Password must be at least 8 characters', 'error');
+                return;
+            }
+
+            if (password !== confirm) {
+                showToast('Passwords do not match', 'error');
+                return;
+            }
+
+            const salt = generateSalt();
+            const key = await deriveKey(password, salt);
+
+            // Create verification token
+            const verifyToken = await encrypt({ verify: 'fastband-hub-dev-guide' }, key);
+
+            // Store salt and verification
+            localStorage.setItem(STORAGE_KEYS.SALT, saltToHex(salt));
+            localStorage.setItem(STORAGE_KEYS.VERIFY, JSON.stringify(verifyToken));
+
+            // Initialize with default config
+            configData = getDefaultConfig();
+            cryptoKey = key;
+            sessionStorage.setItem(STORAGE_KEYS.SESSION, 'active');
+
+            await saveConfig();
+
+            document.getElementById('lockScreen').style.display = 'none';
+            document.getElementById('app').style.display = 'block';
+
+            showToast('Password created successfully!', 'success');
+            loadFormData();
+        }
+
+        async function unlock() {
+            const password = document.getElementById('passwordInput').value;
+
+            if (!password) {
+                showToast('Please enter password', 'error');
+                return;
+            }
+
+            try {
+                const saltHex = localStorage.getItem(STORAGE_KEYS.SALT);
+                const salt = hexToSalt(saltHex);
+                const key = await deriveKey(password, salt);
+
+                // Verify password
+                const verifyData = JSON.parse(localStorage.getItem(STORAGE_KEYS.VERIFY));
+                const decrypted = await decrypt(verifyData, key);
+
+                if (decrypted.verify !== 'fastband-hub-dev-guide') {
+                    throw new Error('Invalid password');
+                }
+
+                cryptoKey = key;
+                sessionStorage.setItem(STORAGE_KEYS.SESSION, 'active');
+
+                // Load config
+                await loadConfig();
+
+                document.getElementById('lockScreen').style.display = 'none';
+                document.getElementById('app').style.display = 'block';
+
+                loadFormData();
+                updateProgress();
+
+            } catch (e) {
+                showToast('Invalid password', 'error');
+            }
+        }
+
+        function lockApp() {
+            sessionStorage.removeItem(STORAGE_KEYS.SESSION);
+            cryptoKey = null;
+            document.getElementById('app').style.display = 'none';
+            document.getElementById('lockScreen').style.display = 'flex';
+            document.getElementById('passwordInput').value = '';
+        }
+
+        // =====================================================================
+        // DATA PERSISTENCE
+        // =====================================================================
+
+        async function saveConfig() {
+            if (!cryptoKey) return;
+
+            try {
+                const encrypted = await encrypt(configData, cryptoKey);
+                localStorage.setItem(STORAGE_KEYS.DATA, JSON.stringify(encrypted));
+            } catch (e) {
+                console.error('Save failed:', e);
+            }
+        }
+
+        async function loadConfig() {
+            if (!cryptoKey) return;
+
+            try {
+                const encrypted = localStorage.getItem(STORAGE_KEYS.DATA);
+                if (encrypted) {
+                    configData = await decrypt(JSON.parse(encrypted), cryptoKey);
+                } else {
+                    configData = getDefaultConfig();
+                }
+            } catch (e) {
+                console.error('Load failed:', e);
+                configData = getDefaultConfig();
+            }
+        }
+
+        // =====================================================================
+        // FORM HANDLING
+        // =====================================================================
+
+        function setNestedValue(obj, path, value) {
+            const keys = path.split('.');
+            let current = obj;
+            for (let i = 0; i < keys.length - 1; i++) {
+                if (!current[keys[i]]) current[keys[i]] = {};
+                current = current[keys[i]];
+            }
+            current[keys[keys.length - 1]] = value;
+        }
+
+        function getNestedValue(obj, path) {
+            return path.split('.').reduce((o, k) => (o || {})[k], obj);
+        }
+
+        function loadFormData() {
+            document.querySelectorAll('[data-field]').forEach(el => {
+                const field = el.dataset.field;
+                const value = getNestedValue(configData, field);
+
+                if (el.type === 'checkbox') {
+                    el.checked = !!value;
+                } else if (value !== undefined) {
+                    el.value = value;
+                }
+            });
+        }
+
+        function handleFormChange(e) {
+            const el = e.target;
+            const field = el.dataset.field;
+            if (!field) return;
+
+            let value;
+            if (el.type === 'checkbox') {
+                value = el.checked;
+            } else if (el.type === 'number') {
+                value = el.value ? parseInt(el.value) : null;
+            } else {
+                value = el.value;
+            }
+
+            setNestedValue(configData, field, value);
+            saveConfig();
+            updateProgress();
+        }
+
+        // =====================================================================
+        // UI UTILITIES
+        // =====================================================================
+
+        function togglePassword(btn) {
+            const input = btn.parentElement.querySelector('input');
+            input.type = input.type === 'password' ? 'text' : 'password';
+            btn.textContent = input.type === 'password' ? '👁' : '🙈';
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast show ${type === 'success' ? 'toast-success' : ''}`;
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function updateProgress() {
+            const checkboxes = document.querySelectorAll('.checklist-item input[type="checkbox"]');
+            const checked = Array.from(checkboxes).filter(cb => cb.checked).length;
+            const total = checkboxes.length;
+            const percent = total > 0 ? Math.round((checked / total) * 100) : 0;
+
+            document.getElementById('progressBar').style.width = percent + '%';
+            document.getElementById('overallProgress').textContent = percent + '%';
+        }
+
+        // =====================================================================
+        // EXPORT / RESET
+        // =====================================================================
+
+        function exportConfig() {
+            const exportData = {
+                exportedAt: new Date().toISOString(),
+                project: 'Fastband Hub',
+                ...configData
+            };
+
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `fastband-hub-config-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            showToast('Configuration exported!', 'success');
+        }
+
+        function resetAllData() {
+            if (!confirm('Are you sure you want to reset ALL configuration data?\n\nThis cannot be undone.')) {
+                return;
+            }
+            if (!confirm('FINAL WARNING: This will delete your password and all saved data. Continue?')) {
+                return;
+            }
+
+            localStorage.removeItem(STORAGE_KEYS.SALT);
+            localStorage.removeItem(STORAGE_KEYS.VERIFY);
+            localStorage.removeItem(STORAGE_KEYS.DATA);
+            sessionStorage.removeItem(STORAGE_KEYS.SESSION);
+
+            location.reload();
+        }
+
+        // =====================================================================
+        // TAB NAVIGATION
+        // =====================================================================
+
+        function initTabs() {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+
+                    tab.classList.add('active');
+                    document.getElementById(tab.dataset.tab).classList.add('active');
+                });
+            });
+        }
+
+        // =====================================================================
+        // INITIALIZATION
+        // =====================================================================
+
+        async function init() {
+            const isFirstTime = await checkFirstTime();
+
+            if (isFirstTime) {
+                document.getElementById('lockForm').style.display = 'none';
+                document.getElementById('setupMode').style.display = 'block';
+                document.getElementById('lockMessage').textContent = 'Create a password to encrypt your development configuration';
+            } else {
+                // Check for active session
+                if (sessionStorage.getItem(STORAGE_KEYS.SESSION)) {
+                    const saltHex = localStorage.getItem(STORAGE_KEYS.SALT);
+                    // Session active but we need key - require re-auth
+                }
+            }
+
+            // Event listeners
+            document.getElementById('lockForm').addEventListener('submit', e => {
+                e.preventDefault();
+                unlock();
+            });
+
+            document.addEventListener('input', handleFormChange);
+            document.addEventListener('change', handleFormChange);
+
+            initTabs();
+        }
+
+        init();
+    </script>
+</body>
+</html>
