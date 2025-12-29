@@ -208,6 +208,7 @@ pip install --user fastband-mcp
 
 After installation:
 
-1. [Quick Start Tutorial](quickstart.md) - Initialize your first project
-2. [Configuration Reference](configuration.md) - Customize your setup
-3. [AI Providers Guide](../guides/ai-providers.md) - Configure AI providers
+1. [MCP Setup Guide](mcp-setup.md) - Connect Fastband to Claude Code/Desktop
+2. [Quick Start Tutorial](quickstart.md) - Learn the CLI commands
+3. [Configuration Reference](configuration.md) - Customize your setup
+4. [AI Providers Guide](../guides/ai-providers.md) - Configure AI providers

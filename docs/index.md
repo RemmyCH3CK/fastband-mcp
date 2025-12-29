@@ -7,7 +7,8 @@ Welcome to the Fastband MCP documentation. Fastband is a universal AI-powered de
 New to Fastband? Start here:
 
 - [Installation Guide](getting-started/installation.md) - Install Fastband MCP on your system
-- [Quick Start Tutorial](getting-started/quickstart.md) - Get up and running in 5 minutes
+- [MCP Setup Guide](getting-started/mcp-setup.md) - Connect Fastband to Claude Code/Desktop (step-by-step)
+- [Quick Start Tutorial](getting-started/quickstart.md) - Learn the CLI commands
 - [Configuration Reference](getting-started/configuration.md) - Complete configuration options
 
 ## Guides
@@ -17,6 +18,7 @@ In-depth guides for key features:
 - [AI Providers Guide](guides/ai-providers.md) - Using Claude, OpenAI, Gemini, and Ollama
 - [Tool Garage](guides/tool-garage.md) - Understanding the dynamic tool system
 - [Ticket Manager](guides/ticket-manager.md) - Task tracking and workflow management
+- [Backup Manager](guides/backup-manager.md) - Automated backups and restoration
 
 ## API Reference
 
@@ -26,15 +28,15 @@ Detailed API documentation:
 - [Tools API](api/tools.md) - Tool system classes and registry
 - [Tickets API](api/tickets.md) - Ticket management classes and tools
 
-## Architecture & Vision
+## Architecture & Design (Internal)
 
-Project planning documents:
+Internal planning and design documents:
 
-- [Product Vision](FASTBAND_PRODUCT_VISION.md) - Project goals and vision
-- [Architecture](FASTBAND_ARCHITECTURE.md) - Technical architecture
-- [Implementation Roadmap](FASTBAND_IMPLEMENTATION_ROADMAP.md) - Development timeline
-- [Ticket Manager Design](FASTBAND_TICKET_MANAGER.md) - Ticket system design
-- [Companion Products](FASTBAND_COMPANION_PRODUCTS.md) - Related tools and extensions
+- [Product Vision](internal/FASTBAND_PRODUCT_VISION.md) - Project goals and vision
+- [Architecture](internal/FASTBAND_ARCHITECTURE.md) - Technical architecture
+- [Implementation Roadmap](internal/FASTBAND_IMPLEMENTATION_ROADMAP.md) - Development timeline
+- [Ticket Manager Design](internal/FASTBAND_TICKET_MANAGER.md) - Ticket system design
+- [Companion Products](internal/FASTBAND_COMPANION_PRODUCTS.md) - Related tools and extensions
 
 ## Quick Links
 
