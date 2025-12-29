@@ -36,6 +36,7 @@ from fastband.tickets.models import (
     TicketComment,
 )
 from fastband.tickets.storage import TicketStore, get_store
+from fastband.backup import trigger_backup_hook
 
 
 # =============================================================================
@@ -740,20 +741,32 @@ class CompleteTicketSafelyTool(Tool):
             # Save changes
             self.store.update(ticket)
 
-            return ToolResult(
-                success=True,
-                data={
-                    "ticket_id": ticket.id,
-                    "ticket": _ticket_to_summary(ticket),
-                    "message": f"Ticket {ticket.id} submitted for review",
-                    "status": ticket.status.display_name,
-                    "next_steps": [
-                        "Ticket is now under code review",
-                        "Wait for review feedback",
-                        "If changes requested, update and resubmit",
-                    ],
-                },
-            )
+            # Trigger backup hook after ticket completion
+            backup_info = None
+            try:
+                backup_info = trigger_backup_hook(
+                    "after_ticket_completion",
+                    ticket_id=ticket.id,
+                )
+            except Exception:
+                pass  # Don't fail ticket completion if backup fails
+
+            result_data = {
+                "ticket_id": ticket.id,
+                "ticket": _ticket_to_summary(ticket),
+                "message": f"Ticket {ticket.id} submitted for review",
+                "status": ticket.status.display_name,
+                "next_steps": [
+                    "Ticket is now under code review",
+                    "Wait for review feedback",
+                    "If changes requested, update and resubmit",
+                ],
+            }
+
+            if backup_info:
+                result_data["backup_created"] = backup_info.id
+
+            return ToolResult(success=True, data=result_data)
 
         except Exception as e:
             return ToolResult(success=False, error=f"Failed to complete ticket: {e}")

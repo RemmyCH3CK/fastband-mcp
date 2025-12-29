@@ -15,6 +15,10 @@ from fastband.tools.core.files import (
     WriteFileTool,
     SearchCodeTool,
 )
+from fastband.tools.core.build import (
+    BuildProjectTool,
+    RunScriptTool,
+)
 
 # All core tools
 CORE_TOOLS = [
@@ -25,6 +29,8 @@ CORE_TOOLS = [
     ReadFileTool,
     WriteFileTool,
     SearchCodeTool,
+    BuildProjectTool,
+    RunScriptTool,
 ]
 
 __all__ = [
@@ -35,5 +41,7 @@ __all__ = [
     "ReadFileTool",
     "WriteFileTool",
     "SearchCodeTool",
+    "BuildProjectTool",
+    "RunScriptTool",
     "CORE_TOOLS",
 ]
