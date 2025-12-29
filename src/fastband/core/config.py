@@ -37,16 +37,42 @@ class TicketsConfig:
 
 
 @dataclass
+class BackupHooksConfig:
+    """Backup hooks configuration."""
+    before_build: bool = True
+    after_ticket_completion: bool = True
+    on_config_change: bool = False
+
+
+@dataclass
 class BackupConfig:
     """Backup manager configuration."""
     enabled: bool = True
+
+    # Scheduler settings
+    scheduler_enabled: bool = True
+    interval_hours: int = 2  # Run full backup every N hours
+
+    # Storage location (relative to project or absolute path)
+    backup_path: str = ".fastband/backups"
+
+    # Retention settings
+    retention_days: int = 3  # Keep 3 full days of backups
+    max_backups: int = 50  # Maximum number of backups to keep
+
+    # Legacy settings (kept for compatibility)
     daily_enabled: bool = True
     daily_time: str = "02:00"
     daily_retention: int = 7
     weekly_enabled: bool = True
     weekly_day: str = "sunday"
     weekly_retention: int = 4
+
+    # Change detection
     change_detection: bool = True
+
+    # Hooks
+    hooks: BackupHooksConfig = field(default_factory=BackupHooksConfig)
 
 
 @dataclass
@@ -143,8 +169,20 @@ class FastbandConfig:
 
         if "backup" in data:
             b = data["backup"]
+            # Parse hooks config
+            hooks_data = b.get("hooks", {})
+            hooks_config = BackupHooksConfig(
+                before_build=hooks_data.get("before_build", True),
+                after_ticket_completion=hooks_data.get("after_ticket_completion", True),
+                on_config_change=hooks_data.get("on_config_change", False),
+            )
             config.backup = BackupConfig(
                 enabled=b.get("enabled", True),
+                scheduler_enabled=b.get("scheduler_enabled", True),
+                interval_hours=b.get("interval_hours", 2),
+                backup_path=b.get("backup_path", ".fastband/backups"),
+                retention_days=b.get("retention_days", 3),
+                max_backups=b.get("max_backups", 50),
                 daily_enabled=b.get("daily_enabled", True),
                 daily_time=b.get("daily_time", "02:00"),
                 daily_retention=b.get("daily_retention", 7),
@@ -152,6 +190,7 @@ class FastbandConfig:
                 weekly_day=b.get("weekly_day", "sunday"),
                 weekly_retention=b.get("weekly_retention", 4),
                 change_detection=b.get("change_detection", True),
+                hooks=hooks_config,
             )
 
         if "github" in data:
@@ -212,6 +251,11 @@ class FastbandConfig:
 
         result["fastband"]["backup"] = {
             "enabled": self.backup.enabled,
+            "scheduler_enabled": self.backup.scheduler_enabled,
+            "interval_hours": self.backup.interval_hours,
+            "backup_path": self.backup.backup_path,
+            "retention_days": self.backup.retention_days,
+            "max_backups": self.backup.max_backups,
             "daily_enabled": self.backup.daily_enabled,
             "daily_time": self.backup.daily_time,
             "daily_retention": self.backup.daily_retention,
@@ -219,6 +263,11 @@ class FastbandConfig:
             "weekly_day": self.backup.weekly_day,
             "weekly_retention": self.backup.weekly_retention,
             "change_detection": self.backup.change_detection,
+            "hooks": {
+                "before_build": self.backup.hooks.before_build,
+                "after_ticket_completion": self.backup.hooks.after_ticket_completion,
+                "on_config_change": self.backup.hooks.on_config_change,
+            },
         }
 
         result["fastband"]["github"] = {

@@ -8,6 +8,8 @@ Provides commands for managing project backups:
 - restore: Restore from a backup
 - prune: Remove old backups
 - stats: Show backup statistics
+- scheduler: Manage the backup scheduler daemon
+- config: Configure backup settings interactively
 """
 
 import json
@@ -21,7 +23,7 @@ from rich.table import Table
 from rich.panel import Panel
 from rich import box
 
-from fastband.backup import BackupManager, BackupInfo, BackupType
+from fastband.backup import BackupManager, BackupInfo, BackupType, BackupScheduler, get_scheduler
 
 # Create the backup subcommand app
 backup_app = typer.Typer(
@@ -704,3 +706,453 @@ def backup_stats(
     console.print(f"  Daily: {'Yes' if config['daily_enabled'] else 'No'} (retention: {config['daily_retention']} days)")
     console.print(f"  Weekly: {'Yes' if config['weekly_enabled'] else 'No'} (retention: {config['weekly_retention']} weeks)")
     console.print(f"  Change detection: {'Yes' if config['change_detection'] else 'No'}")
+
+
+# =============================================================================
+# SCHEDULER SUBCOMMAND GROUP
+# =============================================================================
+
+scheduler_app = typer.Typer(
+    name="scheduler",
+    help="Backup scheduler management",
+    no_args_is_help=True,
+)
+backup_app.add_typer(scheduler_app, name="scheduler")
+
+
+def _get_scheduler(path: Optional[Path] = None) -> BackupScheduler:
+    """Get the backup scheduler for the project."""
+    project_path = (path or Path.cwd()).resolve()
+    return get_scheduler(project_path)
+
+
+@scheduler_app.command("start")
+def scheduler_start(
+    foreground: bool = typer.Option(
+        False,
+        "--foreground",
+        "-f",
+        help="Run in foreground instead of as daemon",
+    ),
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Output as JSON",
+    ),
+    path: Optional[Path] = typer.Option(
+        None,
+        "--path",
+        "-p",
+        help="Project path (default: current directory)",
+    ),
+):
+    """
+    Start the backup scheduler daemon.
+
+    The scheduler runs in the background and creates backups at the
+    configured interval (default: every 2 hours). It also handles
+    hook-triggered backups for builds and ticket completions.
+    """
+    scheduler = _get_scheduler(path)
+
+    if scheduler.is_running():
+        status = scheduler.get_status()
+        if json_output:
+            console.print(json.dumps({
+                "success": False,
+                "error": "Scheduler is already running",
+                "pid": status["pid"],
+            }, indent=2))
+        else:
+            console.print(f"[yellow]Scheduler is already running (PID: {status['pid']})[/yellow]")
+        raise typer.Exit(1)
+
+    if not json_output:
+        console.print(Panel.fit(
+            "[bold blue]Starting Backup Scheduler[/bold blue]",
+            border_style="blue",
+        ))
+
+        config = scheduler.config
+        console.print(f"  Interval: Every {config.interval_hours} hours")
+        console.print(f"  Backup path: {scheduler.backup_path}")
+        console.print(f"  Retention: {config.retention_days} days")
+        console.print(f"  Hooks: before_build={config.hooks.before_build}, after_ticket={config.hooks.after_ticket_completion}")
+        console.print()
+
+    if foreground:
+        if not json_output:
+            console.print("[dim]Running in foreground. Press Ctrl+C to stop.[/dim]\n")
+        scheduler.start_daemon(foreground=True)
+    else:
+        success = scheduler.start_daemon(foreground=False)
+
+        if json_output:
+            status = scheduler.get_status()
+            console.print(json.dumps({
+                "success": success,
+                "pid": status["pid"],
+                "message": "Scheduler started" if success else "Failed to start scheduler",
+            }, indent=2))
+        else:
+            if success:
+                status = scheduler.get_status()
+                console.print(f"[green]Scheduler started (PID: {status['pid']})[/green]")
+                console.print(f"[dim]View logs: tail -f .fastband/scheduler.log[/dim]")
+            else:
+                console.print("[red]Failed to start scheduler[/red]")
+                raise typer.Exit(1)
+
+
+@scheduler_app.command("stop")
+def scheduler_stop(
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Output as JSON",
+    ),
+    path: Optional[Path] = typer.Option(
+        None,
+        "--path",
+        "-p",
+        help="Project path (default: current directory)",
+    ),
+):
+    """
+    Stop the backup scheduler daemon.
+    """
+    scheduler = _get_scheduler(path)
+
+    if not scheduler.is_running():
+        if json_output:
+            console.print(json.dumps({
+                "success": True,
+                "message": "Scheduler is not running",
+            }, indent=2))
+        else:
+            console.print("[yellow]Scheduler is not running[/yellow]")
+        raise typer.Exit(0)
+
+    success = scheduler.stop_daemon()
+
+    if json_output:
+        console.print(json.dumps({
+            "success": success,
+            "message": "Scheduler stopped" if success else "Failed to stop scheduler",
+        }, indent=2))
+    else:
+        if success:
+            console.print("[green]Scheduler stopped[/green]")
+        else:
+            console.print("[red]Failed to stop scheduler[/red]")
+            raise typer.Exit(1)
+
+
+@scheduler_app.command("status")
+def scheduler_status(
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Output as JSON",
+    ),
+    path: Optional[Path] = typer.Option(
+        None,
+        "--path",
+        "-p",
+        help="Project path (default: current directory)",
+    ),
+):
+    """
+    Show backup scheduler status.
+
+    Displays whether the scheduler is running, its configuration,
+    and when the next backup is scheduled.
+    """
+    scheduler = _get_scheduler(path)
+    status = scheduler.get_status()
+
+    if json_output:
+        console.print(json.dumps(status, indent=2))
+        raise typer.Exit(0)
+
+    console.print(Panel.fit(
+        "[bold blue]Backup Scheduler Status[/bold blue]",
+        border_style="blue",
+    ))
+
+    # Status table
+    table = Table(
+        box=box.ROUNDED,
+        show_header=False,
+    )
+    table.add_column("Setting", style="cyan")
+    table.add_column("Value")
+
+    running = status["running"]
+    running_text = "[green]Running[/green]" if running else "[red]Stopped[/red]"
+    table.add_row("Status", running_text)
+
+    if running and status["pid"]:
+        table.add_row("PID", str(status["pid"]))
+
+    config = status["config"]
+    table.add_row("Scheduler Enabled", "Yes" if config["scheduler_enabled"] else "No")
+    table.add_row("Interval", f"Every {config['interval_hours']} hours")
+    table.add_row("Backup Path", config["backup_path"])
+    table.add_row("Retention", f"{config['retention_days']} days")
+
+    console.print(table)
+
+    # Hooks
+    hooks = config["hooks"]
+    console.print("\n[bold]Hooks:[/bold]")
+    console.print(f"  Before build: {'[green]Enabled[/green]' if hooks['before_build'] else '[dim]Disabled[/dim]'}")
+    console.print(f"  After ticket: {'[green]Enabled[/green]' if hooks['after_ticket_completion'] else '[dim]Disabled[/dim]'}")
+    console.print(f"  On config change: {'[green]Enabled[/green]' if hooks['on_config_change'] else '[dim]Disabled[/dim]'}")
+
+    # State
+    state = status["state"]
+    if running:
+        console.print("\n[bold]Runtime:[/bold]")
+        if state["started_at"]:
+            console.print(f"  Started at: {state['started_at'][:19]}")
+        if status["next_backup_in"]:
+            console.print(f"  Next backup in: {status['next_backup_in']}")
+        console.print(f"  Backups created: {state['backups_created']}")
+        if state["errors"] > 0:
+            console.print(f"  Errors: [red]{state['errors']}[/red]")
+
+
+@scheduler_app.command("restart")
+def scheduler_restart(
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Output as JSON",
+    ),
+    path: Optional[Path] = typer.Option(
+        None,
+        "--path",
+        "-p",
+        help="Project path (default: current directory)",
+    ),
+):
+    """
+    Restart the backup scheduler daemon.
+    """
+    scheduler = _get_scheduler(path)
+
+    # Stop if running
+    if scheduler.is_running():
+        scheduler.stop_daemon()
+        if not json_output:
+            console.print("[yellow]Stopped existing scheduler[/yellow]")
+
+    # Start
+    success = scheduler.start_daemon(foreground=False)
+
+    if json_output:
+        status = scheduler.get_status()
+        console.print(json.dumps({
+            "success": success,
+            "pid": status["pid"] if success else None,
+            "message": "Scheduler restarted" if success else "Failed to restart scheduler",
+        }, indent=2))
+    else:
+        if success:
+            status = scheduler.get_status()
+            console.print(f"[green]Scheduler restarted (PID: {status['pid']})[/green]")
+        else:
+            console.print("[red]Failed to restart scheduler[/red]")
+            raise typer.Exit(1)
+
+
+# =============================================================================
+# CONFIG COMMAND (Interactive)
+# =============================================================================
+
+
+@backup_app.command("configure")
+def backup_configure(
+    interactive: bool = typer.Option(
+        True,
+        "--interactive/--no-interactive",
+        "-i",
+        help="Run in interactive mode",
+    ),
+    interval: Optional[int] = typer.Option(
+        None,
+        "--interval",
+        help="Backup interval in hours",
+    ),
+    retention: Optional[int] = typer.Option(
+        None,
+        "--retention",
+        help="Retention period in days",
+    ),
+    backup_path: Optional[str] = typer.Option(
+        None,
+        "--backup-path",
+        help="Path to store backups",
+    ),
+    hook_before_build: Optional[bool] = typer.Option(
+        None,
+        "--hook-before-build/--no-hook-before-build",
+        help="Enable/disable before-build hook",
+    ),
+    hook_after_ticket: Optional[bool] = typer.Option(
+        None,
+        "--hook-after-ticket/--no-hook-after-ticket",
+        help="Enable/disable after-ticket-completion hook",
+    ),
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Output as JSON",
+    ),
+    path: Optional[Path] = typer.Option(
+        None,
+        "--path",
+        "-p",
+        help="Project path (default: current directory)",
+    ),
+):
+    """
+    Configure backup settings interactively.
+
+    This command helps you set up backup preferences including:
+    - Backup interval (how often to create backups)
+    - Retention period (how long to keep backups)
+    - Backup storage location
+    - Hook triggers (before builds, after ticket completion)
+
+    AI agents should use this command to configure backups based on
+    user preferences.
+    """
+    from fastband.core.config import FastbandConfig, BackupConfig, BackupHooksConfig
+
+    project_path = (path or Path.cwd()).resolve()
+    config_file = project_path / ".fastband" / "config.yaml"
+
+    # Load existing config
+    if config_file.exists():
+        config = FastbandConfig.from_file(config_file)
+    else:
+        config = FastbandConfig()
+
+    changes = []
+
+    if interactive and not any([interval, retention, backup_path, hook_before_build is not None, hook_after_ticket is not None]):
+        # Full interactive mode
+        console.print(Panel.fit(
+            "[bold blue]Backup Configuration[/bold blue]\n"
+            "[dim]Configure automated backup settings[/dim]",
+            border_style="blue",
+        ))
+
+        # Current settings
+        console.print("\n[bold]Current Settings:[/bold]")
+        console.print(f"  Interval: Every {config.backup.interval_hours} hours")
+        console.print(f"  Retention: {config.backup.retention_days} days")
+        console.print(f"  Backup path: {config.backup.backup_path}")
+        console.print(f"  Before-build hook: {'Enabled' if config.backup.hooks.before_build else 'Disabled'}")
+        console.print(f"  After-ticket hook: {'Enabled' if config.backup.hooks.after_ticket_completion else 'Disabled'}")
+        console.print()
+
+        # Ask for changes
+        if typer.confirm("Change backup interval?", default=False):
+            new_interval = typer.prompt(
+                "Backup interval (hours)",
+                default=str(config.backup.interval_hours),
+                type=int,
+            )
+            config.backup.interval_hours = new_interval
+            changes.append(f"interval: {new_interval}h")
+
+        if typer.confirm("Change retention period?", default=False):
+            new_retention = typer.prompt(
+                "Retention period (days)",
+                default=str(config.backup.retention_days),
+                type=int,
+            )
+            config.backup.retention_days = new_retention
+            changes.append(f"retention: {new_retention} days")
+
+        if typer.confirm("Change backup storage path?", default=False):
+            new_path = typer.prompt(
+                "Backup path",
+                default=config.backup.backup_path,
+            )
+            config.backup.backup_path = new_path
+            changes.append(f"path: {new_path}")
+
+        if typer.confirm("Configure hooks?", default=False):
+            config.backup.hooks.before_build = typer.confirm(
+                "  Enable before-build backup?",
+                default=config.backup.hooks.before_build,
+            )
+            config.backup.hooks.after_ticket_completion = typer.confirm(
+                "  Enable after-ticket-completion backup?",
+                default=config.backup.hooks.after_ticket_completion,
+            )
+            config.backup.hooks.on_config_change = typer.confirm(
+                "  Enable on-config-change backup?",
+                default=config.backup.hooks.on_config_change,
+            )
+            changes.append("hooks: updated")
+
+    else:
+        # Apply individual settings
+        if interval is not None:
+            config.backup.interval_hours = interval
+            changes.append(f"interval: {interval}h")
+
+        if retention is not None:
+            config.backup.retention_days = retention
+            changes.append(f"retention: {retention} days")
+
+        if backup_path is not None:
+            config.backup.backup_path = backup_path
+            changes.append(f"path: {backup_path}")
+
+        if hook_before_build is not None:
+            config.backup.hooks.before_build = hook_before_build
+            changes.append(f"hook_before_build: {hook_before_build}")
+
+        if hook_after_ticket is not None:
+            config.backup.hooks.after_ticket_completion = hook_after_ticket
+            changes.append(f"hook_after_ticket: {hook_after_ticket}")
+
+    if not changes:
+        if json_output:
+            console.print(json.dumps({
+                "success": True,
+                "message": "No changes made",
+            }, indent=2))
+        else:
+            console.print("[yellow]No changes made[/yellow]")
+        raise typer.Exit(0)
+
+    # Save config
+    config.save(config_file)
+
+    if json_output:
+        console.print(json.dumps({
+            "success": True,
+            "changes": changes,
+            "config": {
+                "interval_hours": config.backup.interval_hours,
+                "retention_days": config.backup.retention_days,
+                "backup_path": config.backup.backup_path,
+                "hooks": {
+                    "before_build": config.backup.hooks.before_build,
+                    "after_ticket_completion": config.backup.hooks.after_ticket_completion,
+                    "on_config_change": config.backup.hooks.on_config_change,
+                },
+            },
+        }, indent=2))
+    else:
+        console.print(f"\n[green]Configuration updated[/green]")
+        for change in changes:
+            console.print(f"  - {change}")
+        console.print("\n[dim]Restart scheduler for changes to take effect: fastband backup scheduler restart[/dim]")
