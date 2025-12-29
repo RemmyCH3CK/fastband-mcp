@@ -26,7 +26,7 @@ jobs:
     steps:
       - name: Move issue to Done when closed
         if: github.event_name == 'issues' && github.event.action == 'closed'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           # Use PROJECT_TOKEN if available, otherwise fall back to GITHUB_TOKEN
           github-token: ${{ secrets.PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
@@ -121,7 +121,7 @@ jobs:
 
       - name: Move issue to In Progress when reopened
         if: github.event_name == 'issues' && github.event.action == 'reopened'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
@@ -213,7 +213,7 @@ jobs:
 
       - name: Move issue to In Progress when assigned or labeled
         if: github.event_name == 'issues' && (github.event.action == 'assigned' || (github.event.action == 'labeled' && github.event.label.name == 'in-progress'))
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
