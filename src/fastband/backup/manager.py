@@ -18,6 +18,19 @@ from typing import Any, Dict, List, Optional
 
 from fastband.core.config import BackupConfig, get_config
 
+# Import alerts (lazy to avoid circular imports)
+_alerts_module = None
+
+
+def _get_alerts():
+    """Lazy import of alerts module."""
+    global _alerts_module
+    if _alerts_module is None:
+        from fastband.backup import alerts
+        _alerts_module = alerts
+    return _alerts_module
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -316,6 +329,23 @@ class BackupManager:
             # Clean up failed backup
             if backup_path.exists():
                 backup_path.unlink()
+
+            # Send CRITICAL alert (fire alarm)
+            try:
+                alerts = _get_alerts()
+                alerts.send_backup_failure_alert(
+                    message=f"Backup creation failed: {description or backup_type.value}",
+                    error=e,
+                    context={
+                        "backup_type": backup_type.value,
+                        "description": description,
+                        "project_path": str(self.project_path),
+                    },
+                    project_path=self.project_path,
+                )
+            except Exception as alert_error:
+                logger.error(f"Failed to send backup failure alert: {alert_error}")
+
             raise
 
         finally:
@@ -440,6 +470,23 @@ class BackupManager:
 
         except Exception as e:
             logger.error(f"Restore failed: {e}")
+
+            # Send CRITICAL alert (fire alarm)
+            try:
+                alerts = _get_alerts()
+                alerts.send_backup_failure_alert(
+                    message=f"Backup restore failed: {backup_id}",
+                    error=e,
+                    context={
+                        "backup_id": backup_id,
+                        "target_path": str(restore_path),
+                        "project_path": str(self.project_path),
+                    },
+                    project_path=self.project_path,
+                )
+            except Exception as alert_error:
+                logger.error(f"Failed to send restore failure alert: {alert_error}")
+
             return False
 
     def delete_backup(self, backup_id: str) -> bool:

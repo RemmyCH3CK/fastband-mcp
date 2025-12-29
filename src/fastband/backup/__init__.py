@@ -7,6 +7,7 @@ Provides automated backup functionality for Fastband projects including:
 - Retention policy management
 - Restore capabilities
 - Scheduled backups with interval and hooks
+- Fire-alarm alerts for backup failures
 """
 
 from fastband.backup.manager import (
@@ -21,6 +22,15 @@ from fastband.backup.scheduler import (
     get_scheduler,
     trigger_backup_hook,
 )
+from fastband.backup.alerts import (
+    Alert,
+    AlertConfig,
+    AlertLevel,
+    AlertManager,
+    get_alert_manager,
+    send_backup_alert,
+    send_backup_failure_alert,
+)
 
 __all__ = [
     # Manager
@@ -33,4 +43,12 @@ __all__ = [
     "SchedulerState",
     "get_scheduler",
     "trigger_backup_hook",
+    # Alerts
+    "Alert",
+    "AlertConfig",
+    "AlertLevel",
+    "AlertManager",
+    "get_alert_manager",
+    "send_backup_alert",
+    "send_backup_failure_alert",
 ]

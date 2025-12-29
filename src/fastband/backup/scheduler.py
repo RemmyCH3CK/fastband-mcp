@@ -22,6 +22,19 @@ from typing import Any, Callable, Dict, List, Optional
 from fastband.backup.manager import BackupManager, BackupType, BackupInfo
 from fastband.core.config import BackupConfig, get_config
 
+# Import alerts (lazy to avoid circular imports)
+_alerts_module = None
+
+
+def _get_alerts():
+    """Lazy import of alerts module."""
+    global _alerts_module
+    if _alerts_module is None:
+        from fastband.backup import alerts
+        _alerts_module = alerts
+    return _alerts_module
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -236,6 +249,23 @@ class BackupScheduler:
             self.state.errors += 1
             self._save_state()
             logger.error(f"Backup failed: {e}")
+
+            # Send CRITICAL alert (fire alarm)
+            try:
+                alerts = _get_alerts()
+                alerts.send_backup_failure_alert(
+                    message=f"Scheduled backup failed: {description or backup_type.value}",
+                    error=e,
+                    context={
+                        "backup_type": backup_type.value,
+                        "description": description,
+                        "project_path": str(self.project_path),
+                        "scheduler_errors": self.state.errors,
+                    },
+                    project_path=self.project_path,
+                )
+            except Exception as alert_error:
+                logger.error(f"Failed to send backup failure alert: {alert_error}")
 
         return None
 
