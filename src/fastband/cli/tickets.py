@@ -9,6 +9,7 @@ Provides commands for managing tickets:
 - complete: Complete a ticket
 - search: Search tickets by query
 - update: Update ticket fields
+- web: Start the web dashboard
 """
 
 import json
@@ -982,3 +983,82 @@ def update_ticket(
     console.print(f"[green]Updated ticket #{ticket.id}[/green]")
     for change in changes:
         console.print(f"  - {change}")
+
+
+# =============================================================================
+# WEB COMMAND
+# =============================================================================
+
+
+@tickets_app.command("web")
+def start_web(
+    host: str = typer.Option(
+        "127.0.0.1",
+        "--host",
+        "-h",
+        help="Host address to bind to",
+    ),
+    port: int = typer.Option(
+        5000,
+        "--port",
+        "-p",
+        help="Port number to listen on",
+    ),
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        "-d",
+        help="Enable debug mode with auto-reload",
+    ),
+    open_browser: bool = typer.Option(
+        True,
+        "--open/--no-open",
+        help="Open browser automatically",
+    ),
+    path: Optional[Path] = typer.Option(
+        None,
+        "--path",
+        help="Path to ticket storage file",
+    ),
+):
+    """
+    Start the ticket web dashboard.
+
+    Launches a web interface for viewing and managing tickets with:
+    - Dashboard with statistics and overview
+    - Ticket listing with filters
+    - Ticket detail views
+    - JSON API endpoints
+    - Dark/light mode toggle
+    """
+    import webbrowser
+    from fastband.tickets.web.app import serve as serve_web
+
+    store = _get_store(path)
+
+    url = f"http://{host}:{port}"
+    console.print(Panel.fit(
+        f"[bold blue]Ticket Web Dashboard[/bold blue]\n"
+        f"[dim]Starting at {url}[/dim]",
+        border_style="blue",
+    ))
+
+    console.print(f"[green]✓[/green] Serving tickets from: {store.path if hasattr(store, 'path') else 'default store'}")
+    console.print(f"[green]✓[/green] Debug mode: {'enabled' if debug else 'disabled'}")
+    console.print("\n[dim]Press Ctrl+C to stop the server[/dim]\n")
+
+    # Open browser if requested
+    if open_browser:
+        # Delay browser open slightly to let server start
+        import threading
+        def open_delayed():
+            import time
+            time.sleep(1)
+            webbrowser.open(url)
+        threading.Thread(target=open_delayed, daemon=True).start()
+
+    # Start the server
+    try:
+        serve_web(store=store, host=host, port=port, debug=debug)
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Server stopped[/yellow]")
