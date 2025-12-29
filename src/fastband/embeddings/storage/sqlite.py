@@ -55,6 +55,7 @@ class SQLiteVectorStore(VectorStore):
 
     Features:
     - Thread-safe with thread-local connections
+    - Proper connection cleanup across all threads
     - Indexed columns for filtering
     - Efficient batch inserts
     - Automatic schema migration
@@ -77,17 +78,22 @@ class SQLiteVectorStore(VectorStore):
         self._dimensions = 0
         self._local = threading.local()
         self._lock = threading.Lock()
+        self._all_connections: List[sqlite3.Connection] = []  # Track all thread connections
         self._init_db()
 
     @property
     def _conn(self) -> sqlite3.Connection:
-        """Get thread-local connection."""
+        """Get thread-local connection, tracking for cleanup."""
         if not hasattr(self._local, "conn"):
-            self._local.conn = sqlite3.connect(
+            conn = sqlite3.connect(
                 self.path,
                 check_same_thread=False,
             )
-            self._local.conn.row_factory = sqlite3.Row
+            conn.row_factory = sqlite3.Row
+            self._local.conn = conn
+            # Track connection for cleanup
+            with self._lock:
+                self._all_connections.append(conn)
         return self._local.conn
 
     @contextmanager
@@ -283,24 +289,10 @@ class SQLiteVectorStore(VectorStore):
             embedding = _unpack_embedding(row["embedding"])
             score = _cosine_similarity(query_embedding, embedding)
 
-            metadata = ChunkMetadata(
-                file_path=row["file_path"],
-                chunk_type=ChunkType(row["chunk_type"]),
-                start_line=row["start_line"],
-                end_line=row["end_line"],
-                name=row["name"],
-                docstring=row["docstring"],
-                imports=json.loads(row["imports"]) if row["imports"] else [],
-                parent_name=row["parent_name"],
-                file_type=row["file_type"],
-                last_modified=datetime.fromisoformat(row["last_modified"]) if row["last_modified"] else None,
-                chunk_hash=row["chunk_hash"],
-            )
-
             results.append(SearchResult(
                 chunk_id=row["chunk_id"],
                 content=row["content"],
-                metadata=metadata,
+                metadata=self._row_to_metadata(row),
                 score=score,
             ))
 
@@ -317,24 +309,10 @@ class SQLiteVectorStore(VectorStore):
             if not row:
                 return None
 
-            metadata = ChunkMetadata(
-                file_path=row["file_path"],
-                chunk_type=ChunkType(row["chunk_type"]),
-                start_line=row["start_line"],
-                end_line=row["end_line"],
-                name=row["name"],
-                docstring=row["docstring"],
-                imports=json.loads(row["imports"]) if row["imports"] else [],
-                parent_name=row["parent_name"],
-                file_type=row["file_type"],
-                last_modified=datetime.fromisoformat(row["last_modified"]) if row["last_modified"] else None,
-                chunk_hash=row["chunk_hash"],
-            )
-
             return SearchResult(
                 chunk_id=row["chunk_id"],
                 content=row["content"],
-                metadata=metadata,
+                metadata=self._row_to_metadata(row),
                 score=1.0,  # Not from search
             )
 
@@ -413,8 +391,31 @@ class SQLiteVectorStore(VectorStore):
                 (key, value)
             )
 
+    def _row_to_metadata(self, row: sqlite3.Row) -> ChunkMetadata:
+        """Convert database row to ChunkMetadata."""
+        return ChunkMetadata(
+            file_path=row["file_path"],
+            chunk_type=ChunkType(row["chunk_type"]),
+            start_line=row["start_line"],
+            end_line=row["end_line"],
+            name=row["name"],
+            docstring=row["docstring"],
+            imports=json.loads(row["imports"]) if row["imports"] else [],
+            parent_name=row["parent_name"],
+            file_type=row["file_type"],
+            last_modified=datetime.fromisoformat(row["last_modified"]) if row["last_modified"] else None,
+            chunk_hash=row["chunk_hash"],
+        )
+
     def close(self) -> None:
-        """Close database connection."""
+        """Close all database connections across threads."""
+        with self._lock:
+            for conn in self._all_connections:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+            self._all_connections.clear()
+
         if hasattr(self._local, "conn"):
-            self._local.conn.close()
             delattr(self._local, "conn")

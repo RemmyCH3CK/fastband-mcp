@@ -193,3 +193,37 @@ class EmbeddingProvider(ABC):
         """
         result = await self.embed([text])
         return result.embeddings[0]
+
+    def _empty_result(self) -> EmbeddingResult:
+        """
+        Create an empty embedding result.
+
+        Used when embed() is called with an empty text list.
+        Centralizes this common pattern across all providers.
+
+        Returns:
+            EmbeddingResult with empty embeddings and zero token usage
+        """
+        return EmbeddingResult(
+            embeddings=[],
+            model=self.config.model or self.default_model,
+            provider=self.name,
+            dimensions=self.dimensions,
+            usage={"prompt_tokens": 0, "total_tokens": 0},
+        )
+
+    @staticmethod
+    def _estimate_tokens(texts: Sequence[str]) -> int:
+        """
+        Estimate token count from texts using word count.
+
+        Used by providers that don't return token usage (Gemini, Ollama).
+        Approximates tokens as word count (rough but reasonable estimate).
+
+        Args:
+            texts: List of text strings
+
+        Returns:
+            Estimated token count
+        """
+        return sum(len(t.split()) for t in texts)

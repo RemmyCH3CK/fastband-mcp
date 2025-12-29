@@ -108,13 +108,7 @@ class OpenAIEmbeddings(EmbeddingProvider):
             EmbeddingResult with embedding vectors
         """
         if not texts:
-            return EmbeddingResult(
-                embeddings=[],
-                model=self.config.model,
-                provider=self.name,
-                dimensions=self.dimensions,
-                usage={"prompt_tokens": 0, "total_tokens": 0},
-            )
+            return self._empty_result()
 
         texts_list = list(texts)
         all_embeddings = []

@@ -1,0 +1,1140 @@
+# THE AGENT BIBLE
+
+**Version:** 1.0.0
+**Generated:** {{ generation_date }}
+**Project:** {{ project.name }}
+**Status:** AUTHORITATIVE - THIS IS THE ONLY AGENT DOCUMENTATION
+
+---
+
+## Table of Contents
+
+1. [The Hierarchy of Authority](#1-the-hierarchy-of-authority)
+2. [The Ten Laws](#2-the-ten-laws)
+3. [Project Configuration](#3-project-configuration)
+4. [Ticket Workflow (7 Steps)](#4-ticket-workflow-7-steps)
+5. [Screenshot Requirements](#5-screenshot-requirements)
+6. [Review Agent Protocol](#6-review-agent-protocol)
+7. [Behavioral Testing Tools](#7-behavioral-testing-tools)
+8. [MCP Tool Reference](#8-mcp-tool-reference)
+9. [Error Recovery & Common Fixes](#9-error-recovery--common-fixes)
+10. [Appendix: Quick Reference Card](#appendix-quick-reference-card)
+
+---
+
+## 1. THE HIERARCHY OF AUTHORITY
+
+```
+┌─────────────────────────────────────────────────────┐
+│                USER ("The Boss")                    │
+│         Final authority on all decisions            │
+│       Can override any rule when necessary          │
+└─────────────────────────┬───────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────┐
+│          FB MCP TOOLS ("The Underboss")             │
+│       Programmatic enforcement of all rules         │
+│     Tools BLOCK violations before they happen       │
+└─────────────────────────┬───────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────┐
+│          AGENT_BIBLE.md ("The Law")                 │
+│     Single authoritative documentation source       │
+│     All other agent docs are DEPRECATED             │
+└─────────────────────────┬───────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────┐
+│              AGENTS ("The Crew")                    │
+│      Follow the law, obey the tools, serve          │
+│         the user's goals without exception          │
+└─────────────────────────────────────────────────────┘
+```
+
+**Key Principle:** When in doubt, escalate UP the hierarchy. Agents never make unilateral decisions on ambiguous matters.
+
+---
+
+## 2. THE TEN LAWS
+
+These laws are absolute. Violation triggers automatic rejection.
+
+### LAW 1: FB MCP Server Must Be Available
+
+**THE RULE:**
+Agents MUST NOT proceed with any platform work if the Fastband MCP Server is unavailable.
+
+**RATIONALE:**
+The FB MCP Server enforces all platform rules, tracks operations, manages tickets, and ensures compliance. Without it, agents cannot:
+- Access ticket system
+- Report to ops log
+- Take/analyze screenshots
+- Use platform-specific tools
+- Complete tickets safely
+
+Working without MCP tools is like building without safety equipment - it will result in violations.
+
+**IF MCP SERVER IS UNAVAILABLE:**
+
+1. **STOP immediately** - Do not proceed with any platform work
+2. **Notify the user** - Explain clearly:
+   ```
+   "I cannot proceed with this task. The Fastband MCP Server is not available
+   in my current session. Without MCP tools, I cannot:
+   - Access the ticket system
+   - Report operations to the ops log
+   - Take screenshots for verification
+   - Complete tickets properly
+
+   Please either:
+   - Restart this session with MCP server enabled
+   - Help me connect to the MCP server
+   - Confirm you want to proceed without enforcement (not recommended)"
+   ```
+3. **Wait for user decision** - Only proceed after user confirmation
+
+**EXCEPTION:**
+The ONLY exception is if the user explicitly requests non-platform work (e.g., "just explain this code" or "help me with a personal project"). General assistance without platform modifications is permitted.
+
+---
+
+### LAW 2: Never Bypass MCP Tools
+
+**THE RULE:**
+Agents must NEVER bypass the MCP tool system by directly editing platform data files. This includes tickets data, ops log files, or any other system data.
+
+**RATIONALE:**
+The MCP tools provide:
+- Proper validation and error handling
+- Audit trails and logging
+- Enforcement of business rules
+- Consistency across all operations
+
+Directly editing data files bypasses all these protections and creates data integrity risks.
+
+**ABSOLUTELY FORBIDDEN:**
+- Directly editing ticket data files
+- Directly editing ops log files
+- Directly editing any MCP-managed data files
+- "Just this once" exceptions
+- "I'll fix it properly later" workarounds
+
+**NO EXCEPTIONS:**
+Even if the user requests it, agents should refuse and explain why direct data file manipulation is dangerous.
+
+---
+
+### LAW 3: Ops Log Reporting is Mandatory
+
+**THE RULE:**
+All agents MUST report their actions to the Agent Operations Log.
+
+**BEFORE STARTING WORK:**
+```python
+# Check for holds/directives
+directive = ops_log_latest_directive()
+if directive.get("is_hold"):
+    print(f"HOLD in effect - STOP: {directive['formatted']}")
+    # DO NOT PROCEED until hold is lifted
+```
+
+**REQUIRED REPORTS:**
+- `ops_log_write()` - General status updates
+- `ops_log_rebuild()` - Before AND after container rebuilds
+- `ops_log_clearance()` - Grant/hold work for other agents
+
+{% if project.ops_log_url %}
+**Web UI:** {{ project.ops_log_url }}
+{% endif %}
+
+---
+
+### LAW 4: Screenshots Must Be Analyzed
+
+**THE RULE:**
+Screenshots are NOT just captured - they MUST be analyzed for context using the Vision API.
+
+**BEFORE screenshot must show:**
+- The actual problem/feature being fixed
+- NOT a login page
+- NOT an unrelated page
+
+**AFTER screenshot must show:**
+- The same page/feature as BEFORE
+- Visible evidence the fix works
+- NOT a login page
+
+**REQUIRED ANALYSIS:**
+```python
+# Analyze EACH screenshot
+analyze_screenshot_with_vision(
+    screenshot_path="{{ project.screenshots_path }}/ticket_XXXX_before.png",
+    expected_content="description of what should be visible",
+    ticket_id="XXXX",
+    analysis_type="validation"
+)
+
+# Compare BEFORE and AFTER
+compare_screenshots_with_vision(
+    before_screenshot_path="...",
+    after_screenshot_path="...",
+    ticket_id="XXXX",
+    expected_change="what should be different"
+)
+```
+
+**REJECTION TRIGGERS:**
+- `is_login_page: true` - REJECT immediately
+- `is_valid: false` - REJECT immediately
+- `verdict: "FAIL"` - REJECT immediately
+
+---
+
+### LAW 5: Code Review Must Test
+
+**THE RULE:**
+Reading code is NOT sufficient. Code review agents MUST test features like a user.
+
+**FORBIDDEN:**
+- Approving because "code looks correct"
+- Skipping browser testing
+- Assuming things work without verification
+
+**REQUIRED TESTING:**
+```python
+# Test the actual feature
+test_fix_in_browser(
+    ticket_id="XXXX",
+    test_url="{{ project.dev_url }}/path-to-feature",
+    test_actions=["click #button", "wait for .result"],
+    expected_outcomes=["feature_works", "no_console_errors"]
+)
+
+# Check for console errors
+get_browser_console(
+    url="{{ project.dev_url }}/path-to-feature",
+    wait_seconds=5,
+    capture_errors=True
+)
+```
+
+**APPROVAL REQUIRES:**
+- Zero console errors
+- Feature works in browser
+- API endpoints return 200 (not 500)
+- DOM changes verified
+
+---
+
+### LAW 6: Never Auto-Resolve
+
+**THE RULE:**
+Only humans can set ticket status to "Resolved".
+
+**AGENT WORKFLOW:**
+1. Work on ticket
+2. Call `complete_ticket_safely()` - sets status to "Under Review"
+3. Spawn {{ project.review_agent_count }} review agent(s)
+4. **STOP** - wait for approvals
+5. After all approvals → status becomes "Awaiting Approval"
+6. **Human** reviews and resolves
+
+**FORBIDDEN:**
+```python
+# NEVER DO THIS - WILL BE BLOCKED
+update_ticket(ticket_id="XXXX", status="🟢 Resolved")
+```
+
+**CORRECT:**
+```python
+# This stops at "Under Review" automatically
+complete_ticket_safely(...)
+# Then spawn review agents and STOP
+```
+
+---
+
+### LAW 7: Never Give Up
+
+**THE RULE:**
+Agents must persist through difficulties. Giving up is not an option.
+
+**BEFORE ESCALATING, YOU MUST:**
+1. Read at least 3 relevant documentation files
+2. Try at least 2 different approaches
+3. Search the codebase for similar implementations
+4. Document exactly what you tried and what happened
+5. Explain why each approach failed with specific errors
+
+**FORBIDDEN:**
+- "This is too hard, I'll skip it"
+- "I'll just do a workaround"
+- "This is impossible" (without exhaustive research)
+- Placeholder or stub implementations
+- Partial solutions
+
+---
+
+### LAW 8: Keep the Bible Updated
+
+**THE RULE:**
+If you discover outdated or incorrect information in this Bible, you MUST propose an update.
+
+**PROCESS:**
+1. Document the discrepancy you found
+2. Note where in the Bible it appears
+3. Propose the correction
+4. Request human approval for the change
+
+**Bible accuracy is everyone's responsibility.**
+
+---
+
+### LAW 9: Commit Changes After Resolution
+
+**THE RULE:**
+After human approval, agents MUST commit and offer to push changes to git.
+
+**WORKFLOW:**
+1. Human approves ticket (sets status to "Resolved")
+2. Agent commits all changes with ticket reference
+3. Agent asks human: "Ready to push to {{ project.git_default_branch }} branch?"
+4. If human confirms, push to remote
+
+**COMMIT COMMAND:**
+```python
+commit_changes(
+    repo="{{ project.repo_name }}",
+    ticket_id="XXXX",
+    commit_message="Fix description here",
+    files_to_add=None  # None = add all changes
+)
+```
+
+**REQUIRED:**
+- ALWAYS commit after ticket resolution
+- ALWAYS ask human before pushing
+- Include ticket number in commit message
+
+**FORBIDDEN:**
+- Pushing without human confirmation
+- Forgetting to commit after approval
+- Force pushing to main/master
+
+---
+
+{% if project.database_rule %}
+### LAW 10: {{ project.database_rule.title }}
+
+**THE RULE:**
+{{ project.database_rule.description }}
+
+{% if project.database_rule.forbidden %}
+**FORBIDDEN:**
+{% for item in project.database_rule.forbidden %}
+- {{ item }}
+{% endfor %}
+{% endif %}
+
+{% if project.database_rule.always %}
+**ALWAYS:**
+{% for item in project.database_rule.always %}
+- {{ item }}
+{% endfor %}
+{% endif %}
+
+{% else %}
+### LAW 10: Follow Project Conventions
+
+**THE RULE:**
+Agents must follow the established patterns and conventions of this project.
+
+**BEFORE MAKING CHANGES:**
+1. Review existing code patterns
+2. Match the style and structure already in use
+3. Use established abstractions and utilities
+4. Ask if unsure about conventions
+
+{% endif %}
+
+---
+
+## 3. PROJECT CONFIGURATION
+
+This section was generated automatically based on project detection.
+
+### Project Information
+
+| Setting | Value |
+|---------|-------|
+| **Project Name** | {{ project.name }} |
+| **Project Type** | {{ project.type }} |
+| **Primary Language** | {{ project.language }} |
+| **Ticket Prefix** | {{ project.ticket_prefix }} |
+
+{% if project.server_ip %}
+### Server Access
+
+| Purpose | Connection |
+|---------|------------|
+{% if project.server_ip %}| **Server IP** | `{{ project.server_ip }}` |{% endif %}
+{% if project.ssh_connection %}| **SSH Access** | `{{ project.ssh_connection }}` |{% endif %}
+{% if project.dev_url %}| **Dev Environment URL** | {{ project.dev_url }} |{% endif %}
+{% if project.prod_url %}| **Production URL** | {{ project.prod_url }} |{% endif %}
+{% endif %}
+
+### Path Configuration
+
+| Context | Path |
+|---------|------|
+| **Project Root** | `{{ project.root_path }}` |
+| **Templates** | `{{ project.templates_path }}` |
+| **Static Files** | `{{ project.static_path }}` |
+| **Screenshots** | `{{ project.screenshots_path }}` |
+| **Data/Storage** | `{{ project.data_path }}` |
+
+{% if project.container_name %}
+### Container Configuration
+
+| Setting | Value |
+|---------|-------|
+| **Container Name** | `{{ project.container_name }}` |
+| **Service Name** | `{{ project.service_name }}` |
+| **Container App Root** | `{{ project.container_app_path }}` |
+
+**Static Files Note:**
+Static files are COPIED into the Docker image at build time. If you edit static files, the running container still has the OLD version.
+
+**Solution Options:**
+
+1. **Copy into container (fast):**
+```bash
+docker cp {{ project.root_path }}/static/js/file.js {{ project.container_name }}:{{ project.container_app_path }}/static/js/file.js
+```
+
+2. **Rebuild container (thorough):**
+```python
+build_container(service_name="{{ project.service_name }}")
+```
+{% endif %}
+
+{% if project.database_type %}
+### Database Configuration
+
+| Setting | Value |
+|---------|-------|
+| **Database Type** | {{ project.database_type }} |
+{% if project.database_connection %}| **Connection** | `{{ project.database_connection }}` |{% endif %}
+{% endif %}
+
+---
+
+## 4. TICKET WORKFLOW (7 Steps)
+
+```
+🔴 Open → 🟡 In Progress → 🔍 Under Review → 🔵 Awaiting Approval → 🟢 Resolved
+                ↑                    ↓
+                └── (if rejected) ───┘
+```
+
+### Step 1: Start Session & Onboard
+
+```python
+# Start your agent session
+start_agent_session(
+    agent_name="MCP_Agent1",
+    session_context="new_ticket"
+)
+
+# Read and acknowledge required documentation
+acknowledge_documentation(
+    agent_name="MCP_Agent1",
+    doc_path="{{ project.fastband_path }}/AGENT_BIBLE.md",
+    summary="Read the 10 laws and project configuration"
+)
+
+# Complete onboarding
+complete_onboarding(
+    agent_name="MCP_Agent1",
+    codebase_examined=True,
+    platform_understanding="{{ project.type }} app, {{ project.database_type }} DB{% if project.container_name %}, Docker deployment{% endif %}"
+)
+```
+
+### Step 2: Check Ops Log & Claim Ticket
+
+```python
+# ALWAYS check for holds first
+directive = ops_log_latest_directive()
+if directive.get("is_hold"):
+    # STOP - do not proceed
+    pass
+
+# Check platform health
+check_platform_health()
+
+# Claim the ticket
+claim_ticket(
+    ticket_id="{{ project.ticket_prefix }}-001",
+    agent_name="MCP_Agent1",
+    auto_start=True
+)
+```
+
+### Step 3: Take BEFORE Screenshot
+
+**BEFORE making ANY changes:**
+
+```python
+take_screenshot(
+    url="{{ project.dev_url }}/feature-page",
+    output_path="{{ project.screenshots_path }}/ticket_{{ project.ticket_prefix }}-001_before.png",
+    wait_seconds=3
+)
+```
+
+### Step 4: Do the Work
+
+- Edit code files using `edit_file()` or `write_file()`
+- Fix bugs, implement features
+- Test changes locally
+
+{% if project.container_name %}
+**If templates/static/Python files changed:**
+```python
+# Announce rebuild
+ops_log_rebuild(
+    agent="MCP_Agent1",
+    ticket_id="{{ project.ticket_prefix }}-001",
+    container="{{ project.service_name }}",
+    files_changed=["templates/base.html"],
+    status="requested"
+)
+
+# Rebuild container
+build_container(service_name="{{ project.service_name }}")
+
+# Announce completion
+ops_log_rebuild(
+    agent="MCP_Agent1",
+    ticket_id="{{ project.ticket_prefix }}-001",
+    container="{{ project.service_name }}",
+    files_changed=["templates/base.html"],
+    status="complete"
+)
+```
+{% endif %}
+
+### Step 5: Verify & Take AFTER Screenshot
+
+**VERIFY before taking after screenshot:**
+
+```python
+# Check for console errors
+console = get_browser_console(
+    url="{{ project.dev_url }}/feature-page",
+    wait_seconds=5
+)
+
+if console["summary"]["total_errors"] > 0:
+    # FIX ERRORS BEFORE CONTINUING
+    pass
+
+# Take AFTER screenshot
+take_screenshot(
+    url="{{ project.dev_url }}/feature-page",
+    output_path="{{ project.screenshots_path }}/ticket_{{ project.ticket_prefix }}-001_after.png",
+    wait_seconds=3
+)
+```
+
+### Step 6: Commit Changes & Complete Safely
+
+**COMMIT FIRST (LAW 9 Enforcement):**
+```python
+# Commit your changes BEFORE completing the ticket
+commit_changes(
+    repo="{{ project.repo_name }}",
+    ticket_id="{{ project.ticket_prefix }}-001",
+    commit_message="Fix button alignment on mobile view",
+    files_to_add=None  # None = add all modified files
+)
+```
+
+**THEN COMPLETE:**
+```python
+complete_ticket_safely(
+    ticket_id="{{ project.ticket_prefix }}-001",
+    before_screenshot_path="{{ project.screenshots_path }}/ticket_{{ project.ticket_prefix }}-001_before.png",
+    after_screenshot_path="{{ project.screenshots_path }}/ticket_{{ project.ticket_prefix }}-001_after.png",
+    before_title="Before Fix - Problem Description",
+    before_description="Detailed description of what the screenshot shows",
+    after_title="After Fix - Solution Applied",
+    after_description="Detailed description of the fix working",
+    problem_summary="Clear explanation of what was broken",
+    solution_summary="Clear explanation of what was fixed and how",
+    files_modified=["templates/feature.html", "static/js/feature.js"],
+    testing_notes="Tested on Chrome/Firefox, verified functionality X, Y, Z"
+)
+```
+
+### Step 7: Spawn Review Agents
+
+**IMMEDIATELY after complete_ticket_safely():**
+
+```python
+# Spawn {{ project.review_agent_count }} agent(s) in PARALLEL (single message, multiple Task calls)
+
+# 1. Code Review Agent
+Task(
+    subagent_type="general-purpose",
+    description="Code Review for Ticket #{{ project.ticket_prefix }}-001",
+    prompt="""You are a CODE REVIEW AGENT for {{ project.name }} ticket #{{ project.ticket_prefix }}-001.
+
+REQUIRED STEPS:
+1. start_agent_session(agent_name="Code_Review_Agent", is_subagent=True, parent_agent="MCP_Agent1", spawned_for_ticket="{{ project.ticket_prefix }}-001")
+2. get_ticket_details("{{ project.ticket_prefix }}-001")
+3. Read modified files and check code syntax
+4. test_fix_in_browser() - ACTUALLY TEST the feature
+5. get_browser_console() - Check for errors
+6. analyze_screenshot_with_vision() - Validate screenshots
+7. approve_code_review() or reject_code_review()
+
+You MUST reject if uncertain. 100% certainty required."""
+)
+
+{% if project.review_agent_count >= 2 %}
+# 2. Process Audit Agent
+Task(
+    subagent_type="general-purpose",
+    description="Process Audit for Ticket #{{ project.ticket_prefix }}-001",
+    prompt="""You are a PROCESS AUDIT AGENT for {{ project.name }} ticket #{{ project.ticket_prefix }}-001.
+
+REQUIRED STEPS:
+1. start_agent_session(agent_name="Process_Audit_Agent", is_subagent=True, parent_agent="MCP_Agent1", spawned_for_ticket="{{ project.ticket_prefix }}-001")
+2. get_ticket_details("{{ project.ticket_prefix }}-001")
+3. Verify ticket was claimed (assigned_to set)
+4. Verify screenshots embedded as <img src= in resolution
+5. analyze_screenshot_with_vision() - Validate BOTH screenshots
+6. Verify problem_summary and solution_summary are detailed
+7. approve_code_review() or reject_code_review()
+
+You MUST reject if screenshots show login pages."""
+)
+{% endif %}
+
+{% if project.review_agent_count >= 3 %}
+# 3. UI/UX Review Agent
+Task(
+    subagent_type="general-purpose",
+    description="UI/UX Review for Ticket #{{ project.ticket_prefix }}-001",
+    prompt="""You are a UI/UX REVIEW AGENT for {{ project.name }} ticket #{{ project.ticket_prefix }}-001.
+
+REQUIRED STEPS:
+1. start_agent_session(agent_name="UI_UX_Review_Agent", is_subagent=True, parent_agent="MCP_Agent1", spawned_for_ticket="{{ project.ticket_prefix }}-001")
+2. get_ticket_details("{{ project.ticket_prefix }}-001")
+3. Read modified CSS/template files
+4. Verify CSS variables used (not hardcoded colors)
+5. take_screenshot() in BOTH dark and light mode
+6. Verify design system compliance
+7. approve_code_review() or reject_code_review()
+
+You MUST reject if design system rules violated."""
+)
+{% endif %}
+```
+
+**AFTER all {{ project.review_agent_count }} approve:** Ticket moves to "Awaiting Approval" for human review.
+
+---
+
+## 5. SCREENSHOT REQUIREMENTS
+
+### Required Screenshots
+
+| Type | When | Shows |
+|------|------|-------|
+| **BEFORE** | Before ANY changes | The problem/original state |
+| **AFTER** | After rebuild completes | The solution/fixed state |
+
+### Screenshot Storage
+
+- **Capture location:** `{{ project.screenshots_path }}/ticket_XXXX_before.png`
+- **Static location:** `{{ project.static_path }}/screenshots/ticket_XXXX_before.png`
+{% if project.container_name %}- **Container location:** `{{ project.container_app_path }}/static/screenshots/` (after copy){% endif %}
+
+### Vision API Validation
+
+**MUST use for ALL screenshots:**
+
+```python
+# Validate individual screenshot
+result = analyze_screenshot_with_vision(
+    screenshot_path="{{ project.static_path }}/screenshots/ticket_XXXX_before.png",
+    expected_content="description of expected page content",
+    ticket_id="XXXX",
+    analysis_type="validation"
+)
+
+# Check results
+if result["is_login_page"]:
+    # REJECT - screenshot invalid
+    pass
+if not result["is_valid"]:
+    # REJECT - does not show expected content
+    pass
+```
+
+**MUST compare before/after:**
+
+```python
+comparison = compare_screenshots_with_vision(
+    before_screenshot_path="...",
+    after_screenshot_path="...",
+    ticket_id="XXXX",
+    expected_change="Description of expected visible change"
+)
+
+if comparison["verdict"] == "FAIL":
+    # REJECT
+    pass
+if not comparison["change_visible"]:
+    # REJECT - no visible change
+    pass
+```
+
+### Rejection Criteria
+
+| Issue | Action |
+|-------|--------|
+| Screenshot shows login page | REJECT immediately |
+| Before/after show different pages | REJECT |
+| No visible change between screenshots | REJECT |
+| Screenshot too small (<10KB) | REJECT |
+| Cannot verify content | REJECT |
+
+---
+
+## 6. REVIEW AGENT PROTOCOL
+
+### {{ project.review_agent_count }} Required Review Agent(s)
+
+| Agent | Responsibility |
+|-------|----------------|
+| **Code Review Agent** | Verify code works correctly, test in browser |
+{% if project.review_agent_count >= 2 %}| **Process Audit Agent** | Verify workflow followed, screenshots valid |{% endif %}
+{% if project.review_agent_count >= 3 %}| **UI/UX Review Agent** | Verify design system compliance |{% endif %}
+
+### Code Review Agent Checklist
+
+- [ ] Read all modified files
+- [ ] Verify syntax is valid
+- [ ] Check for security issues (XSS, injection)
+- [ ] Call `test_fix_in_browser()` to verify functionality
+- [ ] Call `get_browser_console()` to check for errors
+- [ ] Call `analyze_screenshot_with_vision()` on both screenshots
+- [ ] Verify API endpoints return 200, not 500
+
+{% if project.review_agent_count >= 2 %}
+### Process Audit Agent Checklist
+
+- [ ] Verify `assigned_to` is set (ticket was claimed)
+- [ ] Verify `before_screenshot` path exists
+- [ ] Verify `after_screenshot` path exists
+- [ ] Verify resolution contains `<img src=` HTML for BOTH screenshots
+- [ ] Call `analyze_screenshot_with_vision()` - check `is_login_page`
+- [ ] Verify `problem_summary` is detailed (not empty/generic)
+- [ ] Verify `solution_summary` is detailed (not empty/generic)
+- [ ] Verify `files_modified` list is populated
+- [ ] Verify `testing_notes` describe actual testing
+{% endif %}
+
+{% if project.review_agent_count >= 3 %}
+### UI/UX Review Agent Checklist
+
+- [ ] Read modified CSS files
+- [ ] Verify CSS variables used instead of hardcoded colors
+- [ ] Take screenshot in dark mode - verify it works
+- [ ] Take screenshot in light mode - verify it works
+- [ ] Check component standards are followed
+- [ ] Verify responsive behavior if applicable
+{% endif %}
+
+### Approval/Rejection Commands
+
+**To Approve:**
+```python
+approve_code_review(
+    ticket_id="XXXX",
+    reviewer_agent="Code_Review_Agent",
+    review_type="code",
+    review_summary="All checks passed. Feature verified working.",
+    checks_passed=["syntax_valid", "no_security_issues", "fix_works_in_browser"],
+    issues_found=[],
+    suggestions=[]
+)
+```
+
+**To Reject:**
+```python
+reject_code_review(
+    ticket_id="XXXX",
+    reviewer_agent="Code_Review_Agent",
+    review_type="code",
+    rejection_reason="Fix not working in browser",
+    issues_found=["JavaScript error in console", "Button click does nothing"],
+    requested_changes=["Fix event handler", "Test in browser before resubmitting"],
+    checklist_failures=["fix_works_in_browser"]
+)
+```
+
+### Standard Rejection Reasons
+
+1. `Screenshots not embedded in resolution HTML`
+2. `Before/after screenshot shows login page`
+3. `Screenshots identical or show different pages`
+4. `Problem/solution summary missing or generic`
+5. `Fix not working in browser`
+6. `Container not rebuilt after code changes`
+7. `API returns 500 error`
+8. `JavaScript console errors present`
+{% if project.review_agent_count >= 3 %}9. `Design system rules violated`{% endif %}
+10. `Verification inconclusive`
+
+---
+
+## 7. BEHAVIORAL TESTING TOOLS
+
+### Overview
+
+Code review agents must REPLICATE user actions, not just read code. These tools enable behavioral testing:
+
+### capture_interaction_sequence()
+
+Execute a sequence of user actions with screenshots at each step:
+
+```python
+capture_interaction_sequence(
+    url="{{ project.dev_url }}/path-to-feature",
+    ticket_id="XXXX",
+    steps=[
+        {"action": "wait 2", "description": "Wait for page load"},
+        {"action": "click .add-btn", "description": "Click add button"},
+        {"action": "wait 1", "description": "Wait for animation"},
+        {"action": "verify .queue-item", "description": "Verify item added"}
+    ]
+)
+```
+
+### verify_element_state_change()
+
+Verify an action causes a specific DOM change:
+
+```python
+verify_element_state_change(
+    url="{{ project.dev_url }}/path-to-feature",
+    action="click .remove-btn",
+    target_selector=".queue-item",
+    expected_change="count_decreased"
+)
+```
+
+**Expected change options:**
+- `count_decreased` / `count_increased`
+- `element_removed` / `element_added`
+- `class_added:<classname>` / `class_removed:<classname>`
+- `text_changed` / `text_contains:<text>`
+- `visibility_changed`
+
+### verify_button_state()
+
+Verify button state before/after actions:
+
+```python
+verify_button_state(
+    url="{{ project.dev_url }}/path-to-feature",
+    button_selector="#submit-btn",
+    expected_state="enabled",  # or: disabled, visible, hidden
+    trigger_action="click #clear-btn"  # optional: action before checking
+)
+```
+
+### test_fix_in_browser()
+
+High-level fix verification:
+
+```python
+test_fix_in_browser(
+    ticket_id="XXXX",
+    test_url="{{ project.dev_url }}/feature-page",
+    test_actions=[
+        "wait 2",
+        "click #submit-btn",
+        "wait for .success-message",
+        "verify no console errors"
+    ],
+    expected_outcomes=["form_submits", "success_displayed", "no_errors"]
+)
+```
+
+---
+
+## 8. MCP TOOL REFERENCE
+
+### Session & Onboarding
+
+| Tool | Purpose |
+|------|---------|
+| `start_agent_session()` | Begin agent session, get onboarding requirements |
+| `acknowledge_documentation()` | Mark documentation as read |
+| `complete_onboarding()` | Complete onboarding after reading docs |
+| `get_onboarding_status()` | Check current onboarding status |
+
+### Ticket Management
+
+| Tool | Purpose |
+|------|---------|
+| `list_tickets()` | List/filter tickets by status, priority, assignee |
+| `get_ticket_details()` | Get full ticket information |
+| `search_tickets()` | Search tickets by keyword |
+| `claim_ticket()` | Assign ticket to yourself |
+| `resume_ticket()` | Resume work on existing ticket |
+| `update_ticket()` | Update ticket fields |
+| `complete_ticket_safely()` | Complete work with proof (USE THIS!) |
+
+#### Valid Ticket Status Values
+
+**CRITICAL:** Always use these EXACT status strings (including emoji):
+
+| Status | Emoji + Text | When to Use |
+|--------|--------------|-------------|
+| Open | `🔴 Open` | New ticket, not started |
+| In Progress | `🟡 In Progress` | Agent actively working |
+| Under Review | `🔍 Under Review` | Submitted for code review |
+| Awaiting Approval | `🔵 Awaiting Approval` | Passed review, needs human |
+| Resolved | `🟢 Resolved` | Human approved (NEVER set by agent) |
+| Closed | `⚫ Closed` | Archived/completed |
+
+**Agents should ONLY set these statuses:**
+- `🟡 In Progress` - When starting work
+- `🔍 Under Review` - Via `complete_ticket_safely()` (automatic)
+
+**Agents must NEVER set:**
+- `🟢 Resolved` - Only humans can resolve
+- `⚫ Closed` - Only humans can close
+
+### Screenshots & Proof
+
+| Tool | Purpose |
+|------|---------|
+| `take_screenshot()` | Capture browser screenshot |
+| `take_screenshot_with_console()` | Screenshot + console output |
+| `analyze_screenshot_with_vision()` | Visual analysis of screenshot |
+| `compare_screenshots_with_vision()` | Compare before/after |
+| `validate_screenshot_for_ticket()` | Metadata-based validation |
+| `prepare_screenshot_for_ticket()` | Prepare for ticket embedding |
+
+### Behavioral Testing
+
+| Tool | Purpose |
+|------|---------|
+| `test_fix_in_browser()` | Verify fix works in browser |
+| `get_browser_console()` | Capture console logs/errors |
+| `verify_element_state_change()` | Verify DOM changes |
+| `verify_button_state()` | Check button states |
+| `capture_interaction_sequence()` | Multi-step user flow testing |
+| `compare_dom_states()` | DOM before/after comparison |
+
+### Code Review
+
+| Tool | Purpose |
+|------|---------|
+| `approve_code_review()` | Approve ticket (review agents only) |
+| `reject_code_review()` | Reject ticket with reasons |
+| `get_review_status()` | Check current review status |
+| `get_review_feedback()` | Get feedback from reviewers |
+
+{% if project.container_name %}
+### Deployment
+
+| Tool | Purpose |
+|------|---------|
+| `check_platform_health()` | Verify platform before operations |
+| `build_container()` | Rebuild Docker container |
+| `restart_service()` | Restart service without rebuild |
+| `get_container_logs()` | View container logs |
+{% endif %}
+
+### Agent Coordination (Ops Log)
+
+| Tool | Purpose |
+|------|---------|
+| `ops_log_write()` | Write general log entry |
+| `ops_log_clearance()` | Grant/hold clearance |
+| `ops_log_rebuild()` | Announce rebuild operations |
+| `ops_log_read()` | Query recent log entries |
+| `ops_log_latest_directive()` | Get current hold/clearance |
+| `check_active_agents()` | See what others are working on |
+
+### File Operations
+
+| Tool | Purpose |
+|------|---------|
+| `read_file()` | Read file contents |
+| `write_file()` | Create/overwrite file |
+| `edit_file()` | Replace content in file |
+| `delete_file()` | Delete file (backup created) |
+| `list_files()` | List directory contents |
+| `search_code()` | Search for code patterns |
+
+### Git Operations
+
+| Tool | Purpose |
+|------|---------|
+| `commit_changes()` | **MANDATORY** - Commit changes after work |
+| `list_repos()` | List available repositories |
+| `get_deployment_status()` | Check if commits are pending push |
+| `get_git_status()` | View current git status |
+
+---
+
+## 9. ERROR RECOVERY & COMMON FIXES
+
+{% if project.container_name %}
+### Pattern #1: Static Files Not Updating
+
+**Symptom:** You edited JS/CSS but browser shows old code.
+
+**Cause:** Static files are COPIED into container at build time.
+
+**Fix:**
+```bash
+# Quick: Copy directly
+docker cp {{ project.root_path }}/static/js/file.js {{ project.container_name }}:{{ project.container_app_path }}/static/js/file.js
+
+# Thorough: Rebuild
+build_container(service_name="{{ project.service_name }}")
+```
+{% endif %}
+
+### Pattern #2: Screenshot Shows Login Page
+
+**Symptom:** Screenshot validation fails with `is_login_page: true`
+
+**Cause:** Session not authenticated when taking screenshot.
+
+**Fix:** Use `take_screenshot()` with login credentials:
+```python
+take_screenshot(
+    url="{{ project.dev_url }}/protected-page",
+    output_path="...",
+    login_email="admin@example.com",  # Auto-login handled
+    login_password="password"
+)
+```
+
+{% if project.container_name %}
+### Pattern #3: Container Rebuild Fails
+
+**Symptom:** `build_container()` returns error.
+
+**Check:** Did you run `check_platform_health()` first?
+
+**Fix:**
+```python
+# Always check health first
+health = check_platform_health()
+if not health["healthy"]:
+    print(health["fix_instructions"])
+    # Do NOT proceed
+```
+{% endif %}
+
+### Pattern #4: API Returns 500
+
+**Symptom:** Feature works in code but fails at runtime.
+
+**Common Causes:**
+- Type mismatch (string vs integer)
+- Missing import
+- Database column mismatch
+
+**Debug:**
+```python
+get_browser_console(
+    url="{{ project.dev_url }}/api/endpoint",
+    capture_network=True
+)
+# Check network_failures for details
+```
+
+---
+
+## APPENDIX: QUICK REFERENCE CARD
+
+### The 10 Laws (Summary)
+
+1. **MCP Server Required** - Cannot work without it
+2. **Never Bypass MCP** - No direct data file edits
+3. **Ops Log Required** - Report all actions
+4. **Analyze Screenshots** - Vision API mandatory
+5. **Test Features** - Browser testing required
+6. **Never Auto-Resolve** - Human approval only
+7. **Never Give Up** - Persist through problems
+8. **Update the Bible** - Keep docs accurate
+9. **Commit After Resolution** - Git commit required
+10. **{{ project.database_rule.title if project.database_rule else 'Follow Conventions' }}**
+
+### Essential Paths
+
+| Context | Path |
+|---------|------|
+| Project root | `{{ project.root_path }}` |
+| Templates | `{{ project.templates_path }}` |
+| Static files | `{{ project.static_path }}` |
+| Screenshots | `{{ project.screenshots_path }}` |
+{% if project.container_app_path %}| Container app | `{{ project.container_app_path }}` |{% endif %}
+
+### Status Flow
+
+```
+🔴 Open → 🟡 In Progress → 🔍 Under Review → 🔵 Awaiting Approval → 🟢 Resolved
+```
+
+### Essential Commands
+
+```python
+# Start session
+start_agent_session(agent_name="MCP_Agent1")
+
+# Check for holds
+ops_log_latest_directive()
+
+# Claim ticket
+claim_ticket(ticket_id="XXXX", agent_name="MCP_Agent1")
+
+# Take screenshots
+take_screenshot(url="...", output_path="...")
+
+# Complete work
+complete_ticket_safely(ticket_id="XXXX", ...)
+
+# Spawn reviews (MANDATORY)
+{% for i in range(project.review_agent_count) %}
+Task(subagent_type="general-purpose", description="{{ ['Code Review', 'Process Audit', 'UI/UX Review'][i] }}", prompt="...")
+{% endfor %}
+```
+
+### When Stuck
+
+1. Re-read this Bible
+2. Check the Ops Log for relevant notes
+3. Search codebase for similar implementations
+4. Try at least 2 different approaches
+5. Document what you tried
+6. Then escalate to human
+
+---
+
+**END OF AGENT BIBLE**
+
+*Generated by Fastband MCP Setup Wizard for {{ project.name }}*

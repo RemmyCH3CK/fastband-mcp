@@ -94,13 +94,7 @@ class OllamaEmbeddings(EmbeddingProvider):
             EmbeddingResult with embedding vectors
         """
         if not texts:
-            return EmbeddingResult(
-                embeddings=[],
-                model=self.config.model,
-                provider=self.name,
-                dimensions=self.dimensions,
-                usage={"prompt_tokens": 0, "total_tokens": 0},
-            )
+            return self._empty_result()
 
         texts_list = list(texts)
         all_embeddings = []
@@ -113,13 +107,14 @@ class OllamaEmbeddings(EmbeddingProvider):
             )
             all_embeddings.append(response["embedding"])
 
+        estimated_tokens = self._estimate_tokens(texts_list)
         return EmbeddingResult(
             embeddings=all_embeddings,
             model=self.config.model,
             provider=self.name,
             dimensions=len(all_embeddings[0]) if all_embeddings else self.dimensions,
             usage={
-                "prompt_tokens": sum(len(t.split()) for t in texts_list),
-                "total_tokens": sum(len(t.split()) for t in texts_list),
+                "prompt_tokens": estimated_tokens,
+                "total_tokens": estimated_tokens,
             },
         )

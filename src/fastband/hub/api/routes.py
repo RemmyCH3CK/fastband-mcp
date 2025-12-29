@@ -8,7 +8,7 @@ Includes SSE streaming for real-time chat responses.
 import asyncio
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -16,6 +16,8 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from fastband.hub.models import (
+    Conversation,
+    Session,
     SessionConfig,
     SessionStatus,
     SubscriptionTier,
@@ -25,6 +27,11 @@ from fastband.hub.session import SessionManager
 from fastband.hub.chat import ChatManager
 
 logger = logging.getLogger(__name__)
+
+
+def _utc_now() -> datetime:
+    """Get current UTC time with timezone info."""
+    return datetime.now(timezone.utc)
 
 router = APIRouter(tags=["hub"])
 
@@ -109,6 +116,44 @@ class HealthResponse(BaseModel):
 
 
 # =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
+
+
+def _parse_tier(tier_str: str) -> SubscriptionTier:
+    """Parse tier string to SubscriptionTier enum, defaulting to FREE."""
+    try:
+        return SubscriptionTier(tier_str.lower())
+    except ValueError:
+        return SubscriptionTier.FREE
+
+
+def _session_to_response(session: Session) -> SessionResponse:
+    """Convert Session model to SessionResponse."""
+    return SessionResponse(
+        session_id=session.session_id,
+        user_id=session.config.user_id,
+        status=session.status.value,
+        tier=session.config.tier.value,
+        created_at=session.created_at.isoformat(),
+        current_conversation_id=session.current_conversation_id,
+    )
+
+
+def _conversation_to_response(conv: Conversation) -> ConversationResponse:
+    """Convert Conversation model to ConversationResponse."""
+    return ConversationResponse(
+        conversation_id=conv.conversation_id,
+        session_id=conv.session_id,
+        title=conv.title,
+        status=conv.status.value,
+        message_count=len(conv.messages),
+        created_at=conv.created_at.isoformat(),
+        updated_at=conv.updated_at.isoformat(),
+    )
+
+
+# =============================================================================
 # DEPENDENCIES
 # =============================================================================
 
@@ -144,14 +189,9 @@ async def create_session(
     Creates a session for a user with the specified configuration.
     Sessions are automatically cleaned up after 30 minutes of inactivity.
     """
-    try:
-        tier = SubscriptionTier(request.tier.lower())
-    except ValueError:
-        tier = SubscriptionTier.FREE
-
     config = SessionConfig(
         user_id=request.user_id,
-        tier=tier,
+        tier=_parse_tier(request.tier),
         project_path=request.project_path,
         model=request.model,
         temperature=request.temperature,
@@ -159,15 +199,7 @@ async def create_session(
     )
 
     session = await manager.create_session(config)
-
-    return SessionResponse(
-        session_id=session.session_id,
-        user_id=session.config.user_id,
-        status=session.status.value,
-        tier=session.config.tier.value,
-        created_at=session.created_at.isoformat(),
-        current_conversation_id=session.current_conversation_id,
-    )
+    return _session_to_response(session)
 
 
 @router.get("/sessions/{session_id}", response_model=SessionResponse)
@@ -183,14 +215,7 @@ async def get_session(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    return SessionResponse(
-        session_id=session.session_id,
-        user_id=session.config.user_id,
-        status=session.status.value,
-        tier=session.config.tier.value,
-        created_at=session.created_at.isoformat(),
-        current_conversation_id=session.current_conversation_id,
-    )
+    return _session_to_response(session)
 
 
 @router.delete("/sessions/{session_id}")
@@ -366,19 +391,7 @@ async def list_conversations(
         raise HTTPException(status_code=404, detail="Session not found")
 
     conversations = manager.get_conversations(session_id)
-
-    return [
-        ConversationResponse(
-            conversation_id=conv.conversation_id,
-            session_id=conv.session_id,
-            title=conv.title,
-            status=conv.status.value,
-            message_count=len(conv.messages),
-            created_at=conv.created_at.isoformat(),
-            updated_at=conv.updated_at.isoformat(),
-        )
-        for conv in conversations
-    ]
+    return [_conversation_to_response(conv) for conv in conversations]
 
 
 @router.post("/conversations")
@@ -399,15 +412,7 @@ async def create_conversation(
     if not conversation:
         raise HTTPException(status_code=400, detail="Could not create conversation")
 
-    return ConversationResponse(
-        conversation_id=conversation.conversation_id,
-        session_id=conversation.session_id,
-        title=conversation.title,
-        status=conversation.status.value,
-        message_count=0,
-        created_at=conversation.created_at.isoformat(),
-        updated_at=conversation.updated_at.isoformat(),
-    )
+    return _conversation_to_response(conversation)
 
 
 @router.get("/conversations/{conversation_id}")
@@ -458,7 +463,7 @@ async def get_conversation(
 
 
 # Track start time for uptime
-_start_time = datetime.utcnow()
+_start_time = _utc_now()
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -471,7 +476,7 @@ async def health_check(
     """
     from fastband import __version__
 
-    uptime = (datetime.utcnow() - _start_time).total_seconds()
+    uptime = (_utc_now() - _start_time).total_seconds()
 
     return HealthResponse(
         status="healthy",

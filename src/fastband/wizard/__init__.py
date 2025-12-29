@@ -12,9 +12,26 @@ from fastband.wizard.base import (
     WizardContext,
 )
 
+from fastband.wizard.bible_generator import (
+    AgentBibleGenerator,
+    ProjectConfig,
+    DatabaseRule,
+    generate_agent_bible,
+    create_agent_bible_for_project,
+    EXAMPLE_CONFIGS,
+)
+
 __all__ = [
+    # Wizard core
     "WizardStep",
     "StepResult",
     "SetupWizard",
     "WizardContext",
+    # Agent Bible generator
+    "AgentBibleGenerator",
+    "ProjectConfig",
+    "DatabaseRule",
+    "generate_agent_bible",
+    "create_agent_bible_for_project",
+    "EXAMPLE_CONFIGS",
 ]
