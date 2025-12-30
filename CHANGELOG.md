@@ -7,6 +7,12 @@ and this project adheres to a hybrid versioning scheme: `vMAJOR.YYYY.MM.PATCH[-p
 
 ## [Unreleased]
 
+## [1.2025.12.5] - 2025-12-30
+
+### Fixed
+- **Build artifacts** - Remove redundant force-include causing duplicate files in wheel
+- **PyPI publishing** - Fixed "Duplicate filename in local headers" error
+
 ## [1.2025.12.4] - 2025-12-30
 
 ### Fixed
