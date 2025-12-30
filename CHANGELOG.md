@@ -7,6 +7,12 @@ and this project adheres to a hybrid versioning scheme: `vMAJOR.YYYY.MM.PATCH[-p
 
 ## [Unreleased]
 
+## [1.2025.12.3] - 2025-12-30
+
+### Fixed
+- **PyPI publishing** - Added API token fallback for releases
+- **Release workflow** - Added manual dispatch trigger
+
 ## [1.2025.12.2] - 2025-12-30
 
 ### Added
