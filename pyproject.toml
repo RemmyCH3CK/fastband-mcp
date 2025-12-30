@@ -93,6 +93,7 @@ dev = [
     "mypy>=1.5.0",
     "pre-commit>=3.0.0",
     "numpy>=1.24.0",
+    "flask>=2.0.0",
 ]
 full = [
     "fastband-mcp[all-providers,web,hub,screenshots,postgres,mysql,dev]",
