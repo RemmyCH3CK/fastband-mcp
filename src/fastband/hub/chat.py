@@ -179,12 +179,12 @@ class ToolExecutor:
         registry = self._get_registry()
         tools = []
 
-        for name, tool in registry.list_all().items():
+        for tool in registry.get_available_tools():
             try:
-                schema = tool.to_openai_schema()
+                schema = tool.definition.to_openai_schema()
                 tools.append(schema)
             except Exception as e:
-                logger.warning(f"Failed to get schema for {name}: {e}")
+                logger.warning(f"Failed to get schema for tool: {e}")
 
         return tools
 
@@ -424,26 +424,31 @@ class MessagePipeline:
             temperature=context.session.config.temperature,
             max_tokens=context.session.config.max_tokens,
         ):
-            if chunk.content:
+            # Handle string chunks (simple streaming)
+            if isinstance(chunk, str):
+                context.response_content += chunk
+                yield chunk
+            # Handle object chunks with .content attribute
+            elif hasattr(chunk, 'content') and chunk.content:
                 context.response_content += chunk.content
                 yield chunk.content
 
-            # Handle tool calls in stream
-            if chunk.tool_calls:
-                for tc in chunk.tool_calls:
-                    tool_call = ToolCall(
-                        tool_id=tc["id"],
-                        tool_name=tc["function"]["name"],
-                        arguments=json.loads(tc["function"]["arguments"]),
-                    )
-                    result = await self.executor.execute(
-                        tool_call.tool_name,
-                        tool_call.arguments,
-                    )
-                    context.tool_results.append(result)
+                # Handle tool calls in stream
+                if hasattr(chunk, 'tool_calls') and chunk.tool_calls:
+                    for tc in chunk.tool_calls:
+                        tool_call = ToolCall(
+                            tool_id=tc["id"],
+                            tool_name=tc["function"]["name"],
+                            arguments=json.loads(tc["function"]["arguments"]),
+                        )
+                        result = await self.executor.execute(
+                            tool_call.tool_name,
+                            tool_call.arguments,
+                        )
+                        context.tool_results.append(result)
 
-                    # Yield tool result indicator
-                    yield f"\n[Tool: {tool_call.tool_name}]\n"
+                        # Yield tool result indicator
+                        yield f"\n[Tool: {tool_call.tool_name}]\n"
 
     async def _store_memory(self, context: PipelineContext) -> None:
         """Store conversation in memory."""

@@ -54,6 +54,20 @@ from fastband.core.security import (
     get_env_or_default,
     secure_config_dict,
 )
+from fastband.core.events import (
+    EventBus,
+    EventData,
+    HubEventType,
+    get_event_bus,
+    reset_event_bus,
+)
+from fastband.core.plugins import (
+    Plugin,
+    PluginMetadata,
+    PluginManager,
+    get_plugin_manager,
+    reset_plugin_manager,
+)
 
 __all__ = [
     # Config
@@ -107,4 +121,16 @@ __all__ = [
     "is_secret_key_secure",
     "get_env_or_default",
     "secure_config_dict",
+    # Events
+    "EventBus",
+    "EventData",
+    "HubEventType",
+    "get_event_bus",
+    "reset_event_bus",
+    # Plugins
+    "Plugin",
+    "PluginMetadata",
+    "PluginManager",
+    "get_plugin_manager",
+    "reset_plugin_manager",
 ]

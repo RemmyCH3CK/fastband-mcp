@@ -218,24 +218,51 @@ class ClaudeProvider(AIProvider):
 
     async def stream(
         self,
-        prompt: str,
+        prompt: Optional[str] = None,
         system_prompt: Optional[str] = None,
+        messages: Optional[List[Dict[str, Any]]] = None,
         **kwargs
     ) -> AsyncIterator[str]:
         """
         Stream completion response.
 
+        Args:
+            prompt: Simple prompt string (creates single user message)
+            system_prompt: System instructions
+            messages: Full message list (takes precedence over prompt)
+            **kwargs: Additional parameters (model, max_tokens, temperature, tools)
+
         Yields:
             Text chunks as they arrive
         """
-        messages = [{"role": "user", "content": prompt}]
+        # Build messages list
+        if messages:
+            msg_list = messages
+        elif prompt:
+            msg_list = [{"role": "user", "content": prompt}]
+        else:
+            raise ValueError("Either prompt or messages must be provided")
+
+        # Extract system messages (Claude API doesn't accept system role in messages)
+        system_parts = []
+        filtered_messages = []
+        for msg in msg_list:
+            if msg.get("role") == "system":
+                system_parts.append(msg.get("content", ""))
+            else:
+                filtered_messages.append(msg)
+
+        # Combine system prompts
+        combined_system = system_prompt or ""
+        if system_parts:
+            combined_system = "\n\n".join(filter(None, [combined_system] + system_parts))
 
         async with self.client.messages.stream(
             model=kwargs.get("model", self.config.model),
             max_tokens=kwargs.get("max_tokens", self.config.max_tokens),
             temperature=kwargs.get("temperature", self.config.temperature),
-            system=system_prompt or "",
-            messages=messages,
+            system=combined_system,
+            messages=filtered_messages,
         ) as stream:
             async for text in stream.text_stream:
                 yield text

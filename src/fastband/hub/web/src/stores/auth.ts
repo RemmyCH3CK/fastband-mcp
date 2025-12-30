@@ -1,15 +1,29 @@
 import { create } from 'zustand'
 import { createClient, User, Session } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || ''
-const supabaseKey = import.meta.env.VITE_SUPABASE_KEY || ''
+// Dev mode - bypasses Supabase auth for local testing
+const DEV_MODE = !import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL === ''
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co'
+const supabaseKey = import.meta.env.VITE_SUPABASE_KEY || 'placeholder-key'
+
+export const supabase = DEV_MODE ? null : createClient(supabaseUrl, supabaseKey)
+
+// Mock user for dev mode
+const DEV_USER: User = {
+  id: 'dev-user-123',
+  email: 'dev@fastband.local',
+  app_metadata: {},
+  user_metadata: { name: 'Dev User' },
+  aud: 'authenticated',
+  created_at: new Date().toISOString(),
+}
 
 interface AuthStore {
   user: User | null
   session: Session | null
   loading: boolean
+  devMode: boolean
   signInWithEmail: (email: string, password: string) => Promise<void>
   signInWithGoogle: () => Promise<void>
   signInWithGithub: () => Promise<void>
@@ -22,9 +36,16 @@ export const useAuthStore = create<AuthStore>((set) => ({
   user: null,
   session: null,
   loading: true,
+  devMode: DEV_MODE,
 
   signInWithEmail: async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
+    if (DEV_MODE) {
+      // Dev mode - auto login
+      set({ user: { ...DEV_USER, email }, session: null, loading: false })
+      return
+    }
+
+    const { data, error } = await supabase!.auth.signInWithPassword({
       email,
       password,
     })
@@ -33,7 +54,12 @@ export const useAuthStore = create<AuthStore>((set) => ({
   },
 
   signInWithGoogle: async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
+    if (DEV_MODE) {
+      set({ user: DEV_USER, session: null, loading: false })
+      return
+    }
+
+    const { error } = await supabase!.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: window.location.origin,
@@ -43,7 +69,12 @@ export const useAuthStore = create<AuthStore>((set) => ({
   },
 
   signInWithGithub: async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
+    if (DEV_MODE) {
+      set({ user: DEV_USER, session: null, loading: false })
+      return
+    }
+
+    const { error } = await supabase!.auth.signInWithOAuth({
       provider: 'github',
       options: {
         redirectTo: window.location.origin,
@@ -53,7 +84,12 @@ export const useAuthStore = create<AuthStore>((set) => ({
   },
 
   signUp: async (email, password) => {
-    const { data, error } = await supabase.auth.signUp({
+    if (DEV_MODE) {
+      set({ user: { ...DEV_USER, email }, session: null, loading: false })
+      return
+    }
+
+    const { data, error } = await supabase!.auth.signUp({
       email,
       password,
     })
@@ -62,14 +98,26 @@ export const useAuthStore = create<AuthStore>((set) => ({
   },
 
   signOut: async () => {
-    const { error } = await supabase.auth.signOut()
+    if (DEV_MODE) {
+      set({ user: null, session: null })
+      return
+    }
+
+    const { error } = await supabase!.auth.signOut()
     if (error) throw error
     set({ user: null, session: null })
   },
 
   initialize: async () => {
+    if (DEV_MODE) {
+      // Auto-login in dev mode
+      console.log('🔧 Dev Mode: Auth bypassed - auto-logged in as dev@fastband.local')
+      set({ user: DEV_USER, session: null, loading: false })
+      return
+    }
+
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      const { data: { session } } = await supabase!.auth.getSession()
       set({
         user: session?.user ?? null,
         session,
@@ -77,7 +125,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       })
 
       // Listen for auth changes
-      supabase.auth.onAuthStateChange((_event, session) => {
+      supabase!.auth.onAuthStateChange((_event, session) => {
         set({
           user: session?.user ?? null,
           session,

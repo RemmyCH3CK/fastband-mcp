@@ -275,7 +275,7 @@ export function Onboarding() {
                 </h2>
                 <p className="text-gray-400">
                   {analysis
-                    ? 'Here's what we found in your project'
+                    ? "Here's what we found in your project"
                     : 'Your workspace is configured'}
                 </p>
               </div>

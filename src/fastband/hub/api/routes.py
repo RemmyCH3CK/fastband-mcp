@@ -8,6 +8,7 @@ Includes SSE streaming for real-time chat responses.
 import asyncio
 import json
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -17,7 +18,7 @@ from pydantic import BaseModel, Field
 
 from fastband.hub.models import (
     Conversation,
-    Session,
+    HubSession,
     SessionConfig,
     SessionStatus,
     SubscriptionTier,
@@ -27,6 +28,9 @@ from fastband.hub.session import SessionManager
 from fastband.hub.chat import ChatManager
 
 logger = logging.getLogger(__name__)
+
+# Dev mode - return mock responses when no chat manager
+DEV_MODE = os.environ.get("FASTBAND_DEV_MODE", "").lower() in ("1", "true", "yes")
 
 
 def _utc_now() -> datetime:
@@ -128,7 +132,7 @@ def _parse_tier(tier_str: str) -> SubscriptionTier:
         return SubscriptionTier.FREE
 
 
-def _session_to_response(session: Session) -> SessionResponse:
+def _session_to_response(session: HubSession) -> SessionResponse:
     """Convert Session model to SessionResponse."""
     return SessionResponse(
         session_id=session.session_id,
@@ -166,10 +170,10 @@ async def get_session_manager(request: Request) -> SessionManager:
     return manager
 
 
-async def get_chat_manager(request: Request) -> ChatManager:
-    """Get chat manager from app state."""
+async def get_chat_manager(request: Request) -> Optional[ChatManager]:
+    """Get chat manager from app state. Returns None in dev mode."""
     manager = getattr(request.app.state, "chat_manager", None)
-    if not manager:
+    if not manager and not DEV_MODE:
         raise HTTPException(status_code=503, detail="AI service not available")
     return manager
 
@@ -269,7 +273,7 @@ async def get_session_usage(
 @router.post("/chat", response_model=ChatResponse)
 async def send_message(
     request: ChatRequest,
-    chat: ChatManager = Depends(get_chat_manager),
+    chat: Optional[ChatManager] = Depends(get_chat_manager),
 ):
     """Send a chat message.
 
@@ -280,6 +284,18 @@ async def send_message(
         raise HTTPException(
             status_code=400,
             detail="Use /chat/stream endpoint for streaming responses",
+        )
+
+    # Dev mode mock response
+    if DEV_MODE and not chat:
+        import uuid
+        return ChatResponse(
+            message_id=str(uuid.uuid4()),
+            role="assistant",
+            content=f"🔧 Dev Mode: Received \"{request.content}\". Configure API keys for real responses.",
+            tokens_used=50,
+            conversation_id=request.conversation_id or "dev-conv-1",
+            tool_calls=[],
         )
 
     try:
@@ -318,7 +334,7 @@ async def send_message(
 @router.post("/chat/stream")
 async def stream_message(
     request: ChatRequest,
-    chat: ChatManager = Depends(get_chat_manager),
+    chat: Optional[ChatManager] = Depends(get_chat_manager),
 ):
     """Stream a chat response via SSE.
 
@@ -331,6 +347,39 @@ async def stream_message(
     - done: Stream complete
     - error: Error occurred
     """
+    async def generate_dev_response():
+        """Generate mock streaming response for dev mode."""
+        import uuid
+
+        # Mock AI response chunks
+        mock_response = (
+            "🔧 **Dev Mode Response**\n\n"
+            f"I received your message: *\"{request.content}\"*\n\n"
+            "This is a mock response because the AI backend is running in development mode. "
+            "To enable real AI responses, set up your API keys:\n\n"
+            "```bash\n"
+            "export ANTHROPIC_API_KEY=your-key-here\n"
+            "export OPENAI_API_KEY=your-key-here  # For embeddings\n"
+            "```\n\n"
+            "Then restart without `FASTBAND_DEV_MODE=1`."
+        )
+
+        # Stream chunks with delay for realistic effect
+        words = mock_response.split(" ")
+        for i in range(0, len(words), 3):
+            chunk = " ".join(words[i:i+3]) + " "
+            data = json.dumps({"type": "content", "content": chunk})
+            yield f"data: {data}\n\n"
+            await asyncio.sleep(0.05)
+
+        # Send done event
+        data = json.dumps({
+            "type": "done",
+            "message_id": str(uuid.uuid4()),
+            "tokens_used": len(mock_response) // 4,
+        })
+        yield f"data: {data}\n\n"
+
     async def generate():
         try:
             async for chunk in await chat.send_message(
@@ -361,8 +410,11 @@ async def stream_message(
             data = json.dumps({"type": "error", "error": "Internal error"})
             yield f"data: {data}\n\n"
 
+    # Use mock response generator in dev mode when no chat manager
+    generator = generate_dev_response() if (DEV_MODE and not chat) else generate()
+
     return StreamingResponse(
-        generate(),
+        generator,
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -377,6 +429,38 @@ async def stream_message(
 # =============================================================================
 
 
+# Mock conversations for dev mode
+_DEV_CONVERSATIONS = [
+    ConversationResponse(
+        conversation_id="conv-1",
+        session_id="dev-session-123",
+        title="Debug Python async issue",
+        status="active",
+        message_count=5,
+        created_at=_utc_now().isoformat(),
+        updated_at=_utc_now().isoformat(),
+    ),
+    ConversationResponse(
+        conversation_id="conv-2",
+        session_id="dev-session-123",
+        title="Refactor authentication flow",
+        status="active",
+        message_count=12,
+        created_at=_utc_now().isoformat(),
+        updated_at=_utc_now().isoformat(),
+    ),
+    ConversationResponse(
+        conversation_id="conv-3",
+        session_id="dev-session-123",
+        title="Add API rate limiting",
+        status="active",
+        message_count=8,
+        created_at=_utc_now().isoformat(),
+        updated_at=_utc_now().isoformat(),
+    ),
+]
+
+
 @router.get("/conversations", response_model=List[ConversationResponse])
 async def list_conversations(
     session_id: str,
@@ -386,6 +470,10 @@ async def list_conversations(
 
     Returns all conversations associated with the session.
     """
+    # Dev mode mock response
+    if DEV_MODE:
+        return _DEV_CONVERSATIONS
+
     session = manager.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -404,6 +492,19 @@ async def create_conversation(
 
     Creates a new conversation thread in the session.
     """
+    # Dev mode mock response
+    if DEV_MODE:
+        import uuid
+        return ConversationResponse(
+            conversation_id=str(uuid.uuid4()),
+            session_id=session_id,
+            title=title or "New Chat",
+            status="active",
+            message_count=0,
+            created_at=_utc_now().isoformat(),
+            updated_at=_utc_now().isoformat(),
+        )
+
     session = manager.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -425,6 +526,20 @@ async def get_conversation(
 
     Returns the conversation including all messages.
     """
+    # Dev mode mock response
+    if DEV_MODE:
+        conv = next((c for c in _DEV_CONVERSATIONS if c.conversation_id == conversation_id), None)
+        if conv:
+            return {
+                "conversation_id": conv.conversation_id,
+                "session_id": conv.session_id,
+                "title": conv.title,
+                "status": conv.status,
+                "created_at": conv.created_at,
+                "updated_at": conv.updated_at,
+                "messages": [],  # Empty messages for dev mode
+            }
+        raise HTTPException(status_code=404, detail="Conversation not found")
     conversation = manager.get_conversation(session_id, conversation_id)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
@@ -464,6 +579,44 @@ async def get_conversation(
 
 # Track start time for uptime
 _start_time = _utc_now()
+
+
+@router.get("/usage", response_model=UsageResponse)
+async def get_usage(
+    session_id: str,
+    manager: SessionManager = Depends(get_session_manager),
+):
+    """Get usage statistics by session ID (query param version).
+
+    Alternative to /sessions/{session_id}/usage that accepts session_id as query param.
+    """
+    # Dev mode mock response
+    if DEV_MODE:
+        return UsageResponse(
+            user_id="dev-user-123",
+            tier="pro",
+            messages_today=5,
+            messages_this_minute=1,
+            tokens_used_today=1250,
+            memory_entries=10,
+        )
+
+    session = manager.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    stats = manager.get_usage_stats(session.config.user_id)
+    if not stats:
+        raise HTTPException(status_code=404, detail="Usage stats not found")
+
+    return UsageResponse(
+        user_id=stats.user_id,
+        tier=stats.tier.value,
+        messages_today=stats.messages_today,
+        messages_this_minute=stats.messages_this_minute,
+        tokens_used_today=stats.tokens_used_today,
+        memory_entries=stats.memory_entries,
+    )
 
 
 @router.get("/health", response_model=HealthResponse)

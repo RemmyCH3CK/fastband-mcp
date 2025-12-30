@@ -22,6 +22,7 @@ from fastband.core.detection import detect_project, ProjectInfo, Language, Proje
 from fastband.cli.tools import tools_app
 from fastband.cli.tickets import tickets_app
 from fastband.cli.backup import backup_app
+from fastband.cli.plugins import plugins_app
 
 # Create the main CLI app
 app = typer.Typer(
@@ -47,6 +48,9 @@ app.add_typer(tickets_app, name="tickets")
 
 # Backup subcommand group
 app.add_typer(backup_app, name="backup")
+
+# Plugins subcommand group
+app.add_typer(plugins_app, name="plugins")
 
 # Rich console for output
 console = Console()
@@ -482,6 +486,26 @@ def serve(
         "-a",
         help="Load all tools (core, git, tickets, context) - recommended for full functionality",
     ),
+    hub: bool = typer.Option(
+        False,
+        "--hub",
+        help="Also start the Hub server with dashboard (port 8080)",
+    ),
+    hub_only: bool = typer.Option(
+        False,
+        "--hub-only",
+        help="Only start the Hub server (no MCP server)",
+    ),
+    hub_port: int = typer.Option(
+        8080,
+        "--hub-port",
+        help="Port for Hub server (default: 8080)",
+    ),
+    no_dashboard: bool = typer.Option(
+        False,
+        "--no-dashboard",
+        help="Run Hub without the React dashboard",
+    ),
 ):
     """
     Start the Fastband MCP server.
@@ -491,25 +515,120 @@ def serve(
 
     By default, only core tools are loaded. Use --all to load all available tools
     including git, tickets, and context/semantic search tools.
-    """
-    from fastband.core.engine import run_server
 
+    Use --hub to also start the Hub server with the React dashboard.
+    Use --hub-only to only start the Hub server without the MCP server.
+    """
     project_path = (path or Path.cwd()).resolve()
 
-    tool_mode = "all" if all_tools else ("minimal" if no_core else "core")
-    console.print(Panel.fit(
-        f"[bold blue]Starting Fastband MCP Server[/bold blue]\n"
-        f"[dim]{project_path}[/dim]\n"
-        f"[dim]Tool mode: {tool_mode}[/dim]",
-        border_style="blue",
-    ))
+    if hub_only:
+        # Only run Hub server
+        from fastband.hub.server import run_server as run_hub_server
 
-    # Run the server
-    asyncio.run(run_server(
-        project_path=project_path,
-        load_core=not no_core,
-        load_all=all_tools,
-    ))
+        console.print(Panel.fit(
+            f"[bold blue]Starting Fastband Hub[/bold blue]\n"
+            f"[dim]Dashboard: http://localhost:{hub_port}/[/dim]",
+            border_style="blue",
+        ))
+
+        asyncio.run(run_hub_server(
+            host="0.0.0.0",
+            port=hub_port,
+            with_dashboard=not no_dashboard,
+        ))
+    elif hub:
+        # Run both MCP and Hub servers
+        from fastband.core.engine import run_server
+        from fastband.hub.server import run_server as run_hub_server
+
+        tool_mode = "all" if all_tools else ("minimal" if no_core else "core")
+        console.print(Panel.fit(
+            f"[bold blue]Starting Fastband[/bold blue]\n"
+            f"[dim]{project_path}[/dim]\n"
+            f"[dim]Tool mode: {tool_mode}[/dim]\n"
+            f"[dim]Dashboard: http://localhost:{hub_port}/[/dim]",
+            border_style="blue",
+        ))
+
+        async def run_both():
+            """Run MCP and Hub servers concurrently."""
+            mcp_task = asyncio.create_task(run_server(
+                project_path=project_path,
+                load_core=not no_core,
+                load_all=all_tools,
+            ))
+            hub_task = asyncio.create_task(run_hub_server(
+                host="0.0.0.0",
+                port=hub_port,
+                with_dashboard=not no_dashboard,
+            ))
+            await asyncio.gather(mcp_task, hub_task)
+
+        asyncio.run(run_both())
+    else:
+        # Just run MCP server
+        from fastband.core.engine import run_server
+
+        tool_mode = "all" if all_tools else ("minimal" if no_core else "core")
+        console.print(Panel.fit(
+            f"[bold blue]Starting Fastband MCP Server[/bold blue]\n"
+            f"[dim]{project_path}[/dim]\n"
+            f"[dim]Tool mode: {tool_mode}[/dim]",
+            border_style="blue",
+        ))
+
+        asyncio.run(run_server(
+            project_path=project_path,
+            load_core=not no_core,
+            load_all=all_tools,
+        ))
+
+
+# =============================================================================
+# BUILD-DASHBOARD COMMAND
+# =============================================================================
+
+
+@app.command("build-dashboard")
+def build_dashboard(
+    clean: bool = typer.Option(
+        False,
+        "--clean",
+        "-c",
+        help="Clean build artifacts before building",
+    ),
+    clean_all: bool = typer.Option(
+        False,
+        "--clean-all",
+        help="Remove node_modules as well (full clean)",
+    ),
+):
+    """
+    Build the React dashboard for packaging.
+
+    Runs npm install and npm run build, then copies the output
+    to the static directory for inclusion in the Python package.
+
+    Requires Node.js 18+ to be installed.
+    """
+    import sys
+    from fastband.hub.web.build import build, clean as do_clean
+
+    if clean or clean_all:
+        if clean_all:
+            sys.argv = ["build", "clean", "--all"]
+        else:
+            sys.argv = ["build", "clean"]
+        do_clean()
+
+        if clean_all or clean:
+            console.print()  # Add spacing
+
+    if not (clean and not clean_all):
+        # Build unless just cleaning
+        success = build()
+        if not success:
+            raise typer.Exit(1)
 
 
 # =============================================================================

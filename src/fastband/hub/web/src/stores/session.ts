@@ -1,5 +1,8 @@
 import { create } from 'zustand'
 
+// Dev mode - use mock session
+const DEV_MODE = !import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL === ''
+
 interface SessionStore {
   sessionId: string | null
   conversationId: string | null
@@ -10,11 +13,21 @@ interface SessionStore {
 }
 
 export const useSessionStore = create<SessionStore>((set, get) => ({
-  sessionId: null,
+  sessionId: DEV_MODE ? 'dev-session-123' : null,
   conversationId: null,
-  tier: 'free',
+  tier: 'pro', // Give dev mode pro tier for testing all features
 
   createSession: async (userId: string) => {
+    if (DEV_MODE) {
+      // Mock session in dev mode
+      console.log('🔧 Dev Mode: Using mock session')
+      set({
+        sessionId: `dev-session-${Date.now()}`,
+        tier: 'pro',
+      })
+      return
+    }
+
     try {
       const response = await fetch('/api/sessions', {
         method: 'POST',
@@ -44,8 +57,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   clearSession: () =>
     set({
-      sessionId: null,
+      sessionId: DEV_MODE ? 'dev-session-123' : null,
       conversationId: null,
-      tier: 'free',
+      tier: DEV_MODE ? 'pro' : 'free',
     }),
 }))

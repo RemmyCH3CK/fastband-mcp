@@ -68,6 +68,12 @@ web = [
     "jinja2>=3.0.0",
     "websockets>=11.0.0",
 ]
+hub = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
+    "websockets>=11.0.0",
+    "aiofiles>=23.0.0",
+]
 screenshots = [
     "playwright>=1.40.0",
     "pillow>=10.0.0",
@@ -87,7 +93,7 @@ dev = [
     "pre-commit>=3.0.0",
 ]
 full = [
-    "fastband-mcp[all-providers,web,screenshots,postgres,mysql,dev]",
+    "fastband-mcp[all-providers,web,hub,screenshots,postgres,mysql,dev]",
 ]
 
 [project.scripts]
@@ -102,6 +108,11 @@ Issues = "https://github.com/RemmyCH3CK/fastband-mcp/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/fastband"]
+
+# Include built React dashboard static files in the package
+# The hub/static/ directory is created by `fastband build-dashboard`
+[tool.hatch.build.targets.wheel.force-include]
+"src/fastband/hub/static" = "fastband/hub/static"
 
 [tool.ruff]
 line-length = 100

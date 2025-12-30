@@ -6,6 +6,7 @@ and lifecycle management.
 """
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import Optional
 
@@ -15,11 +16,16 @@ from fastapi.responses import JSONResponse
 
 from fastband import __version__
 from fastband.hub.api.routes import router
+from fastband.hub.control_plane.routes import router as control_plane_router
 from fastband.hub.chat import ChatManager
-from fastband.hub.memory import SemanticMemory, MemoryConfig
 from fastband.hub.session import get_session_manager
+from fastband.hub.control_plane.service import get_control_plane_service
+from fastband.hub.websockets.manager import get_websocket_manager
 
 logger = logging.getLogger(__name__)
+
+# Dev mode - skip memory/embeddings when no API keys
+DEV_MODE = os.environ.get("FASTBAND_DEV_MODE", "").lower() in ("1", "true", "yes")
 
 # Global app instance
 _app: Optional[FastAPI] = None
@@ -33,12 +39,23 @@ async def lifespan(app: FastAPI):
 
     logger.info("Starting Fastband AI Hub...")
 
-    # Initialize memory
-    memory_config = MemoryConfig()
-    memory = SemanticMemory(memory_config)
-    await memory.initialize()
+    if DEV_MODE:
+        logger.info("🔧 Dev Mode: Skipping memory/embeddings initialization")
+
+    # Initialize memory (skip in dev mode or if no API key)
+    memory = None
+    if not DEV_MODE:
+        try:
+            from fastband.hub.memory import SemanticMemory, MemoryConfig
+            memory_config = MemoryConfig()
+            memory = SemanticMemory(memory_config)
+            await memory.initialize()
+        except Exception as e:
+            logger.warning(f"Could not initialize memory: {e}")
+            memory = None
 
     # Initialize AI provider
+    provider = None
     try:
         from fastband.providers import get_provider
         provider = get_provider("claude")
@@ -54,30 +71,43 @@ async def lifespan(app: FastAPI):
             memory_store=memory,
         )
         await _chat_manager.initialize()
+    elif DEV_MODE:
+        logger.info("🔧 Dev Mode: Chat manager not initialized (no provider)")
 
     # Store in app state
     app.state.chat_manager = _chat_manager
     app.state.memory = memory
     app.state.session_manager = get_session_manager()
 
-    logger.info("Fastband AI Hub started")
+    # Initialize Control Plane service
+    control_plane_service = get_control_plane_service()
+    await control_plane_service.start()
+    app.state.control_plane_service = control_plane_service
+    app.state.ws_manager = get_websocket_manager()
+
+    logger.info("Fastband Agent Control Plane started")
 
     yield
 
     # Shutdown
-    logger.info("Shutting down Fastband AI Hub...")
+    logger.info("Shutting down Fastband Agent Control Plane...")
+
+    # Stop Control Plane service
+    if control_plane_service:
+        await control_plane_service.stop()
 
     if _chat_manager:
         await _chat_manager.shutdown()
 
-    await memory.close()
+    if memory:
+        await memory.close()
 
-    logger.info("Fastband AI Hub stopped")
+    logger.info("Fastband Agent Control Plane stopped")
 
 
 def create_app(
-    title: str = "Fastband AI Hub",
-    description: str = "AI-powered development workflow assistant",
+    title: str = "Fastband Agent Control Plane",
+    description: str = "Multi-agent coordination and workflow management for AI development teams",
     cors_origins: Optional[list[str]] = None,
 ) -> FastAPI:
     """Create the FastAPI application.
@@ -139,6 +169,7 @@ def create_app(
 
     # Include routes
     _app.include_router(router, prefix="/api")
+    _app.include_router(control_plane_router, prefix="/api")
 
     return _app
 

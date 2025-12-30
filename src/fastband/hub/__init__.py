@@ -52,6 +52,12 @@ from fastband.hub.memory import (
     SemanticMemory,
     MemoryStore,
 )
+from fastband.hub.server import (
+    run_server,
+    create_server_app,
+    mount_dashboard,
+    get_static_directory,
+)
 
 __all__ = [
     # Session
@@ -77,4 +83,9 @@ __all__ = [
     "SubscriptionTier",
     "TierLimits",
     "UsageStats",
+    # Server
+    "run_server",
+    "create_server_app",
+    "mount_dashboard",
+    "get_static_directory",
 ]
