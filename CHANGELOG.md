@@ -7,6 +7,63 @@ and this project adheres to a hybrid versioning scheme: `vMAJOR.YYYY.MM.PATCH[-p
 
 ## [Unreleased]
 
+## [1.2025.12.1] - 2025-12-30
+
+### Control Plane Dashboard (New!)
+
+#### Added
+- **Control Plane UI** - Real-time multi-agent coordination dashboard
+  - Agent status grid with health indicators
+  - Operations log timeline with filtering
+  - Directives panel for hold/clearance management
+  - Tickets panel with status tracking
+  - Hold and clearance modals for agent coordination
+- **Terminal Noir Design System** - Cyberpunk-inspired aesthetic
+  - Cyan (#00d4ff) and magenta (#ff006e) accent colors
+  - Void backgrounds with scan-line effects
+  - Custom animations and micro-interactions
+- **WebSocket Manager** - Real-time updates for dashboard
+  - Connection pooling and automatic reconnection
+  - Event-based message broadcasting
+  - Client subscription management
+- **Keyboard Shortcuts** - Press `?` to view all shortcuts
+- **Toast Notifications** - Non-blocking status messages
+- **CLI `--hub` flag** - Serve dashboard with `fastband serve --hub`
+
+#### Infrastructure
+- Zustand stores for control plane state management
+- Vitest test suite with React Testing Library
+- TypeScript types for control plane domain
+- Dashboard build script (`build.py`)
+
+### Plugin System (New!)
+
+#### Added
+- **Plugin Manager** - Discover and load plugins via entry points
+  - `fastband.plugins` entry point group
+  - Async lifecycle hooks (on_load, on_unload)
+  - Plugin capability flags (tools, routes, CLI)
+- **Event Bus** - Pub/sub for extensibility
+  - Async and sync event handlers
+  - Wildcard subscriptions
+  - Priority-based handler ordering
+  - Thread-safe subscription management
+- **CLI Commands** - `fastband plugins list|load|unload|info`
+
+### Security
+
+#### Fixed
+- **Path traversal vulnerability** in static file serving - Added `resolve()` + `relative_to()` validation
+- **Closure variable capture bug** - Static file routes now correctly serve individual files
+- **Race conditions** in EventBus and PluginManager singletons - Added double-checked locking
+- **Thread-safety** in event subscriptions - Added synchronization locks
+- **Default host binding** - Changed from `0.0.0.0` to `127.0.0.1` with security warning
+
+#### Changed
+- `datetime.utcnow()` → `datetime.now(timezone.utc)` for Python 3.12+ compatibility
+- `asyncio.Lock` → `threading.Lock` for synchronous operations
+- Private attribute access → Public API methods in PluginManager
+
 ## [1.2025.12.0] - 2025-12-29
 
 ### 🚀 First Stable Release
@@ -147,6 +204,7 @@ This project uses a hybrid versioning format: `vMAJOR.YYYY.MM.PATCH[-prerelease]
 | PATCH       | Bug fixes and minor improvements      | 0, 1, 2      |
 | prerelease  | Development stage (optional)          | alpha.1, beta.1, rc.1 |
 
-[Unreleased]: https://github.com/RemmyCH3CK/fastband-mcp/compare/v1.2025.12.0...HEAD
+[Unreleased]: https://github.com/RemmyCH3CK/fastband-mcp/compare/v1.2025.12.1...HEAD
+[1.2025.12.1]: https://github.com/RemmyCH3CK/fastband-mcp/compare/v1.2025.12.0...v1.2025.12.1
 [1.2025.12.0]: https://github.com/RemmyCH3CK/fastband-mcp/releases/tag/v1.2025.12.0
 [1.2025.12.0-alpha.1]: https://github.com/RemmyCH3CK/fastband-mcp/releases/tag/v1.2025.12.0-alpha.1
