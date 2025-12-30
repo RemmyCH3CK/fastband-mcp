@@ -702,6 +702,373 @@ class TestBrowserManager:
 # WEB TOOLS COLLECTION TESTS
 # =============================================================================
 
+# =============================================================================
+# VISION ANALYSIS TOOL TESTS
+# =============================================================================
+
+class TestVisionAnalysisTool:
+    """Tests for VisionAnalysisTool - Claude Vision API integration."""
+
+    def test_definition(self):
+        """Test tool definition is correct."""
+        from fastband.tools.web import VisionAnalysisTool
+        from fastband.tools.base import ToolCategory
+
+        tool = VisionAnalysisTool()
+
+        assert tool.name == "analyze_screenshot_with_vision"
+        assert tool.category == ToolCategory.AI
+        assert tool.definition.metadata.network_required is True
+
+        # Check parameters
+        params = {p.name: p for p in tool.definition.parameters}
+        assert "prompt" in params
+        assert params["prompt"].required is True
+        assert "url" in params
+        assert params["url"].required is False
+        assert "image_base64" in params
+        assert params["image_base64"].required is False
+        assert "analysis_type" in params
+        assert params["analysis_type"].enum == [
+            "general", "ui_review", "bug_detection", "accessibility", "verification"
+        ]
+        assert "selector" in params
+        assert "width" in params
+        assert "height" in params
+        assert "full_page" in params
+        assert "max_tokens" in params
+
+    def test_schema_generation(self):
+        """Test MCP schema generation."""
+        from fastband.tools.web import VisionAnalysisTool
+
+        tool = VisionAnalysisTool()
+        schema = tool.definition.to_mcp_schema()
+
+        assert schema["name"] == "analyze_screenshot_with_vision"
+        assert "inputSchema" in schema
+        assert "prompt" in schema["inputSchema"]["properties"]
+        assert "prompt" in schema["inputSchema"]["required"]
+
+    def test_build_system_prompt_general(self):
+        """Test system prompt generation for general analysis."""
+        from fastband.tools.web import VisionAnalysisTool
+
+        tool = VisionAnalysisTool()
+        prompt = tool._build_system_prompt("general")
+
+        assert "visual UI/UX analysis expert" in prompt
+        assert "Overall visual appearance" in prompt
+
+    def test_build_system_prompt_ui_review(self):
+        """Test system prompt generation for UI review."""
+        from fastband.tools.web import VisionAnalysisTool
+
+        tool = VisionAnalysisTool()
+        prompt = tool._build_system_prompt("ui_review")
+
+        assert "Visual hierarchy" in prompt
+        assert "Color scheme" in prompt
+        assert "Typography" in prompt
+
+    def test_build_system_prompt_bug_detection(self):
+        """Test system prompt generation for bug detection."""
+        from fastband.tools.web import VisionAnalysisTool
+
+        tool = VisionAnalysisTool()
+        prompt = tool._build_system_prompt("bug_detection")
+
+        assert "Layout breaks" in prompt
+        assert "Missing or broken images" in prompt
+        assert "severity" in prompt.lower()
+
+    def test_build_system_prompt_accessibility(self):
+        """Test system prompt generation for accessibility."""
+        from fastband.tools.web import VisionAnalysisTool
+
+        tool = VisionAnalysisTool()
+        prompt = tool._build_system_prompt("accessibility")
+
+        assert "Color contrast" in prompt
+        assert "WCAG" in prompt
+        assert "touch targets" in prompt.lower()
+
+    def test_build_system_prompt_verification(self):
+        """Test system prompt generation for verification."""
+        from fastband.tools.web import VisionAnalysisTool
+
+        tool = VisionAnalysisTool()
+        prompt = tool._build_system_prompt("verification")
+
+        assert "Verify the UI" in prompt
+        assert "presence/absence" in prompt
+
+    @pytest.mark.asyncio
+    async def test_execute_requires_url_or_image(self):
+        """Test that either url or image_base64 must be provided."""
+        from fastband.tools.web import VisionAnalysisTool
+
+        tool = VisionAnalysisTool()
+        result = await tool.execute(prompt="Check the UI")
+
+        assert result.success is False
+        assert "Either 'url' or 'image_base64' must be provided" in result.error
+
+    @pytest.mark.asyncio
+    async def test_execute_rejects_both_url_and_image(self):
+        """Test that providing both url and image_base64 is rejected."""
+        from fastband.tools.web import VisionAnalysisTool
+
+        tool = VisionAnalysisTool()
+        result = await tool.execute(
+            prompt="Check the UI",
+            url="https://example.com",
+            image_base64="aGVsbG8=",  # base64 for "hello"
+        )
+
+        assert result.success is False
+        assert "not both" in result.error
+
+    @pytest.mark.asyncio
+    async def test_execute_invalid_base64(self):
+        """Test handling of invalid base64 image."""
+        from fastband.tools.web import VisionAnalysisTool
+
+        tool = VisionAnalysisTool()
+        result = await tool.execute(
+            prompt="Check the UI",
+            image_base64="not-valid-base64!!!",
+        )
+
+        assert result.success is False
+        assert "Invalid base64" in result.error
+
+    @pytest.mark.asyncio
+    async def test_execute_with_base64_image(self, mock_playwright, reset_browser_manager):
+        """Test analysis with base64 image input."""
+        from fastband.tools.web import VisionAnalysisTool
+        from fastband.providers.base import CompletionResponse, Capability
+
+        # Mock the provider registry
+        mock_provider = AsyncMock()
+        mock_provider.capabilities = [Capability.VISION]
+        mock_provider.analyze_image = AsyncMock(return_value=CompletionResponse(
+            content="The UI looks clean with a centered login form.",
+            model="claude-sonnet-4-20250514",
+            provider="claude",
+            usage={"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
+            finish_reason="end_turn",
+        ))
+
+        with patch("fastband.providers.registry.ProviderRegistry.get", return_value=mock_provider):
+            tool = VisionAnalysisTool()
+            # Valid base64 for a tiny PNG
+            valid_base64 = base64.b64encode(b"fake_image_data").decode()
+
+            result = await tool.execute(
+                prompt="Check if the login form is visible",
+                image_base64=valid_base64,
+                analysis_type="verification",
+            )
+
+            assert result.success is True
+            assert "analysis" in result.data
+            assert result.data["analysis_type"] == "verification"
+            assert result.data["source"] == "base64"
+            assert result.metadata["provider"] == "claude"
+
+    @pytest.mark.asyncio
+    async def test_execute_with_url(self, mock_playwright, reset_browser_manager):
+        """Test analysis with URL input (captures screenshot)."""
+        from fastband.tools.web import VisionAnalysisTool
+        from fastband.providers.base import CompletionResponse, Capability
+
+        # Mock the provider
+        mock_provider = AsyncMock()
+        mock_provider.capabilities = [Capability.VISION]
+        mock_provider.analyze_image = AsyncMock(return_value=CompletionResponse(
+            content="The page shows a navigation bar and hero section.",
+            model="claude-sonnet-4-20250514",
+            provider="claude",
+            usage={"prompt_tokens": 200, "completion_tokens": 100, "total_tokens": 300},
+            finish_reason="end_turn",
+        ))
+
+        with patch("fastband.providers.registry.ProviderRegistry.get", return_value=mock_provider):
+            tool = VisionAnalysisTool()
+            result = await tool.execute(
+                prompt="Describe the page layout",
+                url="https://example.com",
+                analysis_type="ui_review",
+            )
+
+            assert result.success is True
+            assert "analysis" in result.data
+            assert result.data["source"] == "url"
+            assert result.data["url"] == "https://example.com"
+            assert "viewport" in result.data
+
+    @pytest.mark.asyncio
+    async def test_execute_with_selector(self, mock_playwright, reset_browser_manager):
+        """Test analysis with element-specific screenshot."""
+        from fastband.tools.web import VisionAnalysisTool
+        from fastband.providers.base import CompletionResponse, Capability
+
+        # Set up mock element
+        mock_element = AsyncMock()
+        mock_element.screenshot = AsyncMock(return_value=b"element_image")
+        mock_playwright["page"].query_selector = AsyncMock(return_value=mock_element)
+
+        mock_provider = AsyncMock()
+        mock_provider.capabilities = [Capability.VISION]
+        mock_provider.analyze_image = AsyncMock(return_value=CompletionResponse(
+            content="The button has correct styling.",
+            model="claude-sonnet-4-20250514",
+            provider="claude",
+            usage={"prompt_tokens": 50, "completion_tokens": 20, "total_tokens": 70},
+            finish_reason="end_turn",
+        ))
+
+        with patch("fastband.providers.registry.ProviderRegistry.get", return_value=mock_provider):
+            tool = VisionAnalysisTool()
+            result = await tool.execute(
+                prompt="Check button styling",
+                url="https://example.com",
+                selector=".submit-button",
+            )
+
+            assert result.success is True
+            assert result.data["selector"] == ".submit-button"
+
+    @pytest.mark.asyncio
+    async def test_execute_element_not_found(self, mock_playwright, reset_browser_manager):
+        """Test handling when selector element is not found."""
+        from fastband.tools.web import VisionAnalysisTool
+
+        mock_playwright["page"].query_selector = AsyncMock(return_value=None)
+
+        tool = VisionAnalysisTool()
+        result = await tool.execute(
+            prompt="Check the element",
+            url="https://example.com",
+            selector=".nonexistent",
+        )
+
+        assert result.success is False
+        assert "not found" in result.error.lower()
+
+    @pytest.mark.asyncio
+    async def test_execute_without_playwright(self):
+        """Test handling when Playwright is not installed (URL mode)."""
+        with patch("fastband.tools.web.PLAYWRIGHT_AVAILABLE", False):
+            from fastband.tools.web import VisionAnalysisTool
+
+            tool = VisionAnalysisTool()
+            result = await tool.execute(
+                prompt="Check the UI",
+                url="https://example.com",
+            )
+
+            assert result.success is False
+            assert "playwright" in result.error.lower()
+
+    @pytest.mark.asyncio
+    async def test_execute_provider_not_available(self, mock_playwright, reset_browser_manager):
+        """Test handling when Claude provider is not available."""
+        from fastband.tools.web import VisionAnalysisTool
+
+        with patch("fastband.providers.registry.ProviderRegistry.get", side_effect=Exception("ANTHROPIC_API_KEY not set")):
+            tool = VisionAnalysisTool()
+            valid_base64 = base64.b64encode(b"fake_image").decode()
+
+            result = await tool.execute(
+                prompt="Check the UI",
+                image_base64=valid_base64,
+            )
+
+            assert result.success is False
+            assert "Failed to initialize AI provider" in result.error
+
+    @pytest.mark.asyncio
+    async def test_execute_vision_api_error(self, mock_playwright, reset_browser_manager):
+        """Test handling of Vision API errors."""
+        from fastband.tools.web import VisionAnalysisTool
+        from fastband.providers.base import Capability
+
+        mock_provider = AsyncMock()
+        mock_provider.capabilities = [Capability.VISION]
+        mock_provider.analyze_image = AsyncMock(side_effect=Exception("API rate limit exceeded"))
+
+        with patch("fastband.providers.registry.ProviderRegistry.get", return_value=mock_provider):
+            tool = VisionAnalysisTool()
+            valid_base64 = base64.b64encode(b"fake_image").decode()
+
+            result = await tool.execute(
+                prompt="Check the UI",
+                image_base64=valid_base64,
+            )
+
+            assert result.success is False
+            assert "Vision analysis failed" in result.error
+
+    @pytest.mark.asyncio
+    async def test_execute_url_normalization(self, mock_playwright, reset_browser_manager):
+        """Test URL normalization (adding https://)."""
+        from fastband.tools.web import VisionAnalysisTool
+        from fastband.providers.base import CompletionResponse, Capability
+
+        mock_provider = AsyncMock()
+        mock_provider.capabilities = [Capability.VISION]
+        mock_provider.analyze_image = AsyncMock(return_value=CompletionResponse(
+            content="Analysis complete.",
+            model="claude-sonnet-4-20250514",
+            provider="claude",
+            usage={"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
+            finish_reason="end_turn",
+        ))
+
+        with patch("fastband.providers.registry.ProviderRegistry.get", return_value=mock_provider):
+            tool = VisionAnalysisTool()
+            result = await tool.execute(
+                prompt="Check the UI",
+                url="example.com",  # No scheme
+            )
+
+            # Should have added https:// and succeeded
+            assert result.success is True
+            mock_playwright["page"].goto.assert_called()
+            call_args = mock_playwright["page"].goto.call_args
+            assert call_args[0][0] == "https://example.com"
+
+    @pytest.mark.asyncio
+    async def test_execute_records_execution_time(self, mock_playwright, reset_browser_manager):
+        """Test that execution time is recorded."""
+        from fastband.tools.web import VisionAnalysisTool
+        from fastband.providers.base import CompletionResponse, Capability
+
+        mock_provider = AsyncMock()
+        mock_provider.capabilities = [Capability.VISION]
+        mock_provider.analyze_image = AsyncMock(return_value=CompletionResponse(
+            content="Analysis complete.",
+            model="claude-sonnet-4-20250514",
+            provider="claude",
+            usage={"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
+            finish_reason="end_turn",
+        ))
+
+        with patch("fastband.providers.registry.ProviderRegistry.get", return_value=mock_provider):
+            tool = VisionAnalysisTool()
+            valid_base64 = base64.b64encode(b"fake_image").decode()
+
+            result = await tool.execute(
+                prompt="Check the UI",
+                image_base64=valid_base64,
+            )
+
+            assert result.success is True
+            assert result.execution_time_ms > 0
+
+
 class TestWebToolsCollection:
     """Tests for WEB_TOOLS collection."""
 
@@ -713,21 +1080,24 @@ class TestWebToolsCollection:
             HttpRequestTool,
             DomQueryTool,
             BrowserConsoleTool,
+            VisionAnalysisTool,
         )
 
-        assert len(WEB_TOOLS) == 4
+        assert len(WEB_TOOLS) == 5
         assert ScreenshotTool in WEB_TOOLS
         assert HttpRequestTool in WEB_TOOLS
         assert DomQueryTool in WEB_TOOLS
         assert BrowserConsoleTool in WEB_TOOLS
+        assert VisionAnalysisTool in WEB_TOOLS
 
-    def test_all_tools_have_web_category(self):
-        """Test that all web tools have the WEB category."""
+    def test_all_tools_have_valid_category(self):
+        """Test that all web tools have valid categories (WEB or AI)."""
         from fastband.tools.web import WEB_TOOLS
 
+        valid_categories = [ToolCategory.WEB, ToolCategory.AI]
         for tool_class in WEB_TOOLS:
             tool = tool_class()
-            assert tool.category == ToolCategory.WEB
+            assert tool.category in valid_categories, f"{tool.name} has unexpected category {tool.category}"
 
     def test_playwright_available_exported(self):
         """Test that PLAYWRIGHT_AVAILABLE flag is exported."""

@@ -631,6 +631,388 @@ class DomQueryTool(Tool):
                 await context.close()
 
 
+class VisionAnalysisTool(Tool):
+    """
+    Analyze screenshots using Claude Vision API.
+
+    This tool enables AI-powered visual analysis of web pages, supporting:
+    - UI/UX review and verification
+    - Visual bug detection
+    - Accessibility assessment
+    - Layout and styling validation
+    - Content verification
+
+    Can accept either a URL (captures screenshot first) or existing base64 image.
+    """
+
+    @property
+    def definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            metadata=ToolMetadata(
+                name="analyze_screenshot_with_vision",
+                description=(
+                    "Analyze a screenshot or webpage using Claude Vision API. "
+                    "Supports UI verification, bug detection, accessibility review, "
+                    "and visual comparison. Can capture screenshot from URL or analyze "
+                    "existing base64-encoded image."
+                ),
+                category=ToolCategory.AI,
+                version="1.0.0",
+                project_types=[ProjectType.WEB_APP, ProjectType.MOBILE_CROSS],
+                tech_stack_hints=["web", "ui", "testing", "qa", "visual"],
+                network_required=True,
+            ),
+            parameters=[
+                ToolParameter(
+                    name="prompt",
+                    type="string",
+                    description=(
+                        "Analysis prompt describing what to look for. Examples:\n"
+                        "- 'Check if the login form is visible and properly styled'\n"
+                        "- 'Verify the error message is displayed in red'\n"
+                        "- 'Assess the accessibility of this page'\n"
+                        "- 'Compare this UI to the expected design'"
+                    ),
+                    required=True,
+                ),
+                ToolParameter(
+                    name="url",
+                    type="string",
+                    description="URL to capture and analyze (mutually exclusive with image_base64)",
+                    required=False,
+                ),
+                ToolParameter(
+                    name="image_base64",
+                    type="string",
+                    description="Base64-encoded image to analyze (mutually exclusive with url)",
+                    required=False,
+                ),
+                ToolParameter(
+                    name="analysis_type",
+                    type="string",
+                    description=(
+                        "Type of analysis to perform:\n"
+                        "- 'general': General UI analysis (default)\n"
+                        "- 'ui_review': Detailed UI/UX review\n"
+                        "- 'bug_detection': Look for visual bugs\n"
+                        "- 'accessibility': Accessibility assessment\n"
+                        "- 'verification': Verify specific UI elements"
+                    ),
+                    required=False,
+                    default="general",
+                    enum=["general", "ui_review", "bug_detection", "accessibility", "verification"],
+                ),
+                ToolParameter(
+                    name="selector",
+                    type="string",
+                    description="CSS selector for element-specific screenshot (only with url)",
+                    required=False,
+                ),
+                ToolParameter(
+                    name="width",
+                    type="integer",
+                    description="Viewport width in pixels when capturing from URL (default: 1280)",
+                    required=False,
+                    default=1280,
+                ),
+                ToolParameter(
+                    name="height",
+                    type="integer",
+                    description="Viewport height in pixels when capturing from URL (default: 720)",
+                    required=False,
+                    default=720,
+                ),
+                ToolParameter(
+                    name="full_page",
+                    type="boolean",
+                    description="Capture full scrollable page when using URL (default: false)",
+                    required=False,
+                    default=False,
+                ),
+                ToolParameter(
+                    name="wait_for",
+                    type="string",
+                    description="Wait condition when capturing: 'load', 'domcontentloaded', 'networkidle'",
+                    required=False,
+                    default="networkidle",
+                    enum=["load", "domcontentloaded", "networkidle"],
+                ),
+                ToolParameter(
+                    name="max_tokens",
+                    type="integer",
+                    description="Maximum tokens for analysis response (default: 2048)",
+                    required=False,
+                    default=2048,
+                ),
+            ],
+        )
+
+    def _build_system_prompt(self, analysis_type: str) -> str:
+        """Build system prompt based on analysis type."""
+        base_prompt = (
+            "You are a visual UI/UX analysis expert. Analyze the provided screenshot "
+            "and provide detailed, actionable feedback."
+        )
+
+        type_prompts = {
+            "general": (
+                f"{base_prompt}\n\n"
+                "Provide a comprehensive analysis covering:\n"
+                "1. Overall visual appearance and layout\n"
+                "2. Key UI elements visible\n"
+                "3. Any obvious issues or concerns\n"
+                "4. Suggestions for improvement"
+            ),
+            "ui_review": (
+                f"{base_prompt}\n\n"
+                "Perform a detailed UI/UX review covering:\n"
+                "1. Visual hierarchy and layout structure\n"
+                "2. Color scheme and contrast\n"
+                "3. Typography and readability\n"
+                "4. Spacing and alignment\n"
+                "5. Interactive element visibility\n"
+                "6. Consistency with modern design patterns\n"
+                "7. Mobile responsiveness indicators\n"
+                "8. Specific recommendations for improvement"
+            ),
+            "bug_detection": (
+                f"{base_prompt}\n\n"
+                "Focus on detecting visual bugs and issues:\n"
+                "1. Layout breaks or overflow issues\n"
+                "2. Missing or broken images\n"
+                "3. Text truncation or overflow\n"
+                "4. Z-index/layering problems\n"
+                "5. Misaligned elements\n"
+                "6. Inconsistent styling\n"
+                "7. Loading state issues\n"
+                "8. Error messages or warnings visible\n"
+                "Report each issue with its location and severity."
+            ),
+            "accessibility": (
+                f"{base_prompt}\n\n"
+                "Assess accessibility from a visual perspective:\n"
+                "1. Color contrast ratios (estimate)\n"
+                "2. Text size and readability\n"
+                "3. Interactive element sizing (touch targets)\n"
+                "4. Visual focus indicators\n"
+                "5. Icon clarity and labeling\n"
+                "6. Error state visibility\n"
+                "7. Visual hierarchy for screen readers\n"
+                "8. Potential WCAG compliance issues\n"
+                "Note: This is visual-only assessment, not full accessibility audit."
+            ),
+            "verification": (
+                f"{base_prompt}\n\n"
+                "Verify the UI against the user's requirements:\n"
+                "1. Confirm presence/absence of requested elements\n"
+                "2. Verify text content matches expectations\n"
+                "3. Check styling matches specifications\n"
+                "4. Validate layout and positioning\n"
+                "5. Confirm interactive states\n"
+                "Be specific about what matches and what doesn't."
+            ),
+        }
+
+        return type_prompts.get(analysis_type, type_prompts["general"])
+
+    async def _capture_screenshot(
+        self,
+        url: str,
+        width: int,
+        height: int,
+        full_page: bool,
+        selector: Optional[str],
+        wait_for: str,
+    ) -> tuple[Optional[bytes], Optional[str]]:
+        """Capture screenshot from URL. Returns (image_bytes, error)."""
+        if not PLAYWRIGHT_AVAILABLE:
+            return None, (
+                "Playwright is not installed. Install it with:\n"
+                "  pip install playwright\n"
+                "  playwright install chromium"
+            )
+
+        context = None
+        page = None
+
+        try:
+            manager = get_browser_manager()
+            context = await manager.get_context(
+                headless=True,
+                viewport={"width": width, "height": height}
+            )
+
+            if context is None:
+                return None, "Failed to create browser context"
+
+            page = await context.new_page()
+            await page.goto(url, wait_until=wait_for, timeout=30000)
+
+            screenshot_options = {"full_page": full_page, "type": "png"}
+
+            if selector:
+                element = await page.query_selector(selector)
+                if element is None:
+                    return None, f"Element not found: {selector}"
+                screenshot_bytes = await element.screenshot(**screenshot_options)
+            else:
+                screenshot_bytes = await page.screenshot(**screenshot_options)
+
+            return screenshot_bytes, None
+
+        except Exception as e:
+            logger.exception(f"Screenshot capture failed for {url}")
+            return None, str(e)
+        finally:
+            if page:
+                await page.close()
+            if context:
+                await context.close()
+
+    async def execute(
+        self,
+        prompt: str,
+        url: str = None,
+        image_base64: str = None,
+        analysis_type: str = "general",
+        selector: str = None,
+        width: int = 1280,
+        height: int = 720,
+        full_page: bool = False,
+        wait_for: str = "networkidle",
+        max_tokens: int = 2048,
+        **kwargs
+    ) -> ToolResult:
+        """Analyze screenshot with Claude Vision API."""
+        import time
+        start_time = time.perf_counter()
+
+        # Validate inputs - need either url or image_base64
+        if not url and not image_base64:
+            return ToolResult(
+                success=False,
+                error="Either 'url' or 'image_base64' must be provided",
+            )
+
+        if url and image_base64:
+            return ToolResult(
+                success=False,
+                error="Provide either 'url' or 'image_base64', not both",
+            )
+
+        # Get image bytes
+        image_bytes: Optional[bytes] = None
+        source_info = {}
+
+        if url:
+            # Validate and normalize URL
+            try:
+                parsed = urlparse(url)
+                if not parsed.scheme:
+                    url = f"https://{url}"
+            except Exception as e:
+                return ToolResult(success=False, error=f"Invalid URL: {e}")
+
+            # Capture screenshot
+            image_bytes, error = await self._capture_screenshot(
+                url=url,
+                width=width,
+                height=height,
+                full_page=full_page,
+                selector=selector,
+                wait_for=wait_for,
+            )
+
+            if error:
+                return ToolResult(success=False, error=f"Screenshot capture failed: {error}")
+
+            source_info = {
+                "source": "url",
+                "url": url,
+                "viewport": {"width": width, "height": height},
+                "full_page": full_page,
+                "selector": selector,
+            }
+        else:
+            # Decode base64 image
+            try:
+                image_bytes = base64.b64decode(image_base64)
+                source_info = {
+                    "source": "base64",
+                    "size_bytes": len(image_bytes),
+                }
+            except Exception as e:
+                return ToolResult(success=False, error=f"Invalid base64 image: {e}")
+
+        # Import and configure Claude provider
+        try:
+            from fastband.providers.registry import ProviderRegistry
+            from fastband.providers.base import Capability
+
+            # Get Claude provider (supports vision)
+            provider = ProviderRegistry.get("claude")
+
+            if Capability.VISION not in provider.capabilities:
+                return ToolResult(
+                    success=False,
+                    error="Selected provider does not support vision capability",
+                )
+
+        except ImportError as e:
+            return ToolResult(
+                success=False,
+                error=(
+                    "Claude provider requires anthropic package. Install with:\n"
+                    "  pip install anthropic\n"
+                    "Or: pip install fastband[claude]"
+                ),
+            )
+        except Exception as e:
+            return ToolResult(
+                success=False,
+                error=f"Failed to initialize AI provider: {e}",
+            )
+
+        # Build the analysis prompt
+        system_prompt = self._build_system_prompt(analysis_type)
+        full_prompt = f"{system_prompt}\n\nUser Request:\n{prompt}"
+
+        # Call Claude Vision API
+        try:
+            response = await provider.analyze_image(
+                image_data=image_bytes,
+                prompt=full_prompt,
+                image_type="image/png",
+                max_tokens=max_tokens,
+            )
+
+            execution_time = (time.perf_counter() - start_time) * 1000
+
+            return ToolResult(
+                success=True,
+                data={
+                    "analysis": response.content,
+                    "analysis_type": analysis_type,
+                    "prompt": prompt,
+                    **source_info,
+                },
+                execution_time_ms=execution_time,
+                metadata={
+                    "model": response.model,
+                    "provider": response.provider,
+                    "usage": response.usage,
+                    "finish_reason": response.finish_reason,
+                },
+            )
+
+        except Exception as e:
+            logger.exception("Vision analysis failed")
+            return ToolResult(
+                success=False,
+                error=f"Vision analysis failed: {e}",
+            )
+
+
 class BrowserConsoleTool(Tool):
     """Capture browser console logs."""
 
@@ -825,6 +1207,7 @@ WEB_TOOLS = [
     HttpRequestTool,
     DomQueryTool,
     BrowserConsoleTool,
+    VisionAnalysisTool,
 ]
 
 __all__ = [
@@ -832,6 +1215,7 @@ __all__ = [
     "HttpRequestTool",
     "DomQueryTool",
     "BrowserConsoleTool",
+    "VisionAnalysisTool",
     "WEB_TOOLS",
     "PLAYWRIGHT_AVAILABLE",
     "get_browser_manager",
