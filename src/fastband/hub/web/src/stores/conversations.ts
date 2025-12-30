@@ -49,7 +49,7 @@ interface ConversationsStore {
   updateTitle: (id: string, title: string) => void
 }
 
-export const useConversationsStore = create<ConversationsStore>((set, get) => ({
+export const useConversationsStore = create<ConversationsStore>((set, _get) => ({
   conversations: DEV_MODE ? MOCK_CONVERSATIONS : [],
   activeId: null,
   isLoading: false,

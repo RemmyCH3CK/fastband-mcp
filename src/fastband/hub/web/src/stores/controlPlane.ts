@@ -148,13 +148,13 @@ export const useControlPlaneStore = create<ControlPlaneState>((set, get) => ({
 
     switch (type) {
       case 'ops_log:entry':
-        get().addOpsLogEntry(data as OpsLogEntry)
+        get().addOpsLogEntry(data as unknown as OpsLogEntry)
         break
 
       case 'agent:started':
       case 'agent:status':
         // Convert ops log entry to agent activity
-        const agentData = data as OpsLogEntry
+        const agentData = data as unknown as OpsLogEntry
         get().updateAgent({
           name: agentData.agent,
           is_active: true,
@@ -169,7 +169,7 @@ export const useControlPlaneStore = create<ControlPlaneState>((set, get) => ({
         break
 
       case 'agent:stopped':
-        const stoppedAgent = data as OpsLogEntry
+        const stoppedAgent = data as unknown as OpsLogEntry
         get().removeAgent(stoppedAgent.agent)
         get().addOpsLogEntry(stoppedAgent)
         break
@@ -178,11 +178,11 @@ export const useControlPlaneStore = create<ControlPlaneState>((set, get) => ({
       case 'ticket:completed':
       case 'ticket:updated':
         // Add to ops log
-        get().addOpsLogEntry(data as OpsLogEntry)
+        get().addOpsLogEntry(data as unknown as OpsLogEntry)
         break
 
       case 'directive:hold':
-        const holdEntry = data as OpsLogEntry
+        const holdEntry = data as unknown as OpsLogEntry
         set({
           directiveState: {
             has_active_hold: true,
@@ -196,7 +196,7 @@ export const useControlPlaneStore = create<ControlPlaneState>((set, get) => ({
         break
 
       case 'directive:clearance':
-        const clearanceEntry = data as OpsLogEntry
+        const clearanceEntry = data as unknown as OpsLogEntry
         set({
           directiveState: {
             has_active_hold: false,

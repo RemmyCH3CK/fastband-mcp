@@ -3,7 +3,7 @@
  */
 
 import { clsx } from 'clsx'
-import { AlertTriangle, Shield, Clock, Users, Ticket, ChevronRight } from 'lucide-react'
+import { AlertTriangle, Shield, Clock, Users, Ticket } from 'lucide-react'
 import type { DirectiveState, OpsLogEntry } from '../../types/controlPlane'
 
 interface DirectivePanelProps {
@@ -26,7 +26,7 @@ function DirectiveCard({
   affectedTickets: string[]
 }) {
   const isHold = type === 'hold'
-  const color = isHold ? 'warning' : 'success'
+  const _color = isHold ? 'warning' : 'success'  // Reserved for future theming
 
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp)

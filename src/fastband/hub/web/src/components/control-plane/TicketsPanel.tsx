@@ -3,7 +3,7 @@
  */
 
 import { clsx } from 'clsx'
-import { Ticket, Circle, User, AlertCircle, Clock, ChevronRight } from 'lucide-react'
+import { Ticket, Circle, User, ChevronRight } from 'lucide-react'
 import type { TicketSummary } from '../../types/controlPlane'
 
 interface TicketsPanelProps {

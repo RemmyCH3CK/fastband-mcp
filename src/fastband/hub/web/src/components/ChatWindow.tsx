@@ -278,7 +278,7 @@ export function ChatWindow() {
 function MessageBubble({
   message,
   isStreaming = false,
-  isFirst = false,
+  isFirst: _isFirst = false,
 }: {
   message: Message
   isStreaming?: boolean

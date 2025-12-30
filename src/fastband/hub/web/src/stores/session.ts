@@ -12,7 +12,7 @@ interface SessionStore {
   clearSession: () => void
 }
 
-export const useSessionStore = create<SessionStore>((set, get) => ({
+export const useSessionStore = create<SessionStore>((set, _get) => ({
   sessionId: DEV_MODE ? 'dev-session-123' : null,
   conversationId: null,
   tier: 'pro', // Give dev mode pro tier for testing all features

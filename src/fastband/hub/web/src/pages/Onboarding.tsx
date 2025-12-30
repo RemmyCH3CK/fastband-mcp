@@ -27,7 +27,7 @@ export function Onboarding() {
   const [sourceType, setSourceType] = useState<SourceType | null>(null)
   const [path, setPath] = useState('')
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [_loading, setLoading] = useState(false) // Loading state tracked for potential future UI use
   const [error, setError] = useState('')
 
   const navigate = useNavigate()
