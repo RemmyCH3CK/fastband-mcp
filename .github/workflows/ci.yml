@@ -15,10 +15,10 @@ jobs:
     name: Build Dashboard
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
           cache: "npm"
@@ -38,7 +38,7 @@ jobs:
           cp -r src/fastband/hub/web/dist/* src/fastband/hub/static/
 
       - name: Upload dashboard artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: dashboard-static
           path: src/fastband/hub/static/
@@ -49,16 +49,16 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-dashboard
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download dashboard
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: dashboard-static
           path: src/fastband/hub/static/
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: "pip"
@@ -88,16 +88,16 @@ jobs:
         python-version: ["3.10", "3.11", "3.12"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download dashboard
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: dashboard-static
           path: src/fastband/hub/static/
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
@@ -112,7 +112,7 @@ jobs:
           pytest tests/ -v --cov=fastband --cov-report=xml --cov-report=term-missing
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         if: matrix.python-version == '3.11'
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -126,10 +126,10 @@ jobs:
     name: Security Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: "pip"
@@ -150,16 +150,16 @@ jobs:
     runs-on: ubuntu-latest
     needs: [lint, test]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download dashboard
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: dashboard-static
           path: src/fastband/hub/static/
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: "pip"
@@ -176,7 +176,7 @@ jobs:
         run: twine check dist/*
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: dist
           path: dist/
