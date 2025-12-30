@@ -8,10 +8,10 @@ Provides:
 """
 
 from fastband.hub.websockets.manager import (
-    WebSocketManager,
     SubscriptionType,
-    WSMessage,
+    WebSocketManager,
     WSEventType,
+    WSMessage,
     get_websocket_manager,
 )
 

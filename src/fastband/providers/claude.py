@@ -4,15 +4,16 @@ Claude AI Provider.
 Implements the AIProvider interface for Anthropic's Claude models.
 """
 
-import os
 import logging
-from typing import Optional, Dict, Any, List, AsyncIterator
+import os
+from collections.abc import AsyncIterator
+from typing import Any
 
 from fastband.providers.base import (
     AIProvider,
-    ProviderConfig,
-    CompletionResponse,
     Capability,
+    CompletionResponse,
+    ProviderConfig,
 )
 
 logger = logging.getLogger(__name__)
@@ -73,7 +74,7 @@ class ClaudeProvider(AIProvider):
         return "claude"
 
     @property
-    def capabilities(self) -> List[Capability]:
+    def capabilities(self) -> list[Capability]:
         return [
             Capability.TEXT_COMPLETION,
             Capability.CODE_GENERATION,
@@ -90,6 +91,7 @@ class ClaudeProvider(AIProvider):
         if self._client is None:
             try:
                 from anthropic import AsyncAnthropic
+
                 self._client = AsyncAnthropic(api_key=self.config.api_key)
             except ImportError:
                 raise ImportError(
@@ -99,10 +101,7 @@ class ClaudeProvider(AIProvider):
         return self._client
 
     async def complete(
-        self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        **kwargs
+        self, prompt: str, system_prompt: str | None = None, **kwargs
     ) -> CompletionResponse:
         """
         Send a completion request to Claude.
@@ -135,15 +134,11 @@ class ClaudeProvider(AIProvider):
                 "total_tokens": response.usage.input_tokens + response.usage.output_tokens,
             },
             finish_reason=response.stop_reason or "end_turn",
-            raw_response=response.model_dump() if hasattr(response, 'model_dump') else None,
+            raw_response=response.model_dump() if hasattr(response, "model_dump") else None,
         )
 
     async def complete_with_tools(
-        self,
-        prompt: str,
-        tools: List[Dict[str, Any]],
-        system_prompt: Optional[str] = None,
-        **kwargs
+        self, prompt: str, tools: list[dict[str, Any]], system_prompt: str | None = None, **kwargs
     ) -> CompletionResponse:
         """
         Complete with tool/function calling support.
@@ -178,11 +173,13 @@ class ClaudeProvider(AIProvider):
             if block.type == "text":
                 content_parts.append(block.text)
             elif block.type == "tool_use":
-                tool_calls.append({
-                    "id": block.id,
-                    "name": block.name,
-                    "arguments": block.input,
-                })
+                tool_calls.append(
+                    {
+                        "id": block.id,
+                        "name": block.name,
+                        "arguments": block.input,
+                    }
+                )
 
         return CompletionResponse(
             content="\n".join(content_parts) if content_parts else "",
@@ -196,21 +193,25 @@ class ClaudeProvider(AIProvider):
             finish_reason=response.stop_reason or "end_turn",
             raw_response={
                 "tool_calls": tool_calls,
-                "full_response": response.model_dump() if hasattr(response, 'model_dump') else None,
+                "full_response": response.model_dump() if hasattr(response, "model_dump") else None,
             },
         )
 
-    def _convert_tools(self, openai_tools: List[Dict]) -> List[Dict]:
+    def _convert_tools(self, openai_tools: list[dict]) -> list[dict]:
         """Convert OpenAI tool format to Claude format."""
         claude_tools = []
         for tool in openai_tools:
             if tool.get("type") == "function":
                 func = tool["function"]
-                claude_tools.append({
-                    "name": func["name"],
-                    "description": func.get("description", ""),
-                    "input_schema": func.get("parameters", {"type": "object", "properties": {}}),
-                })
+                claude_tools.append(
+                    {
+                        "name": func["name"],
+                        "description": func.get("description", ""),
+                        "input_schema": func.get(
+                            "parameters", {"type": "object", "properties": {}}
+                        ),
+                    }
+                )
             else:
                 # Already in Claude format or simplified format
                 claude_tools.append(tool)
@@ -218,10 +219,10 @@ class ClaudeProvider(AIProvider):
 
     async def stream(
         self,
-        prompt: Optional[str] = None,
-        system_prompt: Optional[str] = None,
-        messages: Optional[List[Dict[str, Any]]] = None,
-        **kwargs
+        prompt: str | None = None,
+        system_prompt: str | None = None,
+        messages: list[dict[str, Any]] | None = None,
+        **kwargs,
     ) -> AsyncIterator[str]:
         """
         Stream completion response.
@@ -268,11 +269,7 @@ class ClaudeProvider(AIProvider):
                 yield text
 
     async def analyze_image(
-        self,
-        image_data: bytes,
-        prompt: str,
-        image_type: str = "image/png",
-        **kwargs
+        self, image_data: bytes, prompt: str, image_type: str = "image/png", **kwargs
     ) -> CompletionResponse:
         """
         Analyze an image using Claude's vision capability.

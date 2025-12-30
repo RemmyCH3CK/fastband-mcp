@@ -19,20 +19,21 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
 from fastband.tools.base import (
+    ProjectType,
     Tool,
+    ToolCategory,
     ToolDefinition,
     ToolMetadata,
     ToolParameter,
-    ToolCategory,
     ToolResult,
-    ProjectType,
 )
 
 logger = logging.getLogger(__name__)
 
 # Check if Playwright is available
 try:
-    from playwright.async_api import async_playwright, Browser, Page, BrowserContext
+    from playwright.async_api import Browser, BrowserContext, Page, async_playwright
+
     PLAYWRIGHT_AVAILABLE = True
 except ImportError:
     PLAYWRIGHT_AVAILABLE = False
@@ -65,9 +66,9 @@ class BrowserManager:
     """
 
     _instance: Optional["BrowserManager"] = None
-    _browser: Optional[Any] = None  # Browser type when Playwright available
-    _context: Optional[Any] = None  # BrowserContext when Playwright available
-    _playwright: Optional[Any] = None
+    _browser: Any | None = None  # Browser type when Playwright available
+    _context: Any | None = None  # BrowserContext when Playwright available
+    _playwright: Any | None = None
     _headless: bool = True
 
     def __new__(cls):
@@ -75,7 +76,7 @@ class BrowserManager:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    async def get_browser(self, headless: bool = True) -> Optional[Any]:
+    async def get_browser(self, headless: bool = True) -> Any | None:
         """Get or create a browser instance."""
         if not PLAYWRIGHT_AVAILABLE:
             return None
@@ -89,7 +90,7 @@ class BrowserManager:
 
         return self._browser
 
-    async def get_context(self, headless: bool = True, viewport: Optional[Dict] = None) -> Optional[Any]:
+    async def get_context(self, headless: bool = True, viewport: dict | None = None) -> Any | None:
         """Get a browser context with optional viewport settings."""
         browser = await self.get_browser(headless=headless)
         if browser is None:
@@ -115,7 +116,7 @@ class BrowserManager:
 
 
 # Global browser manager instance
-_browser_manager: Optional[BrowserManager] = None
+_browser_manager: BrowserManager | None = None
 
 
 def get_browser_manager() -> BrowserManager:
@@ -213,7 +214,7 @@ class ScreenshotTool(Tool):
         wait_for: str = "load",
         wait_timeout: int = 30000,
         headless: bool = True,
-        **kwargs
+        **kwargs,
     ) -> ToolResult:
         """Capture webpage screenshot."""
         if not PLAYWRIGHT_AVAILABLE:
@@ -233,8 +234,7 @@ class ScreenshotTool(Tool):
         try:
             manager = get_browser_manager()
             context = await manager.get_context(
-                headless=headless,
-                viewport={"width": width, "height": height}
+                headless=headless, viewport={"width": width, "height": height}
             )
 
             if context is None:
@@ -365,12 +365,12 @@ class HttpRequestTool(Tool):
         self,
         url: str,
         method: str = "GET",
-        headers: Dict[str, str] = None,
+        headers: dict[str, str] = None,
         body: str = None,
-        json_body: Dict[str, Any] = None,
+        json_body: dict[str, Any] = None,
         timeout: int = 30,
         follow_redirects: bool = True,
-        **kwargs
+        **kwargs,
     ) -> ToolResult:
         """Make HTTP request."""
         import httpx
@@ -533,14 +533,14 @@ class DomQueryTool(Tool):
         self,
         url: str,
         selector: str,
-        attributes: List[str] = None,
+        attributes: list[str] = None,
         include_text: bool = True,
         include_html: bool = False,
         max_elements: int = 100,
         wait_for: str = "load",
         wait_timeout: int = 30000,
         headless: bool = True,
-        **kwargs
+        **kwargs,
     ) -> ToolResult:
         """Query DOM elements."""
         if not PLAYWRIGHT_AVAILABLE:
@@ -821,9 +821,9 @@ class VisionAnalysisTool(Tool):
         width: int,
         height: int,
         full_page: bool,
-        selector: Optional[str],
+        selector: str | None,
         wait_for: str,
-    ) -> tuple[Optional[bytes], Optional[str]]:
+    ) -> tuple[bytes | None, str | None]:
         """Capture screenshot from URL. Returns (image_bytes, error)."""
         if not PLAYWRIGHT_AVAILABLE:
             return None, (
@@ -838,8 +838,7 @@ class VisionAnalysisTool(Tool):
         try:
             manager = get_browser_manager()
             context = await manager.get_context(
-                headless=True,
-                viewport={"width": width, "height": height}
+                headless=True, viewport={"width": width, "height": height}
             )
 
             if context is None:
@@ -881,10 +880,11 @@ class VisionAnalysisTool(Tool):
         full_page: bool = False,
         wait_for: str = "networkidle",
         max_tokens: int = 2048,
-        **kwargs
+        **kwargs,
     ) -> ToolResult:
         """Analyze screenshot with Claude Vision API."""
         import time
+
         start_time = time.perf_counter()
 
         # Validate inputs - need either url or image_base64
@@ -901,7 +901,7 @@ class VisionAnalysisTool(Tool):
             )
 
         # Get image bytes
-        image_bytes: Optional[bytes] = None
+        image_bytes: bytes | None = None
         source_info = {}
 
         if url:
@@ -946,8 +946,8 @@ class VisionAnalysisTool(Tool):
 
         # Import and configure Claude provider
         try:
-            from fastband.providers.registry import ProviderRegistry
             from fastband.providers.base import Capability
+            from fastband.providers.registry import ProviderRegistry
 
             # Get Claude provider (supports vision)
             provider = ProviderRegistry.get("claude")
@@ -958,7 +958,7 @@ class VisionAnalysisTool(Tool):
                     error="Selected provider does not support vision capability",
                 )
 
-        except ImportError as e:
+        except ImportError:
             return ToolResult(
                 success=False,
                 error=(
@@ -1093,13 +1093,13 @@ class BrowserConsoleTool(Tool):
         self,
         url: str,
         wait_time: int = 5000,
-        log_types: List[str] = None,
+        log_types: list[str] = None,
         include_network_errors: bool = True,
         execute_script: str = None,
         wait_for: str = "load",
         wait_timeout: int = 30000,
         headless: bool = True,
-        **kwargs
+        **kwargs,
     ) -> ToolResult:
         """Capture browser console logs."""
         if not PLAYWRIGHT_AVAILABLE:
@@ -1135,27 +1135,34 @@ class BrowserConsoleTool(Tool):
             def handle_console(msg):
                 msg_type = msg.type
                 if msg_type in log_types:
-                    console_messages.append({
-                        "type": msg_type,
-                        "text": msg.text,
-                        "location": {
-                            "url": msg.location.get("url", ""),
-                            "line": msg.location.get("lineNumber", 0),
-                            "column": msg.location.get("columnNumber", 0),
-                        } if hasattr(msg, "location") and msg.location else None,
-                    })
+                    console_messages.append(
+                        {
+                            "type": msg_type,
+                            "text": msg.text,
+                            "location": {
+                                "url": msg.location.get("url", ""),
+                                "line": msg.location.get("lineNumber", 0),
+                                "column": msg.location.get("columnNumber", 0),
+                            }
+                            if hasattr(msg, "location") and msg.location
+                            else None,
+                        }
+                    )
 
             page.on("console", handle_console)
 
             # Set up network error handler
             if include_network_errors:
+
                 def handle_request_failed(request):
-                    network_errors.append({
-                        "url": request.url,
-                        "method": request.method,
-                        "failure": request.failure,
-                        "resource_type": request.resource_type,
-                    })
+                    network_errors.append(
+                        {
+                            "url": request.url,
+                            "method": request.method,
+                            "failure": request.failure,
+                            "resource_type": request.resource_type,
+                        }
+                    )
 
                 page.on("requestfailed", handle_request_failed)
 
@@ -1167,11 +1174,13 @@ class BrowserConsoleTool(Tool):
                 try:
                     await page.evaluate(execute_script)
                 except Exception as e:
-                    console_messages.append({
-                        "type": "error",
-                        "text": f"Script execution error: {e}",
-                        "location": None,
-                    })
+                    console_messages.append(
+                        {
+                            "type": "error",
+                            "text": f"Script execution error: {e}",
+                            "location": None,
+                        }
+                    )
 
             # Wait for additional messages
             await asyncio.sleep(wait_time / 1000)
@@ -1186,7 +1195,7 @@ class BrowserConsoleTool(Tool):
                     "total_network_errors": len(network_errors),
                     "message_counts": {
                         msg_type: len([m for m in console_messages if m["type"] == msg_type])
-                        for msg_type in set(m["type"] for m in console_messages)
+                        for msg_type in {m["type"] for m in console_messages}
                     },
                 },
             )

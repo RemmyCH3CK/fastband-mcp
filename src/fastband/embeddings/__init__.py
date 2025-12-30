@@ -24,10 +24,10 @@ Example:
 """
 
 from fastband.embeddings.base import (
+    ChunkMetadata,
+    EmbeddingConfig,
     EmbeddingProvider,
     EmbeddingResult,
-    EmbeddingConfig,
-    ChunkMetadata,
 )
 from fastband.embeddings.index import SemanticIndex
 

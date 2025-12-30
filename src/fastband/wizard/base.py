@@ -8,25 +8,24 @@ Provides the foundation for the interactive setup wizard including:
 - StepResult: Result object from step execution
 """
 
-import asyncio
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Type
+from typing import Any
 
+from rich import box
 from rich.console import Console
 from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
-from rich import box
 
 from fastband.core.config import FastbandConfig
 
 
 class StepStatus(Enum):
     """Status of a wizard step."""
+
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
@@ -37,8 +36,9 @@ class StepStatus(Enum):
 @dataclass
 class StepResult:
     """Result from executing a wizard step."""
+
     success: bool
-    data: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
     message: str = ""
     skip_remaining: bool = False  # Skip all remaining steps
     go_back: bool = False  # User wants to go back
@@ -51,20 +51,21 @@ class WizardContext:
 
     Stores configuration being built, project info, and user choices.
     """
+
     project_path: Path
     config: FastbandConfig = field(default_factory=FastbandConfig)
     interactive: bool = True
 
     # Collected data from steps
-    project_info: Optional[Any] = None  # ProjectInfo from detection
-    selected_provider: Optional[str] = None
-    selected_tools: List[str] = field(default_factory=list)
+    project_info: Any | None = None  # ProjectInfo from detection
+    selected_provider: str | None = None
+    selected_tools: list[str] = field(default_factory=list)
     github_enabled: bool = False
     tickets_enabled: bool = False
     backup_enabled: bool = True
 
     # Additional metadata
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def get(self, key: str, default: Any = None) -> Any:
         """Get a value from metadata."""
@@ -83,7 +84,7 @@ class WizardStep(ABC):
     Steps can be interactive (prompt user) or automatic (detect and suggest).
     """
 
-    def __init__(self, console: Optional[Console] = None):
+    def __init__(self, console: Console | None = None):
         self.console = console or Console()
         self._status = StepStatus.PENDING
 
@@ -150,11 +151,13 @@ class WizardStep(ABC):
     def show_header(self) -> None:
         """Display step header."""
         self.console.print()
-        self.console.print(Panel(
-            f"[bold blue]{self.title}[/bold blue]",
-            subtitle=self.description if self.description else None,
-            border_style="blue",
-        ))
+        self.console.print(
+            Panel(
+                f"[bold blue]{self.title}[/bold blue]",
+                subtitle=self.description if self.description else None,
+                border_style="blue",
+            )
+        )
 
     def show_success(self, message: str) -> None:
         """Display success message."""
@@ -175,8 +178,8 @@ class WizardStep(ABC):
     def prompt(
         self,
         message: str,
-        default: Optional[str] = None,
-        choices: Optional[List[str]] = None,
+        default: str | None = None,
+        choices: list[str] | None = None,
     ) -> str:
         """Prompt user for input."""
         return Prompt.ask(
@@ -193,9 +196,9 @@ class WizardStep(ABC):
     def select_from_list(
         self,
         title: str,
-        options: List[Dict[str, str]],
+        options: list[dict[str, str]],
         allow_multiple: bool = False,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Display a selection list and get user choice(s).
 
@@ -257,14 +260,14 @@ class SetupWizard:
     def __init__(
         self,
         project_path: Path,
-        console: Optional[Console] = None,
+        console: Console | None = None,
         interactive: bool = True,
     ):
         self.project_path = project_path.resolve()
         self.console = console or Console()
         self.interactive = interactive
 
-        self.steps: List[WizardStep] = []
+        self.steps: list[WizardStep] = []
         self.current_step_index = 0
         self.context = WizardContext(
             project_path=self.project_path,
@@ -277,14 +280,14 @@ class SetupWizard:
         self.steps.append(step)
         return self
 
-    def add_steps(self, steps: List[WizardStep]) -> "SetupWizard":
+    def add_steps(self, steps: list[WizardStep]) -> "SetupWizard":
         """Add multiple steps to the wizard."""
         for step in steps:
             self.add_step(step)
         return self
 
     @property
-    def current_step(self) -> Optional[WizardStep]:
+    def current_step(self) -> WizardStep | None:
         """Get the current step."""
         if 0 <= self.current_step_index < len(self.steps):
             return self.steps[self.current_step_index]
@@ -301,18 +304,18 @@ class SetupWizard:
     def show_welcome(self) -> None:
         """Display welcome message."""
         self.console.print()
-        self.console.print(Panel.fit(
-            "[bold blue]Fastband Setup Wizard[/bold blue]\n\n"
-            f"[dim]Project: {self.project_path}[/dim]",
-            border_style="blue",
-        ))
+        self.console.print(
+            Panel.fit(
+                "[bold blue]Fastband Setup Wizard[/bold blue]\n\n"
+                f"[dim]Project: {self.project_path}[/dim]",
+                border_style="blue",
+            )
+        )
         self.console.print()
         self.console.print(
             "This wizard will guide you through configuring Fastband for your project."
         )
-        self.console.print(
-            "Press [bold]Ctrl+C[/bold] at any time to cancel.\n"
-        )
+        self.console.print("Press [bold]Ctrl+C[/bold] at any time to cancel.\n")
 
     def show_progress(self) -> None:
         """Display progress bar showing completed steps."""
@@ -444,11 +447,13 @@ class SetupWizard:
     def show_completion(self) -> None:
         """Display completion message with next steps."""
         self.console.print()
-        self.console.print(Panel.fit(
-            "[bold green]Setup Complete![/bold green]\n\n"
-            "Fastband is now configured for your project.",
-            border_style="green",
-        ))
+        self.console.print(
+            Panel.fit(
+                "[bold green]Setup Complete![/bold green]\n\n"
+                "Fastband is now configured for your project.",
+                border_style="green",
+            )
+        )
 
         self.console.print("\n[bold]Next steps:[/bold]")
         self.console.print("  1. Start the MCP server: [dim]fastband serve[/dim]")
@@ -466,7 +471,7 @@ class SetupWizard:
 async def run_setup_wizard(
     project_path: Path,
     interactive: bool = True,
-    steps: Optional[List[WizardStep]] = None,
+    steps: list[WizardStep] | None = None,
 ) -> bool:
     """
     Run the setup wizard with optional custom steps.
@@ -489,6 +494,7 @@ async def run_setup_wizard(
     else:
         # Import default steps
         from fastband.wizard.steps import get_default_steps
+
         wizard.add_steps(get_default_steps())
 
     return await wizard.run()

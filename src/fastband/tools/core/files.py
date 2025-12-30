@@ -2,30 +2,25 @@
 File operation tools - List, read, write, search files.
 """
 
-from pathlib import Path
-from typing import Dict, Any, List, Optional
-import os
-import fnmatch
 import re
+from pathlib import Path
 
+from fastband.core.security import (
+    PathSecurityError,
+    PathValidator,
+)
 from fastband.tools.base import (
     Tool,
+    ToolCategory,
     ToolDefinition,
     ToolMetadata,
     ToolParameter,
-    ToolCategory,
     ToolResult,
 )
-from fastband.core.security import (
-    PathValidator,
-    PathSecurityError,
-    InputSanitizer,
-)
-
 
 # Global path validator for file operations
 # Allows symlinks for convenience but validates paths
-_path_validator: Optional[PathValidator] = None
+_path_validator: PathValidator | None = None
 
 
 def get_path_validator() -> PathValidator:
@@ -41,7 +36,7 @@ def get_path_validator() -> PathValidator:
     return _path_validator
 
 
-def set_allowed_roots(roots: List[Path]) -> None:
+def set_allowed_roots(roots: list[Path]) -> None:
     """Set allowed root directories for file operations."""
     global _path_validator
     _path_validator = PathValidator(
@@ -101,7 +96,7 @@ class ListFilesTool(Tool):
         pattern: str = None,
         max_depth: int = 1,
         include_hidden: bool = False,
-        **kwargs
+        **kwargs,
     ) -> ToolResult:
         """List files in directory."""
         # Validate path for security
@@ -134,8 +129,7 @@ class ListFilesTool(Tool):
             else:
                 # List directory contents
                 self._list_recursive(
-                    target, target, files, directories,
-                    max_depth, include_hidden, current_depth=0
+                    target, target, files, directories, max_depth, include_hidden, current_depth=0
                 )
 
             return ToolResult(
@@ -158,8 +152,8 @@ class ListFilesTool(Tool):
         self,
         current: Path,
         base: Path,
-        files: List,
-        directories: List,
+        files: list,
+        directories: list,
         max_depth: int,
         include_hidden: bool,
         current_depth: int,
@@ -179,13 +173,18 @@ class ListFilesTool(Tool):
                     directories.append(self._dir_info(item, base))
                     if current_depth + 1 < max_depth:
                         self._list_recursive(
-                            item, base, files, directories,
-                            max_depth, include_hidden, current_depth + 1
+                            item,
+                            base,
+                            files,
+                            directories,
+                            max_depth,
+                            include_hidden,
+                            current_depth + 1,
                         )
         except PermissionError:
             pass
 
-    def _file_info(self, path: Path, base: Path) -> Dict:
+    def _file_info(self, path: Path, base: Path) -> dict:
         """Get file information."""
         stat = path.stat()
         return {
@@ -196,7 +195,7 @@ class ListFilesTool(Tool):
             "modified": stat.st_mtime,
         }
 
-    def _dir_info(self, path: Path, base: Path) -> Dict:
+    def _dir_info(self, path: Path, base: Path) -> dict:
         """Get directory information."""
         return {
             "name": path.name,
@@ -242,13 +241,7 @@ class ReadFileTool(Tool):
             ],
         )
 
-    async def execute(
-        self,
-        path: str,
-        offset: int = 1,
-        limit: int = 500,
-        **kwargs
-    ) -> ToolResult:
+    async def execute(self, path: str, offset: int = 1, limit: int = 500, **kwargs) -> ToolResult:
         """Read file contents."""
         # Validate path for security
         try:
@@ -264,7 +257,7 @@ class ReadFileTool(Tool):
             return ToolResult(success=False, error=f"Path is not a file: {path}")
 
         try:
-            with open(target, "r", encoding="utf-8", errors="replace") as f:
+            with open(target, encoding="utf-8", errors="replace") as f:
                 lines = f.readlines()
 
             total_lines = len(lines)
@@ -332,11 +325,7 @@ class WriteFileTool(Tool):
         )
 
     async def execute(
-        self,
-        path: str,
-        content: str,
-        create_dirs: bool = True,
-        **kwargs
+        self, path: str, content: str, create_dirs: bool = True, **kwargs
     ) -> ToolResult:
         """Write content to file."""
         # Validate path for security
@@ -434,7 +423,7 @@ class SearchCodeTool(Tool):
         file_pattern: str = "*.py",
         max_results: int = 50,
         context_lines: int = 2,
-        **kwargs
+        **kwargs,
     ) -> ToolResult:
         """Search for pattern in files."""
         # Validate path for security
@@ -501,12 +490,12 @@ class SearchCodeTool(Tool):
         regex: re.Pattern,
         context_lines: int,
         max_results: int,
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """Search for pattern in a single file."""
         matches = []
 
         try:
-            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+            with open(file_path, encoding="utf-8", errors="replace") as f:
                 lines = f.readlines()
         except Exception:
             return []
@@ -518,14 +507,16 @@ class SearchCodeTool(Tool):
 
                 context = "".join(lines[start:end])
 
-                matches.append({
-                    "file": str(file_path.relative_to(base_path)),
-                    "line": i + 1,
-                    "match": line.rstrip(),
-                    "context": context,
-                    "context_start": start + 1,
-                    "context_end": end,
-                })
+                matches.append(
+                    {
+                        "file": str(file_path.relative_to(base_path)),
+                        "line": i + 1,
+                        "match": line.rstrip(),
+                        "context": context,
+                        "context_start": start + 1,
+                        "context_end": end,
+                    }
+                )
 
                 if len(matches) >= max_results:
                     break

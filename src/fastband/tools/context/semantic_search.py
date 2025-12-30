@@ -6,14 +6,13 @@ MCP tool for searching indexed code using natural language queries.
 
 import os
 from pathlib import Path
-from typing import Optional
 
 from fastband.tools.base import (
     Tool,
+    ToolCategory,
     ToolDefinition,
     ToolMetadata,
     ToolParameter,
-    ToolCategory,
     ToolResult,
 )
 
@@ -86,9 +85,9 @@ class SemanticSearchTool(Tool):
         self,
         query: str,
         limit: int = 5,
-        file_type: Optional[str] = None,
-        file_pattern: Optional[str] = None,
-        directory: Optional[str] = None,
+        file_type: str | None = None,
+        file_pattern: str | None = None,
+        directory: str | None = None,
         provider: str = "openai",
         **kwargs,
     ) -> ToolResult:
@@ -156,15 +155,21 @@ class SemanticSearchTool(Tool):
                 # Format results
                 formatted_results = []
                 for result in results:
-                    formatted_results.append({
-                        "file": result.metadata.file_path,
-                        "name": result.metadata.name,
-                        "type": result.metadata.chunk_type.value,
-                        "lines": f"{result.metadata.start_line}-{result.metadata.end_line}",
-                        "score": round(result.score, 4),
-                        "docstring": result.metadata.docstring[:200] if result.metadata.docstring else None,
-                        "content_preview": result.content[:500] + "..." if len(result.content) > 500 else result.content,
-                    })
+                    formatted_results.append(
+                        {
+                            "file": result.metadata.file_path,
+                            "name": result.metadata.name,
+                            "type": result.metadata.chunk_type.value,
+                            "lines": f"{result.metadata.start_line}-{result.metadata.end_line}",
+                            "score": round(result.score, 4),
+                            "docstring": result.metadata.docstring[:200]
+                            if result.metadata.docstring
+                            else None,
+                            "content_preview": result.content[:500] + "..."
+                            if len(result.content) > 500
+                            else result.content,
+                        }
+                    )
 
                 return ToolResult(
                     success=True,

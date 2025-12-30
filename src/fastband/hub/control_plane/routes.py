@@ -6,9 +6,8 @@ REST endpoints for dashboard data and WebSocket endpoint for real-time updates.
 
 import logging
 import uuid
-from typing import List, Optional
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
 from fastband.hub.control_plane.service import (
@@ -27,30 +26,35 @@ router = APIRouter(prefix="/control-plane", tags=["control-plane"])
 
 # Request/Response Models
 
+
 class HoldRequest(BaseModel):
     """Request to issue a hold directive."""
+
     issuing_agent: str
-    affected_agents: List[str]
-    tickets: Optional[List[str]] = None
+    affected_agents: list[str]
+    tickets: list[str] | None = None
     reason: str = "Coordination required"
 
 
 class ClearanceRequest(BaseModel):
     """Request to grant clearance."""
+
     granting_agent: str
-    granted_to: List[str]
-    tickets: List[str]
+    granted_to: list[str]
+    tickets: list[str]
     reason: str
 
 
 class DirectiveResponse(BaseModel):
     """Response for directive operations."""
+
     success: bool
     entry_id: str
     message: str
 
 
 # Dependency injection
+
 
 def get_service() -> ControlPlaneService:
     """Get the Control Plane service."""
@@ -63,6 +67,7 @@ def get_ws_manager() -> WebSocketManager:
 
 
 # REST Endpoints
+
 
 @router.get("/dashboard")
 async def get_dashboard(
@@ -102,9 +107,9 @@ async def get_agents(
 
 @router.get("/operations")
 async def get_operations(
-    since: Optional[str] = Query(None, description="Time filter (e.g., '1h', '24h')"),
-    agent: Optional[str] = Query(None, description="Filter by agent name"),
-    event_type: Optional[str] = Query(None, description="Filter by event type"),
+    since: str | None = Query(None, description="Time filter (e.g., '1h', '24h')"),
+    agent: str | None = Query(None, description="Filter by agent name"),
+    event_type: str | None = Query(None, description="Filter by event type"),
     limit: int = Query(100, le=500, description="Maximum entries to return"),
     service: ControlPlaneService = Depends(get_service),
 ):
@@ -222,6 +227,7 @@ async def get_metrics(
 
 
 # WebSocket Endpoint
+
 
 @router.websocket("/ws")
 async def control_plane_websocket(

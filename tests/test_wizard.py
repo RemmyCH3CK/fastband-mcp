@@ -1,19 +1,18 @@
 """Tests for the Setup Wizard framework."""
 
-import pytest
-from pathlib import Path
 import tempfile
-from unittest.mock import AsyncMock, MagicMock, patch
+from pathlib import Path
 
+import pytest
+
+from fastband.core.config import FastbandConfig
 from fastband.wizard.base import (
-    WizardStep,
+    SetupWizard,
     StepResult,
     StepStatus,
-    SetupWizard,
     WizardContext,
+    WizardStep,
 )
-from fastband.core.config import FastbandConfig
-
 
 # =============================================================================
 # TEST FIXTURES
@@ -229,6 +228,7 @@ class TestSetupWizard:
     def test_wizard_creation(self, temp_dir):
         """Test wizard creation."""
         import os
+
         wizard = SetupWizard(project_path=temp_dir)
 
         # Use realpath to handle macOS /var -> /private/var symlink
@@ -370,6 +370,7 @@ class TestSetupWizard:
     @pytest.mark.asyncio
     async def test_skip_remaining(self, temp_dir):
         """Test skip_remaining flag stops wizard."""
+
         class SkipRemainingStep(MockStep):
             async def execute(self, context):
                 return StepResult(success=True, skip_remaining=True)

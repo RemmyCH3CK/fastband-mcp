@@ -6,8 +6,7 @@ Defines the abstract interface for storing and searching embeddings.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Any
 
 from fastband.embeddings.base import ChunkMetadata
 
@@ -15,12 +14,13 @@ from fastband.embeddings.base import ChunkMetadata
 @dataclass(slots=True)
 class SearchResult:
     """A single search result."""
+
     chunk_id: str
     content: str
     metadata: ChunkMetadata
     score: float  # Similarity score (higher is more similar)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "chunk_id": self.chunk_id,
@@ -33,12 +33,13 @@ class SearchResult:
 @dataclass
 class IndexStats:
     """Statistics about the vector index."""
+
     total_chunks: int
     total_files: int
     dimensions: int
     provider: str
     model: str
-    last_updated: Optional[str] = None
+    last_updated: str | None = None
     size_bytes: int = 0
 
 
@@ -64,7 +65,7 @@ class VectorStore(ABC):
     def store(
         self,
         chunk_id: str,
-        embedding: List[float],
+        embedding: list[float],
         content: str,
         metadata: ChunkMetadata,
     ) -> None:
@@ -82,7 +83,7 @@ class VectorStore(ABC):
     @abstractmethod
     def store_batch(
         self,
-        items: List[tuple],  # List of (chunk_id, embedding, content, metadata)
+        items: list[tuple],  # List of (chunk_id, embedding, content, metadata)
     ) -> int:
         """
         Store multiple chunks efficiently.
@@ -98,11 +99,11 @@ class VectorStore(ABC):
     @abstractmethod
     def search(
         self,
-        query_embedding: List[float],
+        query_embedding: list[float],
         limit: int = 10,
-        filter_file_type: Optional[str] = None,
-        filter_file_path: Optional[str] = None,
-    ) -> List[SearchResult]:
+        filter_file_type: str | None = None,
+        filter_file_path: str | None = None,
+    ) -> list[SearchResult]:
         """
         Search for similar chunks.
 
@@ -118,7 +119,7 @@ class VectorStore(ABC):
         pass
 
     @abstractmethod
-    def get(self, chunk_id: str) -> Optional[SearchResult]:
+    def get(self, chunk_id: str) -> SearchResult | None:
         """
         Get a specific chunk by ID.
 
@@ -167,7 +168,7 @@ class VectorStore(ABC):
         pass
 
     @abstractmethod
-    def get_file_hashes(self) -> Dict[str, str]:
+    def get_file_hashes(self) -> dict[str, str]:
         """
         Get hash values for all indexed files.
 

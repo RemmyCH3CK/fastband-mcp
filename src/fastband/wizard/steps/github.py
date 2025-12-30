@@ -5,13 +5,12 @@ Detects git repository and GitHub CLI, offers to enable GitHub features.
 """
 
 import subprocess
-from typing import Optional
 
-from fastband.wizard.base import WizardStep, WizardContext, StepResult
 from fastband.core.config import GitHubConfig
+from fastband.wizard.base import StepResult, WizardContext, WizardStep
 
 
-def _run_command(args: list[str], cwd: Optional[str] = None) -> subprocess.CompletedProcess:
+def _run_command(args: list[str], cwd: str | None = None) -> subprocess.CompletedProcess:
     """
     Run a command and return the result.
 
@@ -164,7 +163,9 @@ class GitHubIntegrationStep(WizardStep):
                     "reason": "non_interactive",
                     "already_configured": already_enabled,
                 },
-                message="GitHub integration preserved from config" if already_enabled else "GitHub integration not enabled (non-interactive mode)",
+                message="GitHub integration preserved from config"
+                if already_enabled
+                else "GitHub integration not enabled (non-interactive mode)",
             )
 
         # Interactive mode - ask user
@@ -218,7 +219,9 @@ class GitHubIntegrationStep(WizardStep):
         self.console.print()
         self.console.print("[bold]To install GitHub CLI:[/bold]")
         self.console.print("  macOS:   [dim]brew install gh[/dim]")
-        self.console.print("  Linux:   [dim]See https://github.com/cli/cli/blob/trunk/docs/install_linux.md[/dim]")
+        self.console.print(
+            "  Linux:   [dim]See https://github.com/cli/cli/blob/trunk/docs/install_linux.md[/dim]"
+        )
         self.console.print("  Windows: [dim]winget install --id GitHub.cli[/dim]")
         self.console.print()
         self.console.print("After installing, run: [dim]gh auth login[/dim]")

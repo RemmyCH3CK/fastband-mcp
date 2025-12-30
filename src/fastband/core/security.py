@@ -8,13 +8,14 @@ Provides:
 - Secure configuration handling
 """
 
+import logging
 import os
 import re
 import secrets
 import string
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Pattern, Set, Tuple, Union
-import logging
+from re import Pattern
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +24,10 @@ logger = logging.getLogger(__name__)
 # Path Security
 # =============================================================================
 
+
 class PathSecurityError(Exception):
     """Raised when a path fails security validation."""
+
     pass
 
 
@@ -44,30 +47,51 @@ class PathValidator:
     """
 
     # Patterns that indicate path traversal attempts
-    DANGEROUS_PATTERNS: List[Pattern] = [
-        re.compile(r'\.\.'),              # Parent directory traversal
-        re.compile(r'\.\.%2[fF]'),        # URL-encoded traversal
-        re.compile(r'%2[eE]%2[eE]'),      # Double URL-encoded dots
-        re.compile(r'\.\.\\'),            # Windows-style traversal
-        re.compile(r'%00'),               # Null byte injection
-        re.compile(r'\x00'),              # Actual null byte
+    DANGEROUS_PATTERNS: list[Pattern] = [
+        re.compile(r"\.\."),  # Parent directory traversal
+        re.compile(r"\.\.%2[fF]"),  # URL-encoded traversal
+        re.compile(r"%2[eE]%2[eE]"),  # Double URL-encoded dots
+        re.compile(r"\.\.\\"),  # Windows-style traversal
+        re.compile(r"%00"),  # Null byte injection
+        re.compile(r"\x00"),  # Actual null byte
     ]
 
     # Dangerous filenames on various systems
-    DANGEROUS_NAMES: Set[str] = {
-        'con', 'prn', 'aux', 'nul',       # Windows reserved
-        'com1', 'com2', 'com3', 'com4', 'com5', 'com6', 'com7', 'com8', 'com9',
-        'lpt1', 'lpt2', 'lpt3', 'lpt4', 'lpt5', 'lpt6', 'lpt7', 'lpt8', 'lpt9',
-        '.', '..', '',                     # Special directory entries
+    DANGEROUS_NAMES: set[str] = {
+        "con",
+        "prn",
+        "aux",
+        "nul",  # Windows reserved
+        "com1",
+        "com2",
+        "com3",
+        "com4",
+        "com5",
+        "com6",
+        "com7",
+        "com8",
+        "com9",
+        "lpt1",
+        "lpt2",
+        "lpt3",
+        "lpt4",
+        "lpt5",
+        "lpt6",
+        "lpt7",
+        "lpt8",
+        "lpt9",
+        ".",
+        "..",
+        "",  # Special directory entries
     }
 
     def __init__(
         self,
-        allowed_roots: Optional[List[Path]] = None,
+        allowed_roots: list[Path] | None = None,
         allow_symlinks: bool = False,
         max_path_length: int = 4096,
-        allowed_extensions: Optional[Set[str]] = None,
-        blocked_extensions: Optional[Set[str]] = None,
+        allowed_extensions: set[str] | None = None,
+        blocked_extensions: set[str] | None = None,
     ):
         """
         Initialize path validator.
@@ -79,18 +103,23 @@ class PathValidator:
             allowed_extensions: If set, only these extensions are allowed
             blocked_extensions: If set, these extensions are blocked
         """
-        self.allowed_roots = [
-            Path(p).resolve() for p in (allowed_roots or [Path.cwd()])
-        ]
+        self.allowed_roots = [Path(p).resolve() for p in (allowed_roots or [Path.cwd()])]
         self.allow_symlinks = allow_symlinks
         self.max_path_length = max_path_length
         self.allowed_extensions = allowed_extensions
         self.blocked_extensions = blocked_extensions or {
-            '.exe', '.dll', '.so', '.dylib',  # Executables
-            '.sh', '.bash', '.cmd', '.bat', '.ps1',  # Scripts
+            ".exe",
+            ".dll",
+            ".so",
+            ".dylib",  # Executables
+            ".sh",
+            ".bash",
+            ".cmd",
+            ".bat",
+            ".ps1",  # Scripts
         }
 
-    def validate(self, path: Union[str, Path]) -> Path:
+    def validate(self, path: str | Path) -> Path:
         """
         Validate a path and return the resolved, safe path.
 
@@ -169,7 +198,7 @@ class PathValidator:
                 continue
         return False
 
-    def is_safe(self, path: Union[str, Path]) -> bool:
+    def is_safe(self, path: str | Path) -> bool:
         """
         Check if a path is safe without raising exceptions.
 
@@ -185,7 +214,7 @@ class PathValidator:
         except PathSecurityError:
             return False
 
-    def sanitize(self, path: Union[str, Path]) -> Path:
+    def sanitize(self, path: str | Path) -> Path:
         """
         Attempt to sanitize a path to make it safe.
 
@@ -203,15 +232,15 @@ class PathValidator:
         path_str = str(path)
 
         # Remove null bytes
-        path_str = path_str.replace('\x00', '')
+        path_str = path_str.replace("\x00", "")
 
         # Normalize path separators
-        path_str = path_str.replace('\\', '/')
+        path_str = path_str.replace("\\", "/")
 
         # Remove URL encoding of dangerous patterns
-        path_str = re.sub(r'%2[eE]', '.', path_str)
-        path_str = re.sub(r'%2[fF]', '/', path_str)
-        path_str = re.sub(r'%00', '', path_str)
+        path_str = re.sub(r"%2[eE]", ".", path_str)
+        path_str = re.sub(r"%2[fF]", "/", path_str)
+        path_str = re.sub(r"%00", "", path_str)
 
         # Convert to path and normalize
         try:
@@ -224,8 +253,8 @@ class PathValidator:
 
 
 def validate_path(
-    path: Union[str, Path],
-    allowed_roots: Optional[List[Path]] = None,
+    path: str | Path,
+    allowed_roots: list[Path] | None = None,
     allow_symlinks: bool = False,
 ) -> Path:
     """
@@ -253,6 +282,7 @@ def validate_path(
 # Input Sanitization
 # =============================================================================
 
+
 class InputSanitizer:
     """
     Sanitizes user input to prevent injection attacks.
@@ -269,19 +299,19 @@ class InputSanitizer:
 
     # Characters that could be dangerous in various contexts
     HTML_ESCAPE_MAP = {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#x27;',
-        '/': '&#x2F;',
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#x27;",
+        "/": "&#x2F;",
     }
 
     # SQL LIKE pattern special characters
     SQL_LIKE_ESCAPE_MAP = {
-        '%': '\\%',
-        '_': '\\_',
-        '\\': '\\\\',
+        "%": "\\%",
+        "_": "\\_",
+        "\\": "\\\\",
     }
 
     def __init__(
@@ -316,24 +346,24 @@ class InputSanitizer:
             text = str(text)
 
         # Truncate to max length
-        text = text[:self.max_length]
+        text = text[: self.max_length]
 
         # Remove null bytes
-        text = text.replace('\x00', '')
+        text = text.replace("\x00", "")
 
         # Handle newlines
         if not self.allow_newlines:
-            text = text.replace('\n', ' ').replace('\r', ' ')
+            text = text.replace("\n", " ").replace("\r", " ")
 
         # Strip HTML if requested
         if self.strip_html:
-            text = re.sub(r'<[^>]+>', '', text)
+            text = re.sub(r"<[^>]+>", "", text)
 
         # Remove control characters (except newlines/tabs if allowed)
         if self.allow_newlines:
-            text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
+            text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", text)
         else:
-            text = re.sub(r'[\x00-\x1f\x7f]', '', text)
+            text = re.sub(r"[\x00-\x1f\x7f]", "", text)
 
         return text.strip()
 
@@ -367,7 +397,7 @@ class InputSanitizer:
             text = text.replace(char, escape)
         return text
 
-    def sanitize_identifier(self, name: str, allowed_chars: str = 'a-zA-Z0-9_') -> str:
+    def sanitize_identifier(self, name: str, allowed_chars: str = "a-zA-Z0-9_") -> str:
         """
         Sanitize an identifier (e.g., table name, column name).
 
@@ -382,12 +412,12 @@ class InputSanitizer:
             name = str(name)
 
         # Remove all non-allowed characters
-        pattern = f'[^{allowed_chars}]'
-        sanitized = re.sub(pattern, '', name)
+        pattern = f"[^{allowed_chars}]"
+        sanitized = re.sub(pattern, "", name)
 
         # Ensure it doesn't start with a number
         if sanitized and sanitized[0].isdigit():
-            sanitized = '_' + sanitized
+            sanitized = "_" + sanitized
 
         return sanitized[:128]  # Reasonable identifier length limit
 
@@ -401,10 +431,10 @@ class InputSanitizer:
         Returns:
             True if valid, False otherwise
         """
-        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
         return bool(re.match(pattern, email)) and len(email) <= 254
 
-    def validate_url(self, url: str, allowed_schemes: Optional[Set[str]] = None) -> bool:
+    def validate_url(self, url: str, allowed_schemes: set[str] | None = None) -> bool:
         """
         Validate URL format.
 
@@ -416,16 +446,13 @@ class InputSanitizer:
             True if valid, False otherwise
         """
         if allowed_schemes is None:
-            allowed_schemes = {'http', 'https'}
+            allowed_schemes = {"http", "https"}
 
         try:
             from urllib.parse import urlparse
+
             parsed = urlparse(url)
-            return (
-                parsed.scheme in allowed_schemes and
-                bool(parsed.netloc) and
-                len(url) <= 2048
-            )
+            return parsed.scheme in allowed_schemes and bool(parsed.netloc) and len(url) <= 2048
         except Exception:
             return False
 
@@ -449,8 +476,10 @@ def sanitize_input(text: str, **kwargs) -> str:
 # SQL Security
 # =============================================================================
 
+
 class SQLSecurityError(Exception):
     """Raised when SQL security check fails."""
+
     pass
 
 
@@ -478,14 +507,31 @@ def validate_sql_identifier(name: str) -> str:
         raise SQLSecurityError("Identifier cannot be empty")
 
     # Check for valid characters (alphanumeric and underscore only)
-    if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name):
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name):
         raise SQLSecurityError(f"Invalid identifier: {name}")
 
     # Check against SQL reserved words (common ones)
     reserved = {
-        'select', 'insert', 'update', 'delete', 'drop', 'create',
-        'alter', 'table', 'index', 'from', 'where', 'and', 'or',
-        'not', 'null', 'true', 'false', 'union', 'join', 'on',
+        "select",
+        "insert",
+        "update",
+        "delete",
+        "drop",
+        "create",
+        "alter",
+        "table",
+        "index",
+        "from",
+        "where",
+        "and",
+        "or",
+        "not",
+        "null",
+        "true",
+        "false",
+        "union",
+        "join",
+        "on",
     }
     if name.lower() in reserved:
         raise SQLSecurityError(f"Identifier is a reserved word: {name}")
@@ -495,8 +541,8 @@ def validate_sql_identifier(name: str) -> str:
 
 def build_parameterized_query(
     base_query: str,
-    conditions: List[Tuple[str, str, Any]],
-) -> Tuple[str, List[Any]]:
+    conditions: list[tuple[str, str, Any]],
+) -> tuple[str, list[Any]]:
     """
     Build a parameterized SQL query safely.
 
@@ -515,7 +561,7 @@ def build_parameterized_query(
         )
         # Returns: ("SELECT * FROM users WHERE status = ? AND age > ?", ["active", 18])
     """
-    allowed_operators = {'=', '!=', '<', '>', '<=', '>=', 'LIKE', 'IN', 'IS'}
+    allowed_operators = {"=", "!=", "<", ">", "<=", ">=", "LIKE", "IN", "IS"}
 
     if not conditions:
         return base_query, []
@@ -534,16 +580,16 @@ def build_parameterized_query(
 
         # Handle NULL specially
         if value is None:
-            if operator == '=':
+            if operator == "=":
                 where_parts.append(f"{column} IS NULL")
-            elif operator == '!=':
+            elif operator == "!=":
                 where_parts.append(f"{column} IS NOT NULL")
             else:
                 raise SQLSecurityError(f"Cannot use {operator} with NULL")
-        elif operator == 'IN':
+        elif operator == "IN":
             if not isinstance(value, (list, tuple)):
                 raise SQLSecurityError("IN operator requires a list")
-            placeholders = ','.join('?' * len(value))
+            placeholders = ",".join("?" * len(value))
             where_parts.append(f"{column} IN ({placeholders})")
             params.extend(value)
         else:
@@ -557,6 +603,7 @@ def build_parameterized_query(
 # =============================================================================
 # Secrets and Keys
 # =============================================================================
+
 
 def generate_secret_key(length: int = 32) -> str:
     """
@@ -583,7 +630,7 @@ def generate_api_token(prefix: str = "fb", length: int = 32) -> str:
         Token string (e.g., "fb_a1b2c3...")
     """
     chars = string.ascii_letters + string.digits
-    random_part = ''.join(secrets.choice(chars) for _ in range(length))
+    random_part = "".join(secrets.choice(chars) for _ in range(length))
     return f"{prefix}_{random_part}"
 
 
@@ -605,7 +652,7 @@ def mask_secret(secret: str, visible_chars: int = 4) -> str:
     return "*" * (len(secret) - visible_chars) + secret[-visible_chars:]
 
 
-def is_secret_key_secure(key: str, min_length: int = 32) -> Tuple[bool, str]:
+def is_secret_key_secure(key: str, min_length: int = 32) -> tuple[bool, str]:
     """
     Check if a secret key meets security requirements.
 
@@ -624,13 +671,13 @@ def is_secret_key_secure(key: str, min_length: int = 32) -> Tuple[bool, str]:
 
     # Check for common weak keys
     weak_patterns = [
-        'dev-secret-key',
-        'secret',
-        'password',
-        'changeme',
-        'example',
-        '0' * 10,
-        '1' * 10,
+        "dev-secret-key",
+        "secret",
+        "password",
+        "changeme",
+        "example",
+        "0" * 10,
+        "1" * 10,
     ]
     for pattern in weak_patterns:
         if pattern in key.lower():
@@ -651,11 +698,12 @@ def is_secret_key_secure(key: str, min_length: int = 32) -> Tuple[bool, str]:
 # Environment and Configuration Security
 # =============================================================================
 
+
 def get_env_or_default(
     key: str,
-    default: Optional[str] = None,
+    default: str | None = None,
     required: bool = False,
-) -> Optional[str]:
+) -> str | None:
     """
     Safely get an environment variable.
 
@@ -680,7 +728,9 @@ def get_env_or_default(
     return value
 
 
-def secure_config_dict(config: Dict[str, Any], secret_keys: Optional[Set[str]] = None) -> Dict[str, Any]:
+def secure_config_dict(
+    config: dict[str, Any], secret_keys: set[str] | None = None
+) -> dict[str, Any]:
     """
     Create a copy of config dict with secrets masked.
 
@@ -692,7 +742,7 @@ def secure_config_dict(config: Dict[str, Any], secret_keys: Optional[Set[str]] =
         Config dict with secrets masked
     """
     if secret_keys is None:
-        secret_keys = {'api_key', 'password', 'secret', 'token', 'key', 'credential'}
+        secret_keys = {"api_key", "password", "secret", "token", "key", "credential"}
 
     def _mask_recursive(obj: Any, depth: int = 0) -> Any:
         if depth > 10:  # Prevent infinite recursion

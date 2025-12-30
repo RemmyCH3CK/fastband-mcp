@@ -7,9 +7,9 @@ Provides commands for discovering, loading, and managing plugins.
 import asyncio
 
 import typer
+from rich import box
 from rich.console import Console
 from rich.table import Table
-from rich import box
 
 console = Console()
 
@@ -209,4 +209,6 @@ def plugins_info(
 
     # Status
     is_loaded = name in manager.loaded
-    console.print(f"\n  Status: {'[green]Loaded[/green]' if is_loaded else '[dim]Not loaded[/dim]'}")
+    console.print(
+        f"\n  Status: {'[green]Loaded[/green]' if is_loaded else '[dim]Not loaded[/dim]'}"
+    )

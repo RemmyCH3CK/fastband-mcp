@@ -5,14 +5,13 @@ MCP tool for checking the status of the semantic index.
 """
 
 from pathlib import Path
-from typing import Optional
 
 from fastband.tools.base import (
     Tool,
+    ToolCategory,
     ToolDefinition,
     ToolMetadata,
     ToolParameter,
-    ToolCategory,
     ToolResult,
 )
 
@@ -48,7 +47,7 @@ class IndexStatusTool(Tool):
 
     async def execute(
         self,
-        directory: Optional[str] = None,
+        directory: str | None = None,
         **kwargs,
     ) -> ToolResult:
         """Get index status."""

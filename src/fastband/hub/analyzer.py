@@ -12,14 +12,13 @@ Features:
 - Integration suggestions
 """
 
-import asyncio
 import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
@@ -54,8 +53,8 @@ class FileStats:
 
     total_files: int = 0
     total_lines: int = 0
-    by_extension: Dict[str, int] = field(default_factory=dict)
-    by_directory: Dict[str, int] = field(default_factory=dict)
+    by_extension: dict[str, int] = field(default_factory=dict)
+    by_directory: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -63,13 +62,13 @@ class TechStack:
     """Detected technology stack."""
 
     primary_language: str = "unknown"
-    languages: Dict[str, float] = field(default_factory=dict)  # language -> percentage
-    frameworks: List[str] = field(default_factory=list)
-    databases: List[str] = field(default_factory=list)
-    cloud_providers: List[str] = field(default_factory=list)
-    ci_cd: List[str] = field(default_factory=list)
-    testing: List[str] = field(default_factory=list)
-    package_managers: List[str] = field(default_factory=list)
+    languages: dict[str, float] = field(default_factory=dict)  # language -> percentage
+    frameworks: list[str] = field(default_factory=list)
+    databases: list[str] = field(default_factory=list)
+    cloud_providers: list[str] = field(default_factory=list)
+    ci_cd: list[str] = field(default_factory=list)
+    testing: list[str] = field(default_factory=list)
+    package_managers: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -78,7 +77,7 @@ class WorkflowInfo:
 
     has_git: bool = False
     default_branch: str = "main"
-    branch_pattern: Optional[str] = None  # e.g., "feature/*"
+    branch_pattern: str | None = None  # e.g., "feature/*"
     has_ci: bool = False
     has_tests: bool = False
     has_docs: bool = False
@@ -91,10 +90,10 @@ class MCPRecommendation:
     """MCP workflow recommendation."""
 
     tool_category: str
-    tools: List[str]
+    tools: list[str]
     priority: str  # "essential", "recommended", "optional"
     rationale: str
-    configuration: Dict[str, Any] = field(default_factory=dict)
+    configuration: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -106,18 +105,18 @@ class AnalysisReport:
     connection_type: ConnectionType
     phase: AnalysisPhase
     started_at: datetime
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
 
     # Analysis results
-    file_stats: Optional[FileStats] = None
-    tech_stack: Optional[TechStack] = None
-    workflow: Optional[WorkflowInfo] = None
-    recommendations: List[MCPRecommendation] = field(default_factory=list)
+    file_stats: FileStats | None = None
+    tech_stack: TechStack | None = None
+    workflow: WorkflowInfo | None = None
+    recommendations: list[MCPRecommendation] = field(default_factory=list)
 
     # Summary
     summary: str = ""
     confidence: float = 0.0
-    warnings: List[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
 
 class PlatformAnalyzer:
@@ -292,7 +291,7 @@ class PlatformAnalyzer:
     async def analyze_github(
         self,
         repo_url: str,
-        access_token: Optional[str] = None,
+        access_token: str | None = None,
     ) -> AnalysisReport:
         """Analyze a GitHub repository.
 
@@ -377,8 +376,7 @@ class PlatformAnalyzer:
 
         # Detect languages from file extensions
         total_code_files = sum(
-            count for ext, count in stats.by_extension.items()
-            if ext in self.LANGUAGE_EXTENSIONS
+            count for ext, count in stats.by_extension.items() if ext in self.LANGUAGE_EXTENSIONS
         )
 
         if total_code_files > 0:
@@ -435,6 +433,7 @@ class PlatformAnalyzer:
         if pkg_path.exists():
             try:
                 import json
+
                 pkg = json.loads(pkg_path.read_text())
                 deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
                 for dep in deps:
@@ -486,7 +485,10 @@ class PlatformAnalyzer:
                 # Infer test framework from language
                 if stack.primary_language == "Python" and "pytest" not in stack.testing:
                     stack.testing.append("pytest")
-                elif stack.primary_language in ("JavaScript", "TypeScript") and "Jest" not in stack.testing:
+                elif (
+                    stack.primary_language in ("JavaScript", "TypeScript")
+                    and "Jest" not in stack.testing
+                ):
                     stack.testing.append("Jest")
                 break
 
@@ -547,79 +549,95 @@ class PlatformAnalyzer:
         self,
         stack: TechStack,
         workflow: WorkflowInfo,
-    ) -> List[MCPRecommendation]:
+    ) -> list[MCPRecommendation]:
         """Generate MCP configuration recommendations."""
         recommendations = []
 
         # Essential: File and search tools
-        recommendations.append(MCPRecommendation(
-            tool_category="core",
-            tools=["read_file", "write_file", "search_files", "list_directory"],
-            priority="essential",
-            rationale="Core file operations are required for any development workflow.",
-        ))
+        recommendations.append(
+            MCPRecommendation(
+                tool_category="core",
+                tools=["read_file", "write_file", "search_files", "list_directory"],
+                priority="essential",
+                rationale="Core file operations are required for any development workflow.",
+            )
+        )
 
         # Git tools if using git
         if workflow.has_git:
-            recommendations.append(MCPRecommendation(
-                tool_category="git",
-                tools=["git_status", "git_diff", "git_commit", "git_log"],
-                priority="essential",
-                rationale="Git integration for version control workflow.",
-                configuration={"default_branch": workflow.default_branch},
-            ))
+            recommendations.append(
+                MCPRecommendation(
+                    tool_category="git",
+                    tools=["git_status", "git_diff", "git_commit", "git_log"],
+                    priority="essential",
+                    rationale="Git integration for version control workflow.",
+                    configuration={"default_branch": workflow.default_branch},
+                )
+            )
 
         # Language-specific tools
         if stack.primary_language == "Python":
-            recommendations.append(MCPRecommendation(
-                tool_category="python",
-                tools=["run_python", "pip_install", "pytest_run"],
-                priority="recommended",
-                rationale="Python-specific development tools.",
-            ))
+            recommendations.append(
+                MCPRecommendation(
+                    tool_category="python",
+                    tools=["run_python", "pip_install", "pytest_run"],
+                    priority="recommended",
+                    rationale="Python-specific development tools.",
+                )
+            )
 
         elif stack.primary_language in ("JavaScript", "TypeScript"):
-            recommendations.append(MCPRecommendation(
-                tool_category="javascript",
-                tools=["npm_run", "npm_install"],
-                priority="recommended",
-                rationale="JavaScript/TypeScript development tools.",
-            ))
+            recommendations.append(
+                MCPRecommendation(
+                    tool_category="javascript",
+                    tools=["npm_run", "npm_install"],
+                    priority="recommended",
+                    rationale="JavaScript/TypeScript development tools.",
+                )
+            )
 
         # Testing tools if tests exist
         if workflow.has_tests:
-            recommendations.append(MCPRecommendation(
-                tool_category="testing",
-                tools=["run_tests", "test_coverage"],
-                priority="recommended",
-                rationale="Testing tools for your existing test suite.",
-                configuration={"frameworks": stack.testing},
-            ))
+            recommendations.append(
+                MCPRecommendation(
+                    tool_category="testing",
+                    tools=["run_tests", "test_coverage"],
+                    priority="recommended",
+                    rationale="Testing tools for your existing test suite.",
+                    configuration={"frameworks": stack.testing},
+                )
+            )
 
         # Docker tools
         if workflow.has_docker:
-            recommendations.append(MCPRecommendation(
-                tool_category="docker",
-                tools=["docker_build", "docker_run", "docker_compose"],
-                priority="recommended",
-                rationale="Docker containerization tools.",
-            ))
+            recommendations.append(
+                MCPRecommendation(
+                    tool_category="docker",
+                    tools=["docker_build", "docker_run", "docker_compose"],
+                    priority="recommended",
+                    rationale="Docker containerization tools.",
+                )
+            )
 
         # Semantic search for larger codebases
-        recommendations.append(MCPRecommendation(
-            tool_category="context",
-            tools=["semantic_search", "index_codebase"],
-            priority="recommended",
-            rationale="AI-powered code search for navigating the codebase.",
-        ))
+        recommendations.append(
+            MCPRecommendation(
+                tool_category="context",
+                tools=["semantic_search", "index_codebase"],
+                priority="recommended",
+                rationale="AI-powered code search for navigating the codebase.",
+            )
+        )
 
         # Ticket management
-        recommendations.append(MCPRecommendation(
-            tool_category="tickets",
-            tools=["create_ticket", "list_tickets", "update_ticket"],
-            priority="optional",
-            rationale="Task and ticket management for organized development.",
-        ))
+        recommendations.append(
+            MCPRecommendation(
+                tool_category="tickets",
+                tools=["create_ticket", "list_tickets", "update_ticket"],
+                priority="optional",
+                rationale="Task and ticket management for organized development.",
+            )
+        )
 
         return recommendations
 

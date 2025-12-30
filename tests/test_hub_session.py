@@ -1,19 +1,14 @@
 """Tests for Fastband Hub session management."""
 
+from datetime import datetime, timedelta, timezone
+
 import pytest
-import asyncio
-from datetime import datetime, timezone, timedelta
-from unittest.mock import Mock, patch, AsyncMock
 
 from fastband.hub.models import (
-    SessionStatus,
-    SessionConfig,
-    HubSession,
-    Conversation,
     ConversationStatus,
+    SessionConfig,
+    SessionStatus,
     SubscriptionTier,
-    TierLimits,
-    UsageStats,
 )
 from fastband.hub.session import SessionManager, get_session_manager, reset_session_manager
 

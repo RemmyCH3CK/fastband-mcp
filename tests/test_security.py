@@ -9,38 +9,35 @@ Tests for:
 """
 
 import os
-import tempfile
-from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
 from fastband.core.security import (
+    # Input sanitization
+    InputSanitizer,
     # Path security
     PathSecurityError,
     PathValidator,
-    validate_path,
-    # Input sanitization
-    InputSanitizer,
-    sanitize_input,
     # SQL security
     SQLSecurityError,
-    validate_sql_identifier,
     build_parameterized_query,
+    generate_api_token,
     # Secrets and keys
     generate_secret_key,
-    generate_api_token,
-    mask_secret,
-    is_secret_key_secure,
     # Environment security
     get_env_or_default,
+    is_secret_key_secure,
+    mask_secret,
+    sanitize_input,
     secure_config_dict,
+    validate_path,
+    validate_sql_identifier,
 )
-
 
 # =============================================================================
 # Path Security Tests
 # =============================================================================
+
 
 class TestPathValidator:
     """Test PathValidator class."""
@@ -98,7 +95,7 @@ class TestPathValidator:
 
         # Test Windows reserved names - these should be blocked on all platforms
         # as a defense-in-depth measure for cross-platform security
-        if sys.platform == 'win32':
+        if sys.platform == "win32":
             # On Windows, these names can't even be created
             dangerous_names = ["con", "prn", "aux", "nul"]
             for name in dangerous_names:
@@ -186,7 +183,7 @@ class TestPathValidator:
         test_file.touch()
 
         # URL-encoded path should be sanitized
-        result = validator.sanitize(str(test_file).replace("/", "%2f"))
+        validator.sanitize(str(test_file).replace("/", "%2f"))
         # Note: This depends on how the path is constructed
 
 
@@ -205,6 +202,7 @@ class TestValidatePath:
 # =============================================================================
 # Input Sanitization Tests
 # =============================================================================
+
 
 class TestInputSanitizer:
     """Test InputSanitizer class."""
@@ -334,6 +332,7 @@ class TestSanitizeInput:
 # =============================================================================
 # SQL Security Tests
 # =============================================================================
+
 
 class TestSQLSecurity:
     """Test SQL security functions."""
@@ -495,6 +494,7 @@ class TestBuildParameterizedQuery:
 # Secrets and Keys Tests
 # =============================================================================
 
+
 class TestSecretsHandling:
     """Test secrets and key handling."""
 
@@ -569,6 +569,7 @@ class TestSecretsHandling:
 # Environment Security Tests
 # =============================================================================
 
+
 class TestEnvironmentSecurity:
     """Test environment and configuration security."""
 
@@ -626,6 +627,7 @@ class TestEnvironmentSecurity:
 # =============================================================================
 # Integration Tests
 # =============================================================================
+
 
 class TestSecurityIntegration:
     """Integration tests for security features."""

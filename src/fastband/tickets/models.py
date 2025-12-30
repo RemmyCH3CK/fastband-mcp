@@ -11,11 +11,11 @@ Provides:
 - TicketComment: Ticket comments/notes
 """
 
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
-import uuid
+from typing import Any
 
 
 class TicketStatus(Enum):
@@ -33,6 +33,7 @@ class TicketStatus(Enum):
     - Any -> BLOCKED (when blocked by dependency)
     - BLOCKED -> previous status (when unblocked)
     """
+
     OPEN = "open"
     IN_PROGRESS = "in_progress"
     UNDER_REVIEW = "under_review"
@@ -48,7 +49,7 @@ class TicketStatus(Enum):
         clean_value = value.strip()
         for prefix in ["🔴 ", "🟡 ", "🟢 ", "🔵 ", "⚫ ", "🔍 "]:
             if clean_value.startswith(prefix):
-                clean_value = clean_value[len(prefix):]
+                clean_value = clean_value[len(prefix) :]
                 break
 
         # Map common names to enum values
@@ -105,6 +106,7 @@ class TicketStatus(Enum):
 
 class TicketPriority(Enum):
     """Ticket priority levels."""
+
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
@@ -144,6 +146,7 @@ class TicketPriority(Enum):
 
 class TicketType(Enum):
     """Ticket type classification."""
+
     BUG = "bug"
     FEATURE = "feature"
     ENHANCEMENT = "enhancement"
@@ -185,20 +188,21 @@ class Agent:
 
     Represents an AI agent or human user that can work on tickets.
     """
+
     name: str
     agent_type: str = "ai"  # "ai" or "human"
-    capabilities: List[str] = field(default_factory=list)
+    capabilities: list[str] = field(default_factory=list)
     active: bool = True
     created_at: datetime = field(default_factory=datetime.now)
     last_seen: datetime = field(default_factory=datetime.now)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     # Statistics
     tickets_completed: int = 0
     tickets_in_progress: int = 0
-    average_completion_time: Optional[float] = None  # in hours
+    average_completion_time: float | None = None  # in hours
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "name": self.name,
@@ -214,15 +218,19 @@ class Agent:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Agent":
+    def from_dict(cls, data: dict[str, Any]) -> "Agent":
         """Create from dictionary."""
         return cls(
             name=data["name"],
             agent_type=data.get("agent_type", "ai"),
             capabilities=data.get("capabilities", []),
             active=data.get("active", True),
-            created_at=datetime.fromisoformat(data["created_at"]) if "created_at" in data else datetime.now(),
-            last_seen=datetime.fromisoformat(data["last_seen"]) if "last_seen" in data else datetime.now(),
+            created_at=datetime.fromisoformat(data["created_at"])
+            if "created_at" in data
+            else datetime.now(),
+            last_seen=datetime.fromisoformat(data["last_seen"])
+            if "last_seen" in data
+            else datetime.now(),
             metadata=data.get("metadata", {}),
             tickets_completed=data.get("tickets_completed", 0),
             tickets_in_progress=data.get("tickets_in_progress", 0),
@@ -238,18 +246,19 @@ class TicketHistory:
     Records all changes to a ticket including status transitions,
     field updates, and agent actions.
     """
+
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     timestamp: datetime = field(default_factory=datetime.now)
     action: str = ""  # e.g., "status_changed", "assigned", "comment_added"
     actor: str = ""  # Agent or user name
     actor_type: str = "system"  # "ai", "human", "system"
-    field_changed: Optional[str] = None
-    old_value: Optional[str] = None
-    new_value: Optional[str] = None
+    field_changed: str | None = None
+    old_value: str | None = None
+    new_value: str | None = None
     message: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -265,11 +274,13 @@ class TicketHistory:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "TicketHistory":
+    def from_dict(cls, data: dict[str, Any]) -> "TicketHistory":
         """Create from dictionary."""
         return cls(
             id=data.get("id", str(uuid.uuid4())),
-            timestamp=datetime.fromisoformat(data["timestamp"]) if "timestamp" in data else datetime.now(),
+            timestamp=datetime.fromisoformat(data["timestamp"])
+            if "timestamp" in data
+            else datetime.now(),
             action=data.get("action", ""),
             actor=data.get("actor", ""),
             actor_type=data.get("actor_type", "system"),
@@ -288,6 +299,7 @@ class TicketComment:
 
     Supports text comments, code review feedback, and system messages.
     """
+
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     ticket_id: str = ""
     author: str = ""
@@ -295,14 +307,14 @@ class TicketComment:
     content: str = ""
     comment_type: str = "comment"  # "comment", "review", "system", "resolution"
     created_at: datetime = field(default_factory=datetime.now)
-    updated_at: Optional[datetime] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    updated_at: datetime | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     # For review comments
-    review_result: Optional[str] = None  # "approved", "changes_requested"
-    files_reviewed: List[str] = field(default_factory=list)
+    review_result: str | None = None  # "approved", "changes_requested"
+    files_reviewed: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         result = {
             "id": self.id,
@@ -323,7 +335,7 @@ class TicketComment:
         return result
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "TicketComment":
+    def from_dict(cls, data: dict[str, Any]) -> "TicketComment":
         """Create from dictionary."""
         return cls(
             id=data.get("id", str(uuid.uuid4())),
@@ -332,8 +344,12 @@ class TicketComment:
             author_type=data.get("author_type", "human"),
             content=data.get("content", ""),
             comment_type=data.get("comment_type", "comment"),
-            created_at=datetime.fromisoformat(data["created_at"]) if "created_at" in data else datetime.now(),
-            updated_at=datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else None,
+            created_at=datetime.fromisoformat(data["created_at"])
+            if "created_at" in data
+            else datetime.now(),
+            updated_at=datetime.fromisoformat(data["updated_at"])
+            if data.get("updated_at")
+            else None,
             metadata=data.get("metadata", {}),
             review_result=data.get("review_result"),
             files_reviewed=data.get("files_reviewed", []),
@@ -347,9 +363,10 @@ class Ticket:
 
     Represents a development task with full tracking capabilities.
     """
+
     # Core fields
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    ticket_number: Optional[str] = None  # Human-friendly ID (e.g., "FB-042")
+    ticket_number: str | None = None  # Human-friendly ID (e.g., "FB-042")
     title: str = ""
     description: str = ""
 
@@ -359,52 +376,52 @@ class Ticket:
     status: TicketStatus = TicketStatus.OPEN
 
     # Assignment
-    assigned_to: Optional[str] = None  # Agent name
+    assigned_to: str | None = None  # Agent name
     created_by: str = "system"
 
     # Timestamps
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    due_date: Optional[datetime] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    due_date: datetime | None = None
 
     # Content
-    requirements: List[str] = field(default_factory=list)
-    files_to_modify: List[str] = field(default_factory=list)
+    requirements: list[str] = field(default_factory=list)
+    files_to_modify: list[str] = field(default_factory=list)
     notes: str = ""
     resolution: str = ""
 
     # Relationships
-    related_tickets: List[str] = field(default_factory=list)
-    blocked_by: List[str] = field(default_factory=list)
-    blocks: List[str] = field(default_factory=list)
-    parent_ticket: Optional[str] = None
-    subtasks: List[str] = field(default_factory=list)
+    related_tickets: list[str] = field(default_factory=list)
+    blocked_by: list[str] = field(default_factory=list)
+    blocks: list[str] = field(default_factory=list)
+    parent_ticket: str | None = None
+    subtasks: list[str] = field(default_factory=list)
 
     # Labels and metadata
-    labels: List[str] = field(default_factory=list)
-    app: Optional[str] = None  # Application this ticket belongs to
-    app_version: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    labels: list[str] = field(default_factory=list)
+    app: str | None = None  # Application this ticket belongs to
+    app_version: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     # Work tracking
-    problem_summary: Optional[str] = None
-    solution_summary: Optional[str] = None
-    testing_notes: Optional[str] = None
-    files_modified: List[str] = field(default_factory=list)
+    problem_summary: str | None = None
+    solution_summary: str | None = None
+    testing_notes: str | None = None
+    files_modified: list[str] = field(default_factory=list)
 
     # Screenshots (for before/after documentation)
-    before_screenshot: Optional[str] = None
-    after_screenshot: Optional[str] = None
+    before_screenshot: str | None = None
+    after_screenshot: str | None = None
 
     # History and comments
-    history: List[TicketHistory] = field(default_factory=list)
-    comments: List[TicketComment] = field(default_factory=list)
+    history: list[TicketHistory] = field(default_factory=list)
+    comments: list[TicketComment] = field(default_factory=list)
 
     # Review tracking
-    review_status: Optional[str] = None  # "pending", "approved", "changes_requested"
-    reviewers: List[str] = field(default_factory=list)
+    review_status: str | None = None  # "pending", "approved", "changes_requested"
+    reviewers: list[str] = field(default_factory=list)
 
     def __post_init__(self):
         """Ensure types are correct after initialization."""
@@ -432,7 +449,7 @@ class Ticket:
         return self.status == TicketStatus.BLOCKED or bool(self.blocked_by)
 
     @property
-    def time_in_progress(self) -> Optional[float]:
+    def time_in_progress(self) -> float | None:
         """Get time spent in progress (hours)."""
         if not self.started_at:
             return None
@@ -445,11 +462,11 @@ class Ticket:
         action: str,
         actor: str,
         actor_type: str = "system",
-        field_changed: Optional[str] = None,
-        old_value: Optional[str] = None,
-        new_value: Optional[str] = None,
+        field_changed: str | None = None,
+        old_value: str | None = None,
+        new_value: str | None = None,
         message: str = "",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> TicketHistory:
         """Add a history entry."""
         entry = TicketHistory(
@@ -472,7 +489,7 @@ class Ticket:
         author: str,
         author_type: str = "human",
         comment_type: str = "comment",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> TicketComment:
         """Add a comment to the ticket."""
         comment = TicketComment(
@@ -553,7 +570,8 @@ class Ticket:
             field_changed="status",
             old_value=old_status.value,
             new_value=new_status.value,
-            message=message or f"Status changed from {old_status.display_name} to {new_status.display_name}",
+            message=message
+            or f"Status changed from {old_status.display_name} to {new_status.display_name}",
         )
 
         return True
@@ -562,10 +580,10 @@ class Ticket:
         self,
         problem_summary: str,
         solution_summary: str,
-        files_modified: List[str],
+        files_modified: list[str],
         testing_notes: str = "",
-        before_screenshot: Optional[str] = None,
-        after_screenshot: Optional[str] = None,
+        before_screenshot: str | None = None,
+        after_screenshot: str | None = None,
         actor: str = "system",
         actor_type: str = "ai",
     ) -> bool:
@@ -664,7 +682,7 @@ class Ticket:
             message=f"Rejected by {approver}: {reason}",
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "id": self.id,
@@ -707,7 +725,7 @@ class Ticket:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Ticket":
+    def from_dict(cls, data: dict[str, Any]) -> "Ticket":
         """Create from dictionary."""
         # Parse enums
         ticket_type = data.get("ticket_type", "task")
@@ -723,7 +741,7 @@ class Ticket:
             status = TicketStatus.from_string(status)
 
         # Parse timestamps
-        def parse_datetime(value: Optional[str]) -> Optional[datetime]:
+        def parse_datetime(value: str | None) -> datetime | None:
             if not value:
                 return None
             return datetime.fromisoformat(value)

@@ -1,24 +1,23 @@
 """Tests for project detection."""
 
-import pytest
-from pathlib import Path
-import tempfile
 import json
-import os
+import tempfile
+from pathlib import Path
+
+import pytest
 
 from fastband.core.detection import (
-    ProjectDetector,
-    ProjectInfo,
+    BuildTool,
     DetectedFramework,
     DetectedLanguage,
-    Language,
-    ProjectType,
     Framework,
+    Language,
     PackageManager,
-    BuildTool,
+    ProjectDetector,
+    ProjectInfo,
+    ProjectType,
     detect_project,
 )
-
 
 # =============================================================================
 # FIXTURES
@@ -69,18 +68,17 @@ build-backend = "setuptools.build_meta"
 def javascript_project(temp_dir):
     """Create a minimal JavaScript/React project."""
     # package.json
-    (temp_dir / "package.json").write_text(json.dumps({
-        "name": "react-app",
-        "version": "0.1.0",
-        "description": "A React application",
-        "dependencies": {
-            "react": "^18.2.0",
-            "react-dom": "^18.2.0"
-        },
-        "devDependencies": {
-            "vite": "^5.0.0"
-        }
-    }))
+    (temp_dir / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "react-app",
+                "version": "0.1.0",
+                "description": "A React application",
+                "dependencies": {"react": "^18.2.0", "react-dom": "^18.2.0"},
+                "devDependencies": {"vite": "^5.0.0"},
+            }
+        )
+    )
 
     # package-lock.json (indicates npm)
     (temp_dir / "package-lock.json").write_text("{}")
@@ -112,7 +110,7 @@ clap = "4.0"
 
     src = temp_dir / "src"
     src.mkdir()
-    (src / "main.rs").write_text("fn main() { println!(\"Hello\"); }")
+    (src / "main.rs").write_text('fn main() { println!("Hello"); }')
     (src / "lib.rs").write_text("pub fn greet() {}")
 
     return temp_dir
@@ -122,11 +120,9 @@ clap = "4.0"
 def monorepo_project(temp_dir):
     """Create a monorepo project."""
     # Root package.json with workspaces
-    (temp_dir / "package.json").write_text(json.dumps({
-        "name": "monorepo",
-        "private": True,
-        "workspaces": ["packages/*"]
-    }))
+    (temp_dir / "package.json").write_text(
+        json.dumps({"name": "monorepo", "private": True, "workspaces": ["packages/*"]})
+    )
 
     (temp_dir / "pnpm-workspace.yaml").write_text("packages:\n  - 'packages/*'")
 
@@ -140,18 +136,12 @@ def monorepo_project(temp_dir):
     # Package A
     pkg_a = packages / "pkg-a"
     pkg_a.mkdir()
-    (pkg_a / "package.json").write_text(json.dumps({
-        "name": "@mono/pkg-a",
-        "version": "1.0.0"
-    }))
+    (pkg_a / "package.json").write_text(json.dumps({"name": "@mono/pkg-a", "version": "1.0.0"}))
 
     # Package B
     pkg_b = packages / "pkg-b"
     pkg_b.mkdir()
-    (pkg_b / "package.json").write_text(json.dumps({
-        "name": "@mono/pkg-b",
-        "version": "1.0.0"
-    }))
+    (pkg_b / "package.json").write_text(json.dumps({"name": "@mono/pkg-b", "version": "1.0.0"}))
 
     return temp_dir
 
@@ -211,10 +201,7 @@ class TestDataclasses:
     def test_detected_language(self):
         """Test DetectedLanguage dataclass."""
         lang = DetectedLanguage(
-            language=Language.PYTHON,
-            confidence=0.9,
-            file_count=15,
-            evidence=["app.py", "utils.py"]
+            language=Language.PYTHON, confidence=0.9, file_count=15, evidence=["app.py", "utils.py"]
         )
 
         assert lang.language == Language.PYTHON
@@ -228,7 +215,7 @@ class TestDataclasses:
             framework=Framework.FLASK,
             confidence=0.8,
             version="2.0.0",
-            evidence=["dependency: flask", "file: app.py"]
+            evidence=["dependency: flask", "file: app.py"],
         )
 
         assert fw.framework == Framework.FLASK
@@ -242,12 +229,8 @@ class TestDataclasses:
             path=temp_dir,
             primary_language=Language.PYTHON,
             primary_type=ProjectType.API_SERVICE,
-            languages=[
-                DetectedLanguage(Language.PYTHON, 0.9, 10, ["app.py"])
-            ],
-            frameworks=[
-                DetectedFramework(Framework.FLASK, 0.8, "2.0.0", ["flask"])
-            ],
+            languages=[DetectedLanguage(Language.PYTHON, 0.9, 10, ["app.py"])],
+            frameworks=[DetectedFramework(Framework.FLASK, 0.8, "2.0.0", ["flask"])],
             package_managers=[PackageManager.PIP],
             build_tools=[BuildTool.DOCKER],
             language_confidence=0.9,
@@ -491,10 +474,7 @@ class TestEdgeCases:
         info = detect_project(temp_dir)
 
         # Should only find the visible file
-        python_lang = next(
-            (l for l in info.languages if l.language == Language.PYTHON),
-            None
-        )
+        python_lang = next((l for l in info.languages if l.language == Language.PYTHON), None)
         if python_lang:
             assert "hidden" not in str(python_lang.evidence)
 
@@ -516,10 +496,7 @@ class TestEdgeCases:
         info = detector.detect(temp_dir)
 
         # Should not have scanned all node_modules files
-        js_lang = next(
-            (l for l in info.languages if l.language == Language.JAVASCRIPT),
-            None
-        )
+        js_lang = next((l for l in info.languages if l.language == Language.JAVASCRIPT), None)
         if js_lang:
             assert js_lang.file_count < 10
 
@@ -536,10 +513,7 @@ class TestEdgeCases:
         info = detector.detect(temp_dir)
 
         # Should not have found files deeper than max_depth
-        python_lang = next(
-            (l for l in info.languages if l.language == Language.PYTHON),
-            None
-        )
+        python_lang = next((l for l in info.languages if l.language == Language.PYTHON), None)
         if python_lang:
             assert python_lang.file_count <= 3  # level0, level1, level2
 

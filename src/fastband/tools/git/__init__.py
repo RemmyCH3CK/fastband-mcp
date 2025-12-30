@@ -4,24 +4,24 @@ Git tools - Version control operations for Fastband.
 Provides tools for git operations including status, commit, diff, log, and branch management.
 """
 
-import subprocess
 import os
+import subprocess
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastband.tools.base import (
     Tool,
+    ToolCategory,
     ToolDefinition,
     ToolMetadata,
     ToolParameter,
-    ToolCategory,
     ToolResult,
 )
 
 
 def _run_git_command(
-    args: List[str],
-    cwd: Optional[str] = None,
+    args: list[str],
+    cwd: str | None = None,
     check: bool = True,
 ) -> subprocess.CompletedProcess:
     """
@@ -62,7 +62,7 @@ def _is_git_repository(path: str) -> bool:
         return False
 
 
-def _get_repo_root(path: str) -> Optional[str]:
+def _get_repo_root(path: str) -> str | None:
     """Get the root directory of the git repository."""
     try:
         result = _run_git_command(
@@ -116,11 +116,7 @@ class GitStatusTool(Tool):
         )
 
     async def execute(
-        self,
-        path: str = ".",
-        short: bool = False,
-        branch: bool = True,
-        **kwargs
+        self, path: str = ".", short: bool = False, branch: bool = True, **kwargs
     ) -> ToolResult:
         """Execute git status command."""
         target = Path(path).resolve()
@@ -129,10 +125,7 @@ class GitStatusTool(Tool):
             return ToolResult(success=False, error=f"Path does not exist: {path}")
 
         if not _is_git_repository(str(target)):
-            return ToolResult(
-                success=False,
-                error=f"Not a git repository: {path}"
-            )
+            return ToolResult(success=False, error=f"Not a git repository: {path}")
 
         try:
             # Build git status arguments
@@ -147,17 +140,11 @@ class GitStatusTool(Tool):
 
             # If short format requested, also get the short output
             if short:
-                short_result = _run_git_command(
-                    ["status", "--short", "--branch"],
-                    cwd=str(target)
-                )
+                short_result = _run_git_command(["status", "--short", "--branch"], cwd=str(target))
                 status_data["short_output"] = short_result.stdout.strip()
 
             # Get human-readable status
-            human_result = _run_git_command(
-                ["status"],
-                cwd=str(target)
-            )
+            human_result = _run_git_command(["status"], cwd=str(target))
             status_data["human_readable"] = human_result.stdout.strip()
 
             return ToolResult(
@@ -166,17 +153,11 @@ class GitStatusTool(Tool):
             )
 
         except subprocess.CalledProcessError as e:
-            return ToolResult(
-                success=False,
-                error=f"Git status failed: {e.stderr.strip()}"
-            )
+            return ToolResult(success=False, error=f"Git status failed: {e.stderr.strip()}")
         except FileNotFoundError:
-            return ToolResult(
-                success=False,
-                error="Git is not installed or not in PATH"
-            )
+            return ToolResult(success=False, error="Git is not installed or not in PATH")
 
-    def _parse_status_output(self, output: str) -> Dict[str, Any]:
+    def _parse_status_output(self, output: str) -> dict[str, Any]:
         """Parse git status --porcelain=v2 output."""
         staged = []
         unstaged = []
@@ -202,15 +183,19 @@ class GitStatusTool(Tool):
 
                 # First character is staged status, second is unstaged
                 if status[0] != ".":
-                    staged.append({
-                        "file": file_path,
-                        "status": self._status_char_to_name(status[0]),
-                    })
+                    staged.append(
+                        {
+                            "file": file_path,
+                            "status": self._status_char_to_name(status[0]),
+                        }
+                    )
                 if status[1] != ".":
-                    unstaged.append({
-                        "file": file_path,
-                        "status": self._status_char_to_name(status[1]),
-                    })
+                    unstaged.append(
+                        {
+                            "file": file_path,
+                            "status": self._status_char_to_name(status[1]),
+                        }
+                    )
 
             elif line.startswith("? "):
                 # Untracked file
@@ -298,10 +283,10 @@ class GitCommitTool(Tool):
         self,
         message: str,
         path: str = ".",
-        files: Optional[List[str]] = None,
+        files: list[str] | None = None,
         all: bool = False,
         allow_empty: bool = False,
-        **kwargs
+        **kwargs,
     ) -> ToolResult:
         """Execute git commit command."""
         target = Path(path).resolve()
@@ -310,24 +295,17 @@ class GitCommitTool(Tool):
             return ToolResult(success=False, error=f"Path does not exist: {path}")
 
         if not _is_git_repository(str(target)):
-            return ToolResult(
-                success=False,
-                error=f"Not a git repository: {path}"
-            )
+            return ToolResult(success=False, error=f"Not a git repository: {path}")
 
         # Validate commit message
         message = message.strip()
         if not message:
-            return ToolResult(
-                success=False,
-                error="Commit message cannot be empty"
-            )
+            return ToolResult(success=False, error="Commit message cannot be empty")
 
         # Best practice: check for reasonable commit message
         if len(message) < 3:
             return ToolResult(
-                success=False,
-                error="Commit message is too short (minimum 3 characters)"
+                success=False, error="Commit message is too short (minimum 3 characters)"
             )
 
         try:
@@ -342,7 +320,7 @@ class GitCommitTool(Tool):
                     if add_result.returncode != 0:
                         return ToolResult(
                             success=False,
-                            error=f"Failed to stage file '{file}': {add_result.stderr.strip()}"
+                            error=f"Failed to stage file '{file}': {add_result.stderr.strip()}",
                         )
 
             # Build commit command
@@ -364,24 +342,18 @@ class GitCommitTool(Tool):
                 if status_result.returncode == 0:
                     return ToolResult(
                         success=False,
-                        error="No changes staged for commit. Use 'files' to stage files or 'all' to stage all modified files."
+                        error="No changes staged for commit. Use 'files' to stage files or 'all' to stage all modified files.",
                     )
 
             # Execute commit
             result = _run_git_command(commit_args, cwd=str(target))
 
             # Get the commit hash
-            hash_result = _run_git_command(
-                ["rev-parse", "HEAD"],
-                cwd=str(target)
-            )
+            hash_result = _run_git_command(["rev-parse", "HEAD"], cwd=str(target))
             commit_hash = hash_result.stdout.strip()
 
             # Get short log for the commit
-            log_result = _run_git_command(
-                ["log", "-1", "--oneline"],
-                cwd=str(target)
-            )
+            log_result = _run_git_command(["log", "-1", "--oneline"], cwd=str(target))
 
             return ToolResult(
                 success=True,
@@ -395,15 +367,9 @@ class GitCommitTool(Tool):
             )
 
         except subprocess.CalledProcessError as e:
-            return ToolResult(
-                success=False,
-                error=f"Git commit failed: {e.stderr.strip()}"
-            )
+            return ToolResult(success=False, error=f"Git commit failed: {e.stderr.strip()}")
         except FileNotFoundError:
-            return ToolResult(
-                success=False,
-                error="Git is not installed or not in PATH"
-            )
+            return ToolResult(success=False, error="Git is not installed or not in PATH")
 
 
 class GitDiffTool(Tool):
@@ -473,12 +439,12 @@ class GitDiffTool(Tool):
         self,
         path: str = ".",
         staged: bool = False,
-        commit: Optional[str] = None,
-        commit_range: Optional[str] = None,
-        file: Optional[str] = None,
+        commit: str | None = None,
+        commit_range: str | None = None,
+        file: str | None = None,
         stat: bool = False,
         name_only: bool = False,
-        **kwargs
+        **kwargs,
     ) -> ToolResult:
         """Execute git diff command."""
         target = Path(path).resolve()
@@ -487,10 +453,7 @@ class GitDiffTool(Tool):
             return ToolResult(success=False, error=f"Path does not exist: {path}")
 
         if not _is_git_repository(str(target)):
-            return ToolResult(
-                success=False,
-                error=f"Not a git repository: {path}"
-            )
+            return ToolResult(success=False, error=f"Not a git repository: {path}")
 
         try:
             # Build diff command
@@ -563,15 +526,9 @@ class GitDiffTool(Tool):
             )
 
         except subprocess.CalledProcessError as e:
-            return ToolResult(
-                success=False,
-                error=f"Git diff failed: {e.stderr.strip()}"
-            )
+            return ToolResult(success=False, error=f"Git diff failed: {e.stderr.strip()}")
         except FileNotFoundError:
-            return ToolResult(
-                success=False,
-                error="Git is not installed or not in PATH"
-            )
+            return ToolResult(success=False, error="Git is not installed or not in PATH")
 
 
 class GitLogTool(Tool):
@@ -647,12 +604,12 @@ class GitLogTool(Tool):
         path: str = ".",
         max_count: int = 10,
         oneline: bool = False,
-        author: Optional[str] = None,
-        since: Optional[str] = None,
-        until: Optional[str] = None,
-        file: Optional[str] = None,
-        grep: Optional[str] = None,
-        **kwargs
+        author: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        file: str | None = None,
+        grep: str | None = None,
+        **kwargs,
     ) -> ToolResult:
         """Execute git log command."""
         target = Path(path).resolve()
@@ -661,10 +618,7 @@ class GitLogTool(Tool):
             return ToolResult(success=False, error=f"Path does not exist: {path}")
 
         if not _is_git_repository(str(target)):
-            return ToolResult(
-                success=False,
-                error=f"Not a git repository: {path}"
-            )
+            return ToolResult(success=False, error=f"Not a git repository: {path}")
 
         try:
             # Build log command
@@ -718,17 +672,11 @@ class GitLogTool(Tool):
                 )
 
         except subprocess.CalledProcessError as e:
-            return ToolResult(
-                success=False,
-                error=f"Git log failed: {e.stderr.strip()}"
-            )
+            return ToolResult(success=False, error=f"Git log failed: {e.stderr.strip()}")
         except FileNotFoundError:
-            return ToolResult(
-                success=False,
-                error="Git is not installed or not in PATH"
-            )
+            return ToolResult(success=False, error="Git is not installed or not in PATH")
 
-    def _parse_log_output(self, output: str) -> List[Dict[str, Any]]:
+    def _parse_log_output(self, output: str) -> list[dict[str, Any]]:
         """Parse git log output."""
         commits = []
         current_commit = []
@@ -745,7 +693,7 @@ class GitLogTool(Tool):
 
         return commits
 
-    def _parse_single_commit(self, lines: List[str]) -> Optional[Dict[str, Any]]:
+    def _parse_single_commit(self, lines: list[str]) -> dict[str, Any] | None:
         """Parse a single commit from lines."""
         if len(lines) < 6:
             return None
@@ -827,11 +775,11 @@ class GitBranchTool(Tool):
         self,
         path: str = ".",
         action: str = "list",
-        name: Optional[str] = None,
+        name: str | None = None,
         force: bool = False,
         all: bool = False,
-        start_point: Optional[str] = None,
-        **kwargs
+        start_point: str | None = None,
+        **kwargs,
     ) -> ToolResult:
         """Execute git branch command."""
         target = Path(path).resolve()
@@ -840,10 +788,7 @@ class GitBranchTool(Tool):
             return ToolResult(success=False, error=f"Path does not exist: {path}")
 
         if not _is_git_repository(str(target)):
-            return ToolResult(
-                success=False,
-                error=f"Not a git repository: {path}"
-            )
+            return ToolResult(success=False, error=f"Not a git repository: {path}")
 
         try:
             if action == "list":
@@ -851,47 +796,37 @@ class GitBranchTool(Tool):
             elif action == "create":
                 if not name:
                     return ToolResult(
-                        success=False,
-                        error="Branch name is required for 'create' action"
+                        success=False, error="Branch name is required for 'create' action"
                     )
                 return await self._create_branch(str(target), name, start_point)
             elif action == "delete":
                 if not name:
                     return ToolResult(
-                        success=False,
-                        error="Branch name is required for 'delete' action"
+                        success=False, error="Branch name is required for 'delete' action"
                     )
                 return await self._delete_branch(str(target), name, force)
             else:
-                return ToolResult(
-                    success=False,
-                    error=f"Unknown action: {action}"
-                )
+                return ToolResult(success=False, error=f"Unknown action: {action}")
 
         except subprocess.CalledProcessError as e:
-            return ToolResult(
-                success=False,
-                error=f"Git branch failed: {e.stderr.strip()}"
-            )
+            return ToolResult(success=False, error=f"Git branch failed: {e.stderr.strip()}")
         except FileNotFoundError:
-            return ToolResult(
-                success=False,
-                error="Git is not installed or not in PATH"
-            )
+            return ToolResult(success=False, error="Git is not installed or not in PATH")
 
     async def _list_branches(self, cwd: str, include_all: bool) -> ToolResult:
         """List branches."""
-        args = ["branch", "-v", "--format=%(refname:short)%09%(objectname:short)%09%(upstream:short)%09%(HEAD)"]
+        args = [
+            "branch",
+            "-v",
+            "--format=%(refname:short)%09%(objectname:short)%09%(upstream:short)%09%(HEAD)",
+        ]
         if include_all:
             args.insert(1, "-a")
 
         result = _run_git_command(args, cwd=cwd)
 
         # Get current branch
-        current_result = _run_git_command(
-            ["rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=cwd
-        )
+        current_result = _run_git_command(["rev-parse", "--abbrev-ref", "HEAD"], cwd=cwd)
         current_branch = current_result.stdout.strip()
 
         branches = []
@@ -917,12 +852,7 @@ class GitBranchTool(Tool):
             },
         )
 
-    async def _create_branch(
-        self,
-        cwd: str,
-        name: str,
-        start_point: Optional[str]
-    ) -> ToolResult:
+    async def _create_branch(self, cwd: str, name: str, start_point: str | None) -> ToolResult:
         """Create a new branch."""
         # Check if branch already exists
         check_result = _run_git_command(
@@ -931,10 +861,7 @@ class GitBranchTool(Tool):
             check=False,
         )
         if check_result.stdout.strip():
-            return ToolResult(
-                success=False,
-                error=f"Branch '{name}' already exists"
-            )
+            return ToolResult(success=False, error=f"Branch '{name}' already exists")
 
         args = ["branch", name]
         if start_point:
@@ -943,10 +870,7 @@ class GitBranchTool(Tool):
         _run_git_command(args, cwd=cwd)
 
         # Get the commit hash for the new branch
-        hash_result = _run_git_command(
-            ["rev-parse", name],
-            cwd=cwd
-        )
+        hash_result = _run_git_command(["rev-parse", name], cwd=cwd)
 
         return ToolResult(
             success=True,
@@ -958,24 +882,16 @@ class GitBranchTool(Tool):
             },
         )
 
-    async def _delete_branch(
-        self,
-        cwd: str,
-        name: str,
-        force: bool
-    ) -> ToolResult:
+    async def _delete_branch(self, cwd: str, name: str, force: bool) -> ToolResult:
         """Delete a branch."""
         # Check if trying to delete current branch
-        current_result = _run_git_command(
-            ["rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=cwd
-        )
+        current_result = _run_git_command(["rev-parse", "--abbrev-ref", "HEAD"], cwd=cwd)
         current_branch = current_result.stdout.strip()
 
         if name == current_branch:
             return ToolResult(
                 success=False,
-                error=f"Cannot delete the current branch '{name}'. Switch to another branch first."
+                error=f"Cannot delete the current branch '{name}'. Switch to another branch first.",
             )
 
         # Check if branch exists
@@ -985,10 +901,7 @@ class GitBranchTool(Tool):
             check=False,
         )
         if not check_result.stdout.strip():
-            return ToolResult(
-                success=False,
-                error=f"Branch '{name}' does not exist"
-            )
+            return ToolResult(success=False, error=f"Branch '{name}' does not exist")
 
         # Delete the branch
         delete_flag = "-D" if force else "-d"
@@ -998,7 +911,7 @@ class GitBranchTool(Tool):
             if "not fully merged" in e.stderr:
                 return ToolResult(
                     success=False,
-                    error=f"Branch '{name}' is not fully merged. Use force=true to delete anyway."
+                    error=f"Branch '{name}' is not fully merged. Use force=true to delete anyway.",
                 )
             raise
 

@@ -10,19 +10,19 @@ Provides a structured logging system for agent communication and coordination:
 """
 
 import json
-import os
+import shutil
 import threading
 import uuid
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Callable
-import shutil
+from typing import Any
 
 
 class EventType(str, Enum):
     """Types of events that can be logged."""
+
     CLEARANCE_GRANTED = "clearance_granted"
     HOLD = "hold"
     REBUILD_REQUESTED = "rebuild_requested"
@@ -39,15 +39,16 @@ class EventType(str, Enum):
 @dataclass
 class LogEntry:
     """A single log entry in the operations log."""
+
     id: str
     timestamp: str
     agent: str
     event_type: str
     message: str
-    ticket_id: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    ttl_seconds: Optional[int] = None
-    expires_at: Optional[str] = None
+    ticket_id: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    ttl_seconds: int | None = None
+    expires_at: str | None = None
 
     @classmethod
     def create(
@@ -55,9 +56,9 @@ class LogEntry:
         agent: str,
         event_type: EventType | str,
         message: str,
-        ticket_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        ttl_seconds: Optional[int] = None,
+        ticket_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        ttl_seconds: int | None = None,
     ) -> "LogEntry":
         """Create a new log entry with auto-generated ID and timestamp."""
         now = datetime.utcnow()
@@ -81,12 +82,12 @@ class LogEntry:
             expires_at=expires_at,
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert entry to dictionary."""
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "LogEntry":
+    def from_dict(cls, data: dict[str, Any]) -> "LogEntry":
         """Create entry from dictionary."""
         return cls(
             id=data["id"],
@@ -138,8 +139,8 @@ class OpsLog:
 
     def __init__(
         self,
-        log_path: Optional[Path] = None,
-        archive_dir: Optional[Path] = None,
+        log_path: Path | None = None,
+        archive_dir: Path | None = None,
         auto_rotate: bool = True,
         auto_expire: bool = True,
     ):
@@ -158,9 +159,9 @@ class OpsLog:
         self.auto_expire = auto_expire
 
         self._lock = threading.RLock()
-        self._entries: List[LogEntry] = []
-        self._last_rotation: Optional[datetime] = None
-        self._metadata: Dict[str, Any] = {
+        self._entries: list[LogEntry] = []
+        self._last_rotation: datetime | None = None
+        self._metadata: dict[str, Any] = {
             "version": "1.0",
             "created": datetime.utcnow().isoformat() + "Z",
             "last_rotation": None,
@@ -175,7 +176,7 @@ class OpsLog:
             return
 
         try:
-            with open(self.log_path, "r") as f:
+            with open(self.log_path) as f:
                 data = json.load(f)
 
             self._metadata = data.get("metadata", self._metadata)
@@ -240,7 +241,7 @@ class OpsLog:
 
         return False
 
-    def rotate(self, reason: str = "manual") -> Optional[Path]:
+    def rotate(self, reason: str = "manual") -> Path | None:
         """
         Rotate the log file to archive.
 
@@ -286,9 +287,9 @@ class OpsLog:
         agent: str,
         event_type: EventType | str,
         message: str,
-        ticket_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        ttl_seconds: Optional[int] = None,
+        ticket_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        ttl_seconds: int | None = None,
     ) -> LogEntry:
         """
         Write a new entry to the log.
@@ -325,13 +326,13 @@ class OpsLog:
 
     def read_entries(
         self,
-        since: Optional[str] = None,
-        agent: Optional[str] = None,
-        event_type: Optional[EventType | str] = None,
-        ticket_id: Optional[str] = None,
+        since: str | None = None,
+        agent: str | None = None,
+        event_type: EventType | str | None = None,
+        ticket_id: str | None = None,
         limit: int = 100,
         include_expired: bool = False,
-    ) -> List[LogEntry]:
+    ) -> list[LogEntry]:
         """
         Read log entries with optional filters.
 
@@ -363,7 +364,8 @@ class OpsLog:
             since_dt = self._parse_time_filter(since)
             if since_dt:
                 entries = [
-                    e for e in entries
+                    e
+                    for e in entries
                     if datetime.fromisoformat(e.timestamp.rstrip("Z")) >= since_dt
                 ]
 
@@ -385,7 +387,7 @@ class OpsLog:
 
         return entries[:limit]
 
-    def _parse_time_filter(self, since: str) -> Optional[datetime]:
+    def _parse_time_filter(self, since: str) -> datetime | None:
         """Parse a time filter string into a datetime."""
         now = datetime.utcnow()
 
@@ -415,7 +417,7 @@ class OpsLog:
         except ValueError:
             return None
 
-    def get_latest_directive(self) -> Optional[LogEntry]:
+    def get_latest_directive(self) -> LogEntry | None:
         """
         Get the most recent clearance or hold directive.
 
@@ -431,7 +433,7 @@ class OpsLog:
 
         return None
 
-    def check_active_agents(self, within_hours: float = 1.0) -> Dict[str, Dict[str, Any]]:
+    def check_active_agents(self, within_hours: float = 1.0) -> dict[str, dict[str, Any]]:
         """
         Check which agents have been active recently.
 
@@ -448,7 +450,7 @@ class OpsLog:
         # This ensures we track ticket state correctly (claim -> complete)
         entries = list(reversed(entries))
 
-        agents: Dict[str, Dict[str, Any]] = {}
+        agents: dict[str, dict[str, Any]] = {}
 
         for entry in entries:
             if entry.agent not in agents:
@@ -478,7 +480,7 @@ class OpsLog:
         ticket_id: str,
         agent: str,
         action: str = "claim",
-    ) -> List[LogEntry]:
+    ) -> list[LogEntry]:
         """
         Detect potential conflicts for a ticket operation.
 
@@ -490,7 +492,7 @@ class OpsLog:
         Returns:
             List of conflicting entries
         """
-        conflicts: List[LogEntry] = []
+        conflicts: list[LogEntry] = []
 
         # Look for recent activity on this ticket
         entries = self.read_entries(ticket_id=ticket_id, since="1h")
@@ -521,8 +523,8 @@ class OpsLog:
         self,
         agent: str,
         container: str,
-        ticket_id: Optional[str] = None,
-        files_changed: Optional[List[str]] = None,
+        ticket_id: str | None = None,
+        files_changed: list[str] | None = None,
         status: str = "requested",
     ) -> LogEntry:
         """
@@ -539,9 +541,7 @@ class OpsLog:
             The created LogEntry
         """
         event_type = (
-            EventType.REBUILD_REQUESTED
-            if status == "requested"
-            else EventType.REBUILD_COMPLETE
+            EventType.REBUILD_REQUESTED if status == "requested" else EventType.REBUILD_COMPLETE
         )
 
         message = f"Container '{container}' rebuild {status}"
@@ -565,8 +565,8 @@ class OpsLog:
     def grant_clearance(
         self,
         agent: str,
-        granted_to: List[str],
-        tickets: List[str],
+        granted_to: list[str],
+        tickets: list[str],
         reason: str,
     ) -> LogEntry:
         """
@@ -597,8 +597,8 @@ class OpsLog:
     def issue_hold(
         self,
         agent: str,
-        affected_agents: List[str],
-        tickets: Optional[List[str]] = None,
+        affected_agents: list[str],
+        tickets: list[str] | None = None,
         reason: str = "Coordination required",
     ) -> LogEntry:
         """
@@ -633,7 +633,7 @@ class OpsLog:
         agent: str,
         ticket_id: str,
         check_conflicts: bool = True,
-    ) -> tuple[LogEntry, List[LogEntry]]:
+    ) -> tuple[LogEntry, list[LogEntry]]:
         """
         Claim a ticket for work.
 
@@ -663,7 +663,7 @@ class OpsLog:
         self,
         agent: str,
         ticket_id: str,
-        summary: Optional[str] = None,
+        summary: str | None = None,
     ) -> LogEntry:
         """
         Mark a ticket as completed.
@@ -739,7 +739,7 @@ class OpsLog:
 
         return deleted
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """
         Get statistics about the operations log.
 
@@ -750,12 +750,12 @@ class OpsLog:
             entries = self._entries.copy()
 
         # Count by event type
-        event_counts: Dict[str, int] = {}
+        event_counts: dict[str, int] = {}
         for entry in entries:
             event_counts[entry.event_type] = event_counts.get(entry.event_type, 0) + 1
 
         # Count by agent
-        agent_counts: Dict[str, int] = {}
+        agent_counts: dict[str, int] = {}
         for entry in entries:
             agent_counts[entry.agent] = agent_counts.get(entry.agent, 0) + 1
 
@@ -776,11 +776,11 @@ class OpsLog:
 
 
 # Global OpsLog instance
-_ops_log: Optional[OpsLog] = None
+_ops_log: OpsLog | None = None
 
 
 def get_ops_log(
-    project_path: Optional[Path] = None,
+    project_path: Path | None = None,
     reset: bool = False,
 ) -> OpsLog:
     """

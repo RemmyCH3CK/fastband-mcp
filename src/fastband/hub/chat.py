@@ -14,16 +14,16 @@ import asyncio
 import json
 import logging
 import time
+from collections.abc import AsyncGenerator, Callable
 from dataclasses import dataclass, field
-from typing import Any, AsyncGenerator, Callable, Dict, List, Optional
+from typing import Any
 
 from fastband.hub.models import (
     ChatMessage,
     Conversation,
     HubSession,
-    MessageRole,
-    ToolCall,
     MemoryContext,
+    ToolCall,
 )
 
 logger = logging.getLogger(__name__)
@@ -47,8 +47,8 @@ class PipelineContext:
     session: HubSession
     conversation: Conversation
     user_message: ChatMessage
-    memory_context: Optional[MemoryContext] = None
-    tool_results: List[Dict[str, Any]] = field(default_factory=list)
+    memory_context: MemoryContext | None = None
+    tool_results: list[dict[str, Any]] = field(default_factory=list)
     response_content: str = ""
     tokens_used: int = 0
     processing_time_ms: int = 0
@@ -85,14 +85,15 @@ class ToolExecutor:
         """Lazy load tool registry."""
         if self._tool_registry is None:
             from fastband.tools import get_registry
+
             self._tool_registry = get_registry()
         return self._tool_registry
 
     async def execute(
         self,
         tool_name: str,
-        arguments: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
         """Execute a single tool.
 
         Args:
@@ -148,8 +149,8 @@ class ToolExecutor:
 
     async def execute_parallel(
         self,
-        tool_calls: List[ToolCall],
-    ) -> List[Dict[str, Any]]:
+        tool_calls: list[ToolCall],
+    ) -> list[dict[str, Any]]:
         """Execute multiple tools in parallel.
 
         Args:
@@ -164,7 +165,7 @@ class ToolExecutor:
         # Limit parallelism
         semaphore = asyncio.Semaphore(self.max_parallel)
 
-        async def execute_with_semaphore(tc: ToolCall) -> Dict[str, Any]:
+        async def execute_with_semaphore(tc: ToolCall) -> dict[str, Any]:
             async with semaphore:
                 result = await self.execute(tc.tool_name, tc.arguments)
                 result["tool_id"] = tc.tool_id
@@ -174,7 +175,7 @@ class ToolExecutor:
         tasks = [execute_with_semaphore(tc) for tc in tool_calls]
         return await asyncio.gather(*tasks)
 
-    def get_available_tools(self) -> List[Dict[str, Any]]:
+    def get_available_tools(self) -> list[dict[str, Any]]:
         """Get list of available tools in OpenAI format."""
         registry = self._get_registry()
         tools = []
@@ -222,8 +223,8 @@ class MessagePipeline:
         self.provider = ai_provider
         self.executor = tool_executor
         self.memory = memory_store
-        self._pre_hooks: List[Callable] = []
-        self._post_hooks: List[Callable] = []
+        self._pre_hooks: list[Callable] = []
+        self._post_hooks: list[Callable] = []
 
     def add_pre_hook(self, hook: Callable[[PipelineContext], None]) -> None:
         """Add hook to run before processing."""
@@ -303,7 +304,7 @@ class MessagePipeline:
             except Exception as e:
                 logger.warning(f"Memory query failed: {e}")
 
-    def _build_messages(self, context: PipelineContext) -> List[Dict[str, Any]]:
+    def _build_messages(self, context: PipelineContext) -> list[dict[str, Any]]:
         """Build message list for AI completion."""
         messages = []
 
@@ -353,7 +354,7 @@ class MessagePipeline:
     async def _complete(
         self,
         context: PipelineContext,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
     ) -> str:
         """Run AI completion with tool execution loop."""
         tools = self.executor.get_available_tools()
@@ -389,19 +390,23 @@ class MessagePipeline:
                 context.tool_results.extend(results)
 
                 # Add assistant message with tool calls
-                messages.append({
-                    "role": "assistant",
-                    "content": response.content or "",
-                    "tool_calls": response.tool_calls,
-                })
+                messages.append(
+                    {
+                        "role": "assistant",
+                        "content": response.content or "",
+                        "tool_calls": response.tool_calls,
+                    }
+                )
 
                 # Add tool results
                 for result in results:
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": result["tool_id"],
-                        "content": json.dumps(result.get("result", result.get("error"))),
-                    })
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": result["tool_id"],
+                            "content": json.dumps(result.get("result", result.get("error"))),
+                        }
+                    )
 
             else:
                 # No more tool calls - return response
@@ -413,7 +418,7 @@ class MessagePipeline:
     async def _stream_completion(
         self,
         context: PipelineContext,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
     ) -> AsyncGenerator[str, None]:
         """Stream AI completion with tool execution."""
         tools = self.executor.get_available_tools()
@@ -429,12 +434,12 @@ class MessagePipeline:
                 context.response_content += chunk
                 yield chunk
             # Handle object chunks with .content attribute
-            elif hasattr(chunk, 'content') and chunk.content:
+            elif hasattr(chunk, "content") and chunk.content:
                 context.response_content += chunk.content
                 yield chunk.content
 
                 # Handle tool calls in stream
-                if hasattr(chunk, 'tool_calls') and chunk.tool_calls:
+                if hasattr(chunk, "tool_calls") and chunk.tool_calls:
                     for tc in chunk.tool_calls:
                         tool_call = ToolCall(
                             tool_id=tc["id"],
@@ -515,7 +520,7 @@ class ChatManager:
         self._session_manager = session_manager
         self._memory = memory_store
         self._executor = ToolExecutor()
-        self._pipeline: Optional[MessagePipeline] = None
+        self._pipeline: MessagePipeline | None = None
         self._initialized = False
 
     async def initialize(self) -> None:
@@ -526,6 +531,7 @@ class ChatManager:
         # Get or create session manager
         if self._session_manager is None:
             from fastband.hub.session import get_session_manager
+
             self._session_manager = get_session_manager()
 
         # Create pipeline
@@ -552,7 +558,7 @@ class ChatManager:
         self,
         session_id: str,
         content: str,
-        conversation_id: Optional[str] = None,
+        conversation_id: str | None = None,
         stream: bool = False,
     ) -> ChatMessage | AsyncGenerator[str, None]:
         """Send a message in a session.
@@ -578,17 +584,13 @@ class ChatManager:
             raise ValueError(f"Session not found: {session_id}")
 
         # Check rate limit
-        allowed, reason = self._session_manager.check_rate_limit(
-            session.config.user_id
-        )
+        allowed, reason = self._session_manager.check_rate_limit(session.config.user_id)
         if not allowed:
             raise ValueError(reason)
 
         # Get or create conversation
         if conversation_id:
-            conversation = self._session_manager.get_conversation(
-                session_id, conversation_id
-            )
+            conversation = self._session_manager.get_conversation(session_id, conversation_id)
             if not conversation:
                 raise ValueError(f"Conversation not found: {conversation_id}")
         else:

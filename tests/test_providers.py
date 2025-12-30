@@ -1,21 +1,20 @@
 """Tests for AI providers."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-import os
+
+import pytest
 
 from fastband.providers.base import (
-    AIProvider,
-    ProviderConfig,
-    CompletionResponse,
     Capability,
+    CompletionResponse,
+    ProviderConfig,
 )
 from fastband.providers.registry import ProviderRegistry, get_provider
-
 
 # =============================================================================
 # FIXTURES
 # =============================================================================
+
 
 @pytest.fixture
 def mock_env(monkeypatch):
@@ -69,6 +68,7 @@ def ollama_config():
 # PROVIDER CONFIG TESTS
 # =============================================================================
 
+
 class TestProviderConfig:
     """Tests for ProviderConfig."""
 
@@ -120,6 +120,7 @@ class TestCompletionResponse:
 # =============================================================================
 # CLAUDE PROVIDER TESTS
 # =============================================================================
+
 
 class TestClaudeProvider:
     """Tests for Claude provider."""
@@ -180,7 +181,7 @@ class TestClaudeProvider:
         mock_response.stop_reason = "end_turn"
         mock_response.model_dump = MagicMock(return_value={})
 
-        with patch.object(provider, '_client') as mock_client:
+        with patch.object(provider, "_client") as mock_client:
             mock_client.messages.create = AsyncMock(return_value=mock_response)
             provider._client = mock_client
 
@@ -194,6 +195,7 @@ class TestClaudeProvider:
 # =============================================================================
 # OPENAI PROVIDER TESTS
 # =============================================================================
+
 
 class TestOpenAIProvider:
     """Tests for OpenAI provider."""
@@ -247,7 +249,7 @@ class TestOpenAIProvider:
         mock_response.usage = MagicMock(prompt_tokens=10, completion_tokens=20, total_tokens=30)
         mock_response.model_dump = MagicMock(return_value={})
 
-        with patch.object(provider, '_client') as mock_client:
+        with patch.object(provider, "_client") as mock_client:
             mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
             provider._client = mock_client
 
@@ -260,6 +262,7 @@ class TestOpenAIProvider:
 # =============================================================================
 # GEMINI PROVIDER TESTS
 # =============================================================================
+
 
 class TestGeminiProvider:
     """Tests for Gemini provider."""
@@ -297,6 +300,7 @@ class TestGeminiProvider:
 # =============================================================================
 # OLLAMA PROVIDER TESTS
 # =============================================================================
+
 
 class TestOllamaProvider:
     """Tests for Ollama provider."""
@@ -345,6 +349,7 @@ class TestOllamaProvider:
 # PROVIDER REGISTRY TESTS
 # =============================================================================
 
+
 class TestProviderRegistry:
     """Tests for ProviderRegistry."""
 
@@ -352,6 +357,7 @@ class TestProviderRegistry:
     def setup_registry(self):
         """Ensure providers are registered before each test."""
         from fastband.providers.registry import _register_builtin_providers
+
         # Re-register built-in providers in case they were cleared by other tests
         _register_builtin_providers()
         # Clear cached instances and env cache
@@ -394,6 +400,7 @@ class TestProviderRegistry:
 # INTEGRATION TESTS (with mocks)
 # =============================================================================
 
+
 class TestProviderIntegration:
     """Integration tests for providers."""
 
@@ -401,6 +408,7 @@ class TestProviderIntegration:
     def setup_registry(self):
         """Ensure providers are registered before each test."""
         from fastband.providers.registry import _register_builtin_providers
+
         # Re-register built-in providers in case they were cleared by other tests
         _register_builtin_providers()
         # Clear cached instances and env cache
@@ -433,14 +441,14 @@ class TestProviderIntegration:
                 provider = get_provider(provider_name)
 
                 # Check required properties
-                assert hasattr(provider, 'name')
-                assert hasattr(provider, 'capabilities')
+                assert hasattr(provider, "name")
+                assert hasattr(provider, "capabilities")
 
                 # Check required methods
-                assert hasattr(provider, 'complete')
-                assert hasattr(provider, 'complete_with_tools')
-                assert hasattr(provider, 'stream')
-                assert hasattr(provider, 'get_recommended_model')
+                assert hasattr(provider, "complete")
+                assert hasattr(provider, "complete_with_tools")
+                assert hasattr(provider, "stream")
+                assert hasattr(provider, "get_recommended_model")
 
                 ProviderRegistry._instances = {}
             except ValueError:
@@ -452,6 +460,7 @@ class TestProviderIntegration:
 # =============================================================================
 # CLAUDE PROVIDER EXTENDED TESTS
 # =============================================================================
+
 
 class TestClaudeProviderExtended:
     """Extended tests for Claude provider covering more code paths."""
@@ -485,7 +494,7 @@ class TestClaudeProviderExtended:
 
     def test_default_model_set(self, claude_config):
         """Test default model is set when not provided."""
-        from fastband.providers.claude import ClaudeProvider, CLAUDE_MODELS
+        from fastband.providers.claude import CLAUDE_MODELS, ClaudeProvider
 
         config = ProviderConfig(name="claude", api_key="test-key")
         provider = ClaudeProvider(config)
@@ -499,8 +508,8 @@ class TestClaudeProviderExtended:
 
         provider = ClaudeProvider(claude_config)
 
-        with patch.dict('sys.modules', {'anthropic': None}):
-            with patch('builtins.__import__', side_effect=ImportError("No module")):
+        with patch.dict("sys.modules", {"anthropic": None}):
+            with patch("builtins.__import__", side_effect=ImportError("No module")):
                 # Reset client
                 provider._client = None
                 try:
@@ -523,14 +532,11 @@ class TestClaudeProviderExtended:
         mock_response.stop_reason = "end_turn"
         mock_response.model_dump = MagicMock(return_value={})
 
-        with patch.object(provider, '_client') as mock_client:
+        with patch.object(provider, "_client") as mock_client:
             mock_client.messages.create = AsyncMock(return_value=mock_response)
             provider._client = mock_client
 
-            response = await provider.complete(
-                "Test prompt",
-                system_prompt="You are helpful"
-            )
+            response = await provider.complete("Test prompt", system_prompt="You are helpful")
 
             assert response.content == "System response"
             # Verify system prompt was passed
@@ -568,12 +574,12 @@ class TestClaudeProviderExtended:
                 "function": {
                     "name": "search",
                     "description": "Search for information",
-                    "parameters": {"type": "object", "properties": {}}
-                }
+                    "parameters": {"type": "object", "properties": {}},
+                },
             }
         ]
 
-        with patch.object(provider, '_client') as mock_client:
+        with patch.object(provider, "_client") as mock_client:
             mock_client.messages.create = AsyncMock(return_value=mock_response)
             provider._client = mock_client
 
@@ -597,11 +603,9 @@ class TestClaudeProviderExtended:
                     "description": "Get weather info",
                     "parameters": {
                         "type": "object",
-                        "properties": {
-                            "location": {"type": "string"}
-                        }
-                    }
-                }
+                        "properties": {"location": {"type": "string"}},
+                    },
+                },
             }
         ]
 
@@ -619,11 +623,7 @@ class TestClaudeProviderExtended:
         provider = ClaudeProvider(claude_config)
 
         claude_format_tools = [
-            {
-                "name": "search",
-                "description": "Search",
-                "input_schema": {"type": "object"}
-            }
+            {"name": "search", "description": "Search", "input_schema": {"type": "object"}}
         ]
 
         result = provider._convert_tools(claude_format_tools)
@@ -646,7 +646,7 @@ class TestClaudeProviderExtended:
         mock_stream_context.__aenter__ = AsyncMock(return_value=mock_stream_context)
         mock_stream_context.__aexit__ = AsyncMock()
 
-        with patch.object(provider, '_client') as mock_client:
+        with patch.object(provider, "_client") as mock_client:
             mock_client.messages.stream = MagicMock(return_value=mock_stream_context)
             provider._client = mock_client
 
@@ -669,15 +669,13 @@ class TestClaudeProviderExtended:
         mock_response.usage = MagicMock(input_tokens=100, output_tokens=20)
         mock_response.stop_reason = "end_turn"
 
-        with patch.object(provider, '_client') as mock_client:
+        with patch.object(provider, "_client") as mock_client:
             mock_client.messages.create = AsyncMock(return_value=mock_response)
             provider._client = mock_client
 
             image_data = b"fake_image_data"
             response = await provider.analyze_image(
-                image_data,
-                "What is in this image?",
-                image_type="image/jpeg"
+                image_data, "What is in this image?", image_type="image/jpeg"
             )
 
             assert response.content == "Image shows a cat"
@@ -685,7 +683,7 @@ class TestClaudeProviderExtended:
 
     def test_get_recommended_model_variations(self, claude_config):
         """Test model recommendations for different tasks."""
-        from fastband.providers.claude import ClaudeProvider, CLAUDE_MODELS
+        from fastband.providers.claude import CLAUDE_MODELS, ClaudeProvider
 
         provider = ClaudeProvider(claude_config)
 
@@ -710,6 +708,7 @@ class TestClaudeProviderExtended:
 # =============================================================================
 # OPENAI PROVIDER EXTENDED TESTS
 # =============================================================================
+
 
 class TestOpenAIProviderExtended:
     """Extended tests for OpenAI provider covering more code paths."""
@@ -743,7 +742,7 @@ class TestOpenAIProviderExtended:
 
     def test_default_model_set(self):
         """Test default model is set when not provided."""
-        from fastband.providers.openai import OpenAIProvider, OPENAI_MODELS
+        from fastband.providers.openai import OPENAI_MODELS, OpenAIProvider
 
         config = ProviderConfig(name="openai", api_key="test-key")
         provider = OpenAIProvider(config)
@@ -768,14 +767,11 @@ class TestOpenAIProviderExtended:
         mock_response.usage = MagicMock(prompt_tokens=20, completion_tokens=10, total_tokens=30)
         mock_response.model_dump = MagicMock(return_value={})
 
-        with patch.object(provider, '_client') as mock_client:
+        with patch.object(provider, "_client") as mock_client:
             mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
             provider._client = mock_client
 
-            response = await provider.complete(
-                "Test",
-                system_prompt="Be concise"
-            )
+            response = await provider.complete("Test", system_prompt="Be concise")
 
             assert response.content == "Response with system"
             # Verify messages include system prompt
@@ -808,17 +804,9 @@ class TestOpenAIProviderExtended:
         mock_response.usage = MagicMock(prompt_tokens=30, completion_tokens=15, total_tokens=45)
         mock_response.model_dump = MagicMock(return_value={})
 
-        tools = [
-            {
-                "type": "function",
-                "function": {
-                    "name": "get_weather",
-                    "parameters": {}
-                }
-            }
-        ]
+        tools = [{"type": "function", "function": {"name": "get_weather", "parameters": {}}}]
 
-        with patch.object(provider, '_client') as mock_client:
+        with patch.object(provider, "_client") as mock_client:
             mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
             provider._client = mock_client
 
@@ -846,7 +834,7 @@ class TestOpenAIProviderExtended:
         mock_response.usage = MagicMock(prompt_tokens=20, completion_tokens=10, total_tokens=30)
         mock_response.model_dump = MagicMock(return_value={})
 
-        with patch.object(provider, '_client') as mock_client:
+        with patch.object(provider, "_client") as mock_client:
             mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
             provider._client = mock_client
 
@@ -872,7 +860,7 @@ class TestOpenAIProviderExtended:
             for chunk in chunks:
                 yield chunk
 
-        with patch.object(provider, '_client') as mock_client:
+        with patch.object(provider, "_client") as mock_client:
             mock_client.chat.completions.create = AsyncMock(return_value=mock_stream())
             provider._client = mock_client
 
@@ -898,15 +886,13 @@ class TestOpenAIProviderExtended:
         mock_response.model = "gpt-4o"
         mock_response.usage = MagicMock(prompt_tokens=500, completion_tokens=20, total_tokens=520)
 
-        with patch.object(provider, '_client') as mock_client:
+        with patch.object(provider, "_client") as mock_client:
             mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
             provider._client = mock_client
 
             image_data = b"fake_image_bytes"
             response = await provider.analyze_image(
-                image_data,
-                "Describe this image",
-                image_type="image/png"
+                image_data, "Describe this image", image_type="image/png"
             )
 
             assert response.content == "The image shows a sunset"
@@ -914,7 +900,7 @@ class TestOpenAIProviderExtended:
 
     def test_get_recommended_model_variations(self, openai_config):
         """Test model recommendations for different tasks."""
-        from fastband.providers.openai import OpenAIProvider, OPENAI_MODELS
+        from fastband.providers.openai import OPENAI_MODELS, OpenAIProvider
 
         provider = OpenAIProvider(openai_config)
 
@@ -928,6 +914,7 @@ class TestOpenAIProviderExtended:
 # =============================================================================
 # GEMINI PROVIDER EXTENDED TESTS
 # =============================================================================
+
 
 class TestGeminiProviderExtended:
     """Extended tests for Gemini provider covering more code paths."""
@@ -961,7 +948,7 @@ class TestGeminiProviderExtended:
 
     def test_default_model_set(self):
         """Test default model is set when not provided."""
-        from fastband.providers.gemini import GeminiProvider, GEMINI_MODELS
+        from fastband.providers.gemini import GEMINI_MODELS, GeminiProvider
 
         config = ProviderConfig(name="gemini", api_key="test-key")
         provider = GeminiProvider(config)
@@ -979,19 +966,14 @@ class TestGeminiProviderExtended:
         mock_response = MagicMock()
         mock_response.text = "Response text"
         mock_response.usage_metadata = MagicMock(
-            prompt_token_count=10,
-            candidates_token_count=20,
-            total_token_count=30
+            prompt_token_count=10, candidates_token_count=20, total_token_count=30
         )
 
         mock_model = MagicMock()
         mock_model.generate_content_async = AsyncMock(return_value=mock_response)
 
-        with patch.object(provider, '_get_model', return_value=mock_model):
-            response = await provider.complete(
-                "Tell me a joke",
-                system_prompt="Be funny"
-            )
+        with patch.object(provider, "_get_model", return_value=mock_model):
+            response = await provider.complete("Tell me a joke", system_prompt="Be funny")
 
             assert response.content == "Response text"
             # Verify combined prompt
@@ -1013,7 +995,7 @@ class TestGeminiProviderExtended:
         mock_model = MagicMock()
         mock_model.generate_content_async = AsyncMock(return_value=mock_response)
 
-        with patch.object(provider, '_get_model', return_value=mock_model):
+        with patch.object(provider, "_get_model", return_value=mock_model):
             response = await provider.complete("Test")
 
             assert response.content == "Simple response"
@@ -1027,37 +1009,33 @@ class TestGeminiProviderExtended:
         provider = GeminiProvider(gemini_config)
 
         # Mock response parts - use spec to prevent auto-creation of attributes
-        text_part = MagicMock(spec=['text'])
+        text_part = MagicMock(spec=["text"])
         text_part.text = "Using function"
 
         func_call = MagicMock()
         func_call.name = "get_data"
         func_call.args = {"param": "value"}
 
-        func_part = MagicMock(spec=['function_call'])
+        func_part = MagicMock(spec=["function_call"])
         func_part.function_call = func_call
 
         mock_response = MagicMock()
         mock_response.parts = [text_part, func_part]
 
         mock_genai = MagicMock()
-        mock_genai.GenerativeModel = MagicMock(return_value=MagicMock(
-            generate_content_async=AsyncMock(return_value=mock_response)
-        ))
+        mock_genai.GenerativeModel = MagicMock(
+            return_value=MagicMock(generate_content_async=AsyncMock(return_value=mock_response))
+        )
         mock_genai.protos.Tool = MagicMock(return_value=MagicMock())
 
         tools = [
             {
                 "type": "function",
-                "function": {
-                    "name": "get_data",
-                    "description": "Get data",
-                    "parameters": {}
-                }
+                "function": {"name": "get_data", "description": "Get data", "parameters": {}},
             }
         ]
 
-        with patch.object(provider, '_get_genai', return_value=mock_genai):
+        with patch.object(provider, "_get_genai", return_value=mock_genai):
             response = await provider.complete_with_tools("Query", tools)
 
             assert response.content == "Using function"
@@ -1079,12 +1057,12 @@ class TestGeminiProviderExtended:
                 "function": {
                     "name": "search",
                     "description": "Search",
-                    "parameters": {"type": "object"}
-                }
+                    "parameters": {"type": "object"},
+                },
             }
         ]
 
-        with patch.object(provider, '_get_genai', return_value=mock_genai):
+        with patch.object(provider, "_get_genai", return_value=mock_genai):
             result = provider._convert_tools(tools)
 
             assert len(result) == 1
@@ -1098,7 +1076,7 @@ class TestGeminiProviderExtended:
 
         mock_genai = MagicMock()
 
-        with patch.object(provider, '_get_genai', return_value=mock_genai):
+        with patch.object(provider, "_get_genai", return_value=mock_genai):
             result = provider._convert_tools([])
             assert result == []
 
@@ -1118,7 +1096,7 @@ class TestGeminiProviderExtended:
         mock_model = MagicMock()
         mock_model.generate_content_async = AsyncMock(return_value=mock_response_stream())
 
-        with patch.object(provider, '_get_model', return_value=mock_model):
+        with patch.object(provider, "_get_model", return_value=mock_model):
             chunks = []
             async for chunk in provider.stream("Test"):
                 chunks.append(chunk)
@@ -1138,20 +1116,17 @@ class TestGeminiProviderExtended:
         mock_model = MagicMock()
         mock_model.generate_content_async = AsyncMock(return_value=mock_response)
 
-        with patch.object(provider, '_get_genai', return_value=MagicMock()):
-            with patch.object(provider, '_get_model', return_value=mock_model):
+        with patch.object(provider, "_get_genai", return_value=MagicMock()):
+            with patch.object(provider, "_get_model", return_value=mock_model):
                 image_data = b"image_bytes"
-                response = await provider.analyze_image(
-                    image_data,
-                    "What's in the image?"
-                )
+                response = await provider.analyze_image(image_data, "What's in the image?")
 
                 assert response.content == "Image contains mountains"
                 assert response.provider == "gemini"
 
     def test_get_recommended_model_variations(self, gemini_config):
         """Test model recommendations for different tasks."""
-        from fastband.providers.gemini import GeminiProvider, GEMINI_MODELS
+        from fastband.providers.gemini import GEMINI_MODELS, GeminiProvider
 
         provider = GeminiProvider(gemini_config)
 
@@ -1164,6 +1139,7 @@ class TestGeminiProviderExtended:
 # =============================================================================
 # OLLAMA PROVIDER EXTENDED TESTS
 # =============================================================================
+
 
 class TestOllamaProviderExtended:
     """Extended tests for Ollama provider covering more code paths."""
@@ -1192,7 +1168,7 @@ class TestOllamaProviderExtended:
 
     def test_default_model_set(self):
         """Test default model is set when not provided."""
-        from fastband.providers.ollama import OllamaProvider, OLLAMA_MODELS
+        from fastband.providers.ollama import OLLAMA_MODELS, OllamaProvider
 
         config = ProviderConfig(name="ollama")
         provider = OllamaProvider(config)
@@ -1214,7 +1190,7 @@ class TestOllamaProviderExtended:
             "eval_count": 20,
         }
 
-        with patch.object(provider, '_client') as mock_client:
+        with patch.object(provider, "_client") as mock_client:
             mock_client.chat = AsyncMock(return_value=mock_response)
             provider._client = mock_client
 
@@ -1239,14 +1215,11 @@ class TestOllamaProviderExtended:
             "eval_count": 5,
         }
 
-        with patch.object(provider, '_client') as mock_client:
+        with patch.object(provider, "_client") as mock_client:
             mock_client.chat = AsyncMock(return_value=mock_response)
             provider._client = mock_client
 
-            response = await provider.complete(
-                "Long question",
-                system_prompt="Be brief"
-            )
+            response = await provider.complete("Long question", system_prompt="Be brief")
 
             assert response.content == "Concise response"
             # Verify system message was included
@@ -1263,14 +1236,7 @@ class TestOllamaProviderExtended:
         mock_response = {
             "message": {
                 "content": "",
-                "tool_calls": [
-                    {
-                        "function": {
-                            "name": "calculator",
-                            "arguments": {"a": 5, "b": 3}
-                        }
-                    }
-                ]
+                "tool_calls": [{"function": {"name": "calculator", "arguments": {"a": 5, "b": 3}}}],
             },
             "model": "llama3.2",
             "prompt_eval_count": 20,
@@ -1280,15 +1246,11 @@ class TestOllamaProviderExtended:
         tools = [
             {
                 "type": "function",
-                "function": {
-                    "name": "calculator",
-                    "description": "Calculate",
-                    "parameters": {}
-                }
+                "function": {"name": "calculator", "description": "Calculate", "parameters": {}},
             }
         ]
 
-        with patch.object(provider, '_client') as mock_client:
+        with patch.object(provider, "_client") as mock_client:
             mock_client.chat = AsyncMock(return_value=mock_response)
             provider._client = mock_client
 
@@ -1317,7 +1279,7 @@ class TestOllamaProviderExtended:
                 "model": "llama3.2",
             }
 
-        with patch.object(provider, '_client') as mock_client:
+        with patch.object(provider, "_client") as mock_client:
             mock_client.chat = mock_chat
             provider._client = mock_client
 
@@ -1337,8 +1299,8 @@ class TestOllamaProviderExtended:
                 "function": {
                     "name": "search",
                     "description": "Search for info",
-                    "parameters": {"type": "object"}
-                }
+                    "parameters": {"type": "object"},
+                },
             }
         ]
 
@@ -1370,7 +1332,7 @@ class TestOllamaProviderExtended:
             # Return the async generator directly - it will be iterated over
             return mock_stream_iterator()
 
-        with patch.object(provider, '_client') as mock_client:
+        with patch.object(provider, "_client") as mock_client:
             mock_client.chat = mock_chat
             provider._client = mock_client
 
@@ -1394,15 +1356,12 @@ class TestOllamaProviderExtended:
             "eval_count": 15,
         }
 
-        with patch.object(provider, '_client') as mock_client:
+        with patch.object(provider, "_client") as mock_client:
             mock_client.chat = AsyncMock(return_value=mock_response)
             provider._client = mock_client
 
             image_data = b"fake_image"
-            response = await provider.analyze_image(
-                image_data,
-                "Describe this image"
-            )
+            response = await provider.analyze_image(image_data, "Describe this image")
 
             assert response.content == "A dog playing in the park"
             # Verify image was passed
@@ -1424,7 +1383,7 @@ class TestOllamaProviderExtended:
             ]
         }
 
-        with patch.object(provider, '_client') as mock_client:
+        with patch.object(provider, "_client") as mock_client:
             mock_client.list = AsyncMock(return_value=mock_response)
             provider._client = mock_client
 
@@ -1439,7 +1398,7 @@ class TestOllamaProviderExtended:
 
         provider = OllamaProvider(ollama_config)
 
-        with patch.object(provider, '_client') as mock_client:
+        with patch.object(provider, "_client") as mock_client:
             mock_client.pull = AsyncMock()
             provider._client = mock_client
 
@@ -1455,7 +1414,7 @@ class TestOllamaProviderExtended:
 
         provider = OllamaProvider(ollama_config)
 
-        with patch.object(provider, '_client') as mock_client:
+        with patch.object(provider, "_client") as mock_client:
             mock_client.pull = AsyncMock(side_effect=Exception("Network error"))
             provider._client = mock_client
 
@@ -1465,7 +1424,7 @@ class TestOllamaProviderExtended:
 
     def test_get_recommended_model_variations(self, ollama_config):
         """Test model recommendations for different tasks."""
-        from fastband.providers.ollama import OllamaProvider, OLLAMA_MODELS
+        from fastband.providers.ollama import OLLAMA_MODELS, OllamaProvider
 
         provider = OllamaProvider(ollama_config)
 

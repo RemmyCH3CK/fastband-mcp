@@ -19,14 +19,13 @@ import sqlite3
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from uuid import uuid4
 
 import numpy as np
 
-from fastband.hub.models import MemoryEntry, MemoryContext
+from fastband.hub.models import MemoryContext, MemoryEntry
 
 logger = logging.getLogger(__name__)
 
@@ -126,9 +125,7 @@ class MemoryStore:
             """)
 
             # Get dimensions if set
-            cursor = conn.execute(
-                "SELECT value FROM memory_metadata WHERE key = 'dimensions'"
-            )
+            cursor = conn.execute("SELECT value FROM memory_metadata WHERE key = 'dimensions'")
             row = cursor.fetchone()
             if row:
                 self._dimensions = int(row["value"])
@@ -136,7 +133,7 @@ class MemoryStore:
     def insert(
         self,
         entry: MemoryEntry,
-        embedding: Optional[List[float]] = None,
+        embedding: list[float] | None = None,
     ) -> None:
         """Insert a memory entry.
 
@@ -178,7 +175,7 @@ class MemoryStore:
 
     def insert_batch(
         self,
-        entries: List[Tuple[MemoryEntry, List[float]]],
+        entries: list[tuple[MemoryEntry, list[float]]],
     ) -> int:
         """Insert multiple entries efficiently.
 
@@ -207,15 +204,17 @@ class MemoryStore:
                 if embedding:
                     embedding_blob = np.array(embedding, dtype=np.float32).tobytes()
 
-                data.append((
-                    entry.entry_id,
-                    entry.user_id,
-                    entry.content,
-                    embedding_blob,
-                    entry.source,
-                    entry.created_at.isoformat(),
-                    json.dumps(entry.metadata),
-                ))
+                data.append(
+                    (
+                        entry.entry_id,
+                        entry.user_id,
+                        entry.content,
+                        embedding_blob,
+                        entry.source,
+                        entry.created_at.isoformat(),
+                        json.dumps(entry.metadata),
+                    )
+                )
 
             with self._conn as conn:
                 conn.executemany(
@@ -231,11 +230,11 @@ class MemoryStore:
 
     def search(
         self,
-        query_embedding: List[float],
+        query_embedding: list[float],
         user_id: str,
         limit: int = 10,
         similarity_threshold: float = 0.7,
-    ) -> List[Tuple[MemoryEntry, float]]:
+    ) -> list[tuple[MemoryEntry, float]]:
         """Search for similar entries.
 
         Args:
@@ -288,7 +287,9 @@ class MemoryStore:
                         content=row["content"],
                         source=row["source"],
                         created_at=datetime.fromisoformat(row["created_at"]),
-                        last_accessed=datetime.fromisoformat(row["last_accessed"]) if row["last_accessed"] else None,
+                        last_accessed=datetime.fromisoformat(row["last_accessed"])
+                        if row["last_accessed"]
+                        else None,
                         access_count=row["access_count"],
                         metadata=json.loads(row["metadata"]) if row["metadata"] else {},
                     )
@@ -410,17 +411,17 @@ class SemanticMemory:
         context = await memory.query("How does authentication work?", user_id="user1")
     """
 
-    def __init__(self, config: Optional[MemoryConfig] = None):
+    def __init__(self, config: MemoryConfig | None = None):
         """Initialize semantic memory.
 
         Args:
             config: Memory configuration
         """
         self.config = config or MemoryConfig()
-        self._store: Optional[MemoryStore] = None
+        self._store: MemoryStore | None = None
         self._embedding_provider = None
         self._initialized = False
-        self._pending_embeddings: List[Tuple[MemoryEntry, str]] = []
+        self._pending_embeddings: list[tuple[MemoryEntry, str]] = []
         self._embedding_lock = asyncio.Lock()
 
     async def initialize(self) -> None:
@@ -440,12 +441,12 @@ class SemanticMemory:
     async def _init_embedding_provider(self) -> None:
         """Initialize the embedding provider."""
         try:
+            from fastband.embeddings.base import EmbeddingConfig
             from fastband.embeddings.providers import (
-                OpenAIEmbeddings,
                 GeminiEmbeddings,
                 OllamaEmbeddings,
+                OpenAIEmbeddings,
             )
-            from fastband.embeddings.base import EmbeddingConfig
 
             providers = {
                 "openai": OpenAIEmbeddings,
@@ -455,9 +456,7 @@ class SemanticMemory:
 
             provider_class = providers.get(self.config.embedding_provider)
             if not provider_class:
-                logger.warning(
-                    f"Unknown embedding provider: {self.config.embedding_provider}"
-                )
+                logger.warning(f"Unknown embedding provider: {self.config.embedding_provider}")
                 return
 
             config = EmbeddingConfig(model=self.config.embedding_model)
@@ -471,7 +470,7 @@ class SemanticMemory:
         content: str,
         user_id: str,
         source: str = "conversation",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> MemoryEntry:
         """Store content in memory.
 
@@ -519,7 +518,7 @@ class SemanticMemory:
 
     async def store_batch(
         self,
-        items: List[Tuple[str, str, str, Optional[Dict[str, Any]]]],
+        items: list[tuple[str, str, str, dict[str, Any] | None]],
     ) -> int:
         """Store multiple entries efficiently.
 
@@ -559,7 +558,7 @@ class SemanticMemory:
                 logger.warning(f"Failed to generate embeddings: {e}")
 
         # Store entries
-        store_items = list(zip(entries, embeddings))
+        store_items = list(zip(entries, embeddings, strict=False))
         return self._store.insert_batch(store_items)
 
     async def query(
@@ -609,7 +608,7 @@ class SemanticMemory:
 
         # Update access times
         entries = []
-        for entry, similarity in results:
+        for entry, _similarity in results:
             self._store.update_access(entry.entry_id)
             entries.append(entry)
 

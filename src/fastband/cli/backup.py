@@ -14,26 +14,24 @@ Provides commands for managing project backups:
 """
 
 import json
-import typer
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
+import typer
 from rich import box
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
 
 from fastband.backup import (
-    BackupManager,
-    BackupInfo,
-    BackupType,
-    BackupScheduler,
-    get_scheduler,
-    AlertManager,
-    AlertConfig,
     AlertLevel,
+    AlertManager,
+    BackupInfo,
+    BackupManager,
+    BackupScheduler,
+    BackupType,
     get_alert_manager,
+    get_scheduler,
 )
 
 # Create the backup subcommand app
@@ -47,7 +45,7 @@ backup_app = typer.Typer(
 console = Console()
 
 
-def _get_manager(path: Optional[Path] = None) -> BackupManager:
+def _get_manager(path: Path | None = None) -> BackupManager:
     """Get the backup manager for the project."""
     project_path = (path or Path.cwd()).resolve()
     return BackupManager(project_path=project_path)
@@ -87,7 +85,7 @@ def _backup_to_dict(backup: BackupInfo) -> dict:
 
 @backup_app.command("create")
 def create_backup(
-    description: Optional[str] = typer.Option(
+    description: str | None = typer.Option(
         None,
         "--description",
         "-d",
@@ -110,7 +108,7 @@ def create_backup(
         "--json",
         help="Output as JSON",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         "-p",
@@ -135,10 +133,12 @@ def create_backup(
         raise typer.Exit(1)
 
     if not json_output:
-        console.print(Panel.fit(
-            "[bold blue]Creating Backup[/bold blue]",
-            border_style="blue",
-        ))
+        console.print(
+            Panel.fit(
+                "[bold blue]Creating Backup[/bold blue]",
+                border_style="blue",
+            )
+        )
 
     try:
         backup_info = manager.create_backup(
@@ -149,21 +149,33 @@ def create_backup(
 
         if backup_info is None:
             if json_output:
-                console.print(json.dumps({
-                    "success": False,
-                    "message": "No changes detected, backup skipped",
-                }, indent=2))
+                console.print(
+                    json.dumps(
+                        {
+                            "success": False,
+                            "message": "No changes detected, backup skipped",
+                        },
+                        indent=2,
+                    )
+                )
             else:
-                console.print("[yellow]No changes detected. Use --force to create backup anyway.[/yellow]")
+                console.print(
+                    "[yellow]No changes detected. Use --force to create backup anyway.[/yellow]"
+                )
             raise typer.Exit(0)
 
         if json_output:
-            console.print(json.dumps({
-                "success": True,
-                "backup": _backup_to_dict(backup_info),
-            }, indent=2))
+            console.print(
+                json.dumps(
+                    {
+                        "success": True,
+                        "backup": _backup_to_dict(backup_info),
+                    },
+                    indent=2,
+                )
+            )
         else:
-            console.print(f"[green]Backup created successfully[/green]")
+            console.print("[green]Backup created successfully[/green]")
             console.print(f"  ID: [bold]{backup_info.id}[/bold]")
             console.print(f"  Type: {_format_type(backup_info.backup_type)}")
             console.print(f"  Size: {backup_info.size_human}")
@@ -173,10 +185,15 @@ def create_backup(
 
     except Exception as e:
         if json_output:
-            console.print(json.dumps({
-                "success": False,
-                "error": str(e),
-            }, indent=2))
+            console.print(
+                json.dumps(
+                    {
+                        "success": False,
+                        "error": str(e),
+                    },
+                    indent=2,
+                )
+            )
         else:
             console.print(f"[red]Backup failed: {e}[/red]")
         raise typer.Exit(1)
@@ -195,7 +212,7 @@ def list_backups(
         "-l",
         help="Maximum number of backups to show",
     ),
-    backup_type: Optional[str] = typer.Option(
+    backup_type: str | None = typer.Option(
         None,
         "--type",
         "-t",
@@ -206,7 +223,7 @@ def list_backups(
         "--json",
         help="Output as JSON",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         "-p",
@@ -267,7 +284,9 @@ def list_backups(
             backup.size_human,
             str(backup.files_count),
             backup.created_at.strftime("%Y-%m-%d %H:%M"),
-            backup.description[:30] + "..." if len(backup.description) > 30 else backup.description or "[dim]-[/dim]",
+            backup.description[:30] + "..."
+            if len(backup.description) > 30
+            else backup.description or "[dim]-[/dim]",
         )
 
     console.print(table)
@@ -290,7 +309,7 @@ def show_backup(
         "--json",
         help="Output as JSON",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         "-p",
@@ -314,12 +333,14 @@ def show_backup(
         raise typer.Exit(0)
 
     # Header panel
-    console.print(Panel.fit(
-        f"[bold blue]Backup {backup.id}[/bold blue]\n"
-        f"[dim]{backup.description or 'No description'}[/dim]",
-        title="Backup Details",
-        border_style="blue",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold blue]Backup {backup.id}[/bold blue]\n"
+            f"[dim]{backup.description or 'No description'}[/dim]",
+            title="Backup Details",
+            border_style="blue",
+        )
+    )
 
     # Info table
     info_table = Table(
@@ -359,7 +380,7 @@ def restore_backup(
         ...,
         help="Backup ID to restore",
     ),
-    target: Optional[Path] = typer.Option(
+    target: Path | None = typer.Option(
         None,
         "--target",
         "-t",
@@ -382,7 +403,7 @@ def restore_backup(
         "--json",
         help="Output as JSON",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         "-p",
@@ -400,42 +421,56 @@ def restore_backup(
 
     if not backup:
         if json_output:
-            console.print(json.dumps({
-                "success": False,
-                "error": f"Backup not found: {backup_id}",
-            }, indent=2))
+            console.print(
+                json.dumps(
+                    {
+                        "success": False,
+                        "error": f"Backup not found: {backup_id}",
+                    },
+                    indent=2,
+                )
+            )
         else:
             console.print(f"[red]Backup not found: {backup_id}[/red]")
         raise typer.Exit(1)
 
     if dry_run:
-        console.print(Panel.fit(
-            f"[bold yellow]Dry Run - Restore Preview[/bold yellow]\n"
-            f"[dim]Backup: {backup_id}[/dim]",
-            border_style="yellow",
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold yellow]Dry Run - Restore Preview[/bold yellow]\n"
+                f"[dim]Backup: {backup_id}[/dim]",
+                border_style="yellow",
+            )
+        )
 
         success = manager.restore_backup(backup_id, target_path=target, dry_run=True)
 
         if json_output:
-            console.print(json.dumps({
-                "dry_run": True,
-                "backup_id": backup_id,
-                "would_restore": success,
-            }, indent=2))
+            console.print(
+                json.dumps(
+                    {
+                        "dry_run": True,
+                        "backup_id": backup_id,
+                        "would_restore": success,
+                    },
+                    indent=2,
+                )
+            )
         raise typer.Exit(0)
 
     # Confirm restore
     if not force and not json_output:
-        console.print(Panel.fit(
-            f"[bold red]Restore Backup[/bold red]\n"
-            f"Backup: {backup_id}\n"
-            f"Created: {backup.created_at.strftime('%Y-%m-%d %H:%M')}\n"
-            f"Size: {backup.size_human}\n\n"
-            f"[yellow]This will overwrite current project data![/yellow]\n"
-            f"[dim]A pre-restore backup will be created automatically.[/dim]",
-            border_style="red",
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold red]Restore Backup[/bold red]\n"
+                f"Backup: {backup_id}\n"
+                f"Created: {backup.created_at.strftime('%Y-%m-%d %H:%M')}\n"
+                f"Size: {backup.size_human}\n\n"
+                f"[yellow]This will overwrite current project data![/yellow]\n"
+                f"[dim]A pre-restore backup will be created automatically.[/dim]",
+                border_style="red",
+            )
+        )
 
         confirm = typer.confirm("Proceed with restore?")
         if not confirm:
@@ -447,26 +482,36 @@ def restore_backup(
         success = manager.restore_backup(backup_id, target_path=target, dry_run=False)
 
         if json_output:
-            console.print(json.dumps({
-                "success": success,
-                "backup_id": backup_id,
-                "message": "Restore completed" if success else "Restore failed",
-            }, indent=2))
+            console.print(
+                json.dumps(
+                    {
+                        "success": success,
+                        "backup_id": backup_id,
+                        "message": "Restore completed" if success else "Restore failed",
+                    },
+                    indent=2,
+                )
+            )
         else:
             if success:
-                console.print(f"[green]Restore completed successfully[/green]")
+                console.print("[green]Restore completed successfully[/green]")
                 console.print(f"  Backup: {backup_id}")
                 console.print(f"  Files restored: {backup.files_count}")
             else:
-                console.print(f"[red]Restore failed[/red]")
+                console.print("[red]Restore failed[/red]")
                 raise typer.Exit(1)
 
     except Exception as e:
         if json_output:
-            console.print(json.dumps({
-                "success": False,
-                "error": str(e),
-            }, indent=2))
+            console.print(
+                json.dumps(
+                    {
+                        "success": False,
+                        "error": str(e),
+                    },
+                    indent=2,
+                )
+            )
         else:
             console.print(f"[red]Restore failed: {e}[/red]")
         raise typer.Exit(1)
@@ -496,7 +541,7 @@ def prune_backups(
         "--json",
         help="Output as JSON",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         "-p",
@@ -513,19 +558,26 @@ def prune_backups(
 
     if dry_run:
         if not json_output:
-            console.print(Panel.fit(
-                "[bold yellow]Dry Run - Prune Preview[/bold yellow]",
-                border_style="yellow",
-            ))
+            console.print(
+                Panel.fit(
+                    "[bold yellow]Dry Run - Prune Preview[/bold yellow]",
+                    border_style="yellow",
+                )
+            )
 
         pruned = manager.prune_old_backups(dry_run=True)
 
         if json_output:
-            console.print(json.dumps({
-                "dry_run": True,
-                "would_prune": len(pruned),
-                "backups": [_backup_to_dict(b) for b in pruned],
-            }, indent=2))
+            console.print(
+                json.dumps(
+                    {
+                        "dry_run": True,
+                        "would_prune": len(pruned),
+                        "backups": [_backup_to_dict(b) for b in pruned],
+                    },
+                    indent=2,
+                )
+            )
         else:
             if pruned:
                 console.print(f"[yellow]Would prune {len(pruned)} backup(s)[/yellow]")
@@ -538,11 +590,16 @@ def prune_backups(
 
     if not would_prune:
         if json_output:
-            console.print(json.dumps({
-                "success": True,
-                "pruned": 0,
-                "message": "No backups to prune",
-            }, indent=2))
+            console.print(
+                json.dumps(
+                    {
+                        "success": True,
+                        "pruned": 0,
+                        "message": "No backups to prune",
+                    },
+                    indent=2,
+                )
+            )
         else:
             console.print("[green]No backups to prune[/green]")
         raise typer.Exit(0)
@@ -559,11 +616,16 @@ def prune_backups(
     pruned = manager.prune_old_backups(dry_run=False)
 
     if json_output:
-        console.print(json.dumps({
-            "success": True,
-            "pruned": len(pruned),
-            "backups": [_backup_to_dict(b) for b in pruned],
-        }, indent=2))
+        console.print(
+            json.dumps(
+                {
+                    "success": True,
+                    "pruned": len(pruned),
+                    "backups": [_backup_to_dict(b) for b in pruned],
+                },
+                indent=2,
+            )
+        )
     else:
         console.print(f"[green]Pruned {len(pruned)} old backup(s)[/green]")
         for backup in pruned:
@@ -592,7 +654,7 @@ def delete_backup(
         "--json",
         help="Output as JSON",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         "-p",
@@ -609,10 +671,15 @@ def delete_backup(
 
     if not backup:
         if json_output:
-            console.print(json.dumps({
-                "success": False,
-                "error": f"Backup not found: {backup_id}",
-            }, indent=2))
+            console.print(
+                json.dumps(
+                    {
+                        "success": False,
+                        "error": f"Backup not found: {backup_id}",
+                    },
+                    indent=2,
+                )
+            )
         else:
             console.print(f"[red]Backup not found: {backup_id}[/red]")
         raise typer.Exit(1)
@@ -633,15 +700,20 @@ def delete_backup(
     success = manager.delete_backup(backup_id)
 
     if json_output:
-        console.print(json.dumps({
-            "success": success,
-            "backup_id": backup_id,
-        }, indent=2))
+        console.print(
+            json.dumps(
+                {
+                    "success": success,
+                    "backup_id": backup_id,
+                },
+                indent=2,
+            )
+        )
     else:
         if success:
             console.print(f"[green]Deleted backup: {backup_id}[/green]")
         else:
-            console.print(f"[red]Failed to delete backup[/red]")
+            console.print("[red]Failed to delete backup[/red]")
             raise typer.Exit(1)
 
 
@@ -657,7 +729,7 @@ def backup_stats(
         "--json",
         help="Output as JSON",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         "-p",
@@ -677,10 +749,12 @@ def backup_stats(
         console.print(json.dumps(stats, indent=2))
         raise typer.Exit(0)
 
-    console.print(Panel.fit(
-        "[bold blue]Backup Statistics[/bold blue]",
-        border_style="blue",
-    ))
+    console.print(
+        Panel.fit(
+            "[bold blue]Backup Statistics[/bold blue]",
+            border_style="blue",
+        )
+    )
 
     # Overview table
     table = Table(
@@ -699,7 +773,9 @@ def backup_stats(
         table.add_row("Newest", stats["newest"][:10])
 
     has_changes = stats["has_changes"]
-    changes_status = "[yellow]Changes detected[/yellow]" if has_changes else "[green]No changes[/green]"
+    changes_status = (
+        "[yellow]Changes detected[/yellow]" if has_changes else "[green]No changes[/green]"
+    )
     table.add_row("Status", changes_status)
 
     console.print(table)
@@ -714,8 +790,12 @@ def backup_stats(
     config = stats["config"]
     console.print("\n[bold]Configuration:[/bold]")
     console.print(f"  Enabled: {'Yes' if config['enabled'] else 'No'}")
-    console.print(f"  Daily: {'Yes' if config['daily_enabled'] else 'No'} (retention: {config['daily_retention']} days)")
-    console.print(f"  Weekly: {'Yes' if config['weekly_enabled'] else 'No'} (retention: {config['weekly_retention']} weeks)")
+    console.print(
+        f"  Daily: {'Yes' if config['daily_enabled'] else 'No'} (retention: {config['daily_retention']} days)"
+    )
+    console.print(
+        f"  Weekly: {'Yes' if config['weekly_enabled'] else 'No'} (retention: {config['weekly_retention']} weeks)"
+    )
     console.print(f"  Change detection: {'Yes' if config['change_detection'] else 'No'}")
 
 
@@ -731,7 +811,7 @@ scheduler_app = typer.Typer(
 backup_app.add_typer(scheduler_app, name="scheduler")
 
 
-def _get_scheduler(path: Optional[Path] = None) -> BackupScheduler:
+def _get_scheduler(path: Path | None = None) -> BackupScheduler:
     """Get the backup scheduler for the project."""
     project_path = (path or Path.cwd()).resolve()
     return get_scheduler(project_path)
@@ -750,7 +830,7 @@ def scheduler_start(
         "--json",
         help="Output as JSON",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         "-p",
@@ -769,26 +849,35 @@ def scheduler_start(
     if scheduler.is_running():
         status = scheduler.get_status()
         if json_output:
-            console.print(json.dumps({
-                "success": False,
-                "error": "Scheduler is already running",
-                "pid": status["pid"],
-            }, indent=2))
+            console.print(
+                json.dumps(
+                    {
+                        "success": False,
+                        "error": "Scheduler is already running",
+                        "pid": status["pid"],
+                    },
+                    indent=2,
+                )
+            )
         else:
             console.print(f"[yellow]Scheduler is already running (PID: {status['pid']})[/yellow]")
         raise typer.Exit(1)
 
     if not json_output:
-        console.print(Panel.fit(
-            "[bold blue]Starting Backup Scheduler[/bold blue]",
-            border_style="blue",
-        ))
+        console.print(
+            Panel.fit(
+                "[bold blue]Starting Backup Scheduler[/bold blue]",
+                border_style="blue",
+            )
+        )
 
         config = scheduler.config
         console.print(f"  Interval: Every {config.interval_hours} hours")
         console.print(f"  Backup path: {scheduler.backup_path}")
         console.print(f"  Retention: {config.retention_days} days")
-        console.print(f"  Hooks: before_build={config.hooks.before_build}, after_ticket={config.hooks.after_ticket_completion}")
+        console.print(
+            f"  Hooks: before_build={config.hooks.before_build}, after_ticket={config.hooks.after_ticket_completion}"
+        )
         console.print()
 
     if foreground:
@@ -800,16 +889,21 @@ def scheduler_start(
 
         if json_output:
             status = scheduler.get_status()
-            console.print(json.dumps({
-                "success": success,
-                "pid": status["pid"],
-                "message": "Scheduler started" if success else "Failed to start scheduler",
-            }, indent=2))
+            console.print(
+                json.dumps(
+                    {
+                        "success": success,
+                        "pid": status["pid"],
+                        "message": "Scheduler started" if success else "Failed to start scheduler",
+                    },
+                    indent=2,
+                )
+            )
         else:
             if success:
                 status = scheduler.get_status()
                 console.print(f"[green]Scheduler started (PID: {status['pid']})[/green]")
-                console.print(f"[dim]View logs: tail -f .fastband/scheduler.log[/dim]")
+                console.print("[dim]View logs: tail -f .fastband/scheduler.log[/dim]")
             else:
                 console.print("[red]Failed to start scheduler[/red]")
                 raise typer.Exit(1)
@@ -822,7 +916,7 @@ def scheduler_stop(
         "--json",
         help="Output as JSON",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         "-p",
@@ -836,10 +930,15 @@ def scheduler_stop(
 
     if not scheduler.is_running():
         if json_output:
-            console.print(json.dumps({
-                "success": True,
-                "message": "Scheduler is not running",
-            }, indent=2))
+            console.print(
+                json.dumps(
+                    {
+                        "success": True,
+                        "message": "Scheduler is not running",
+                    },
+                    indent=2,
+                )
+            )
         else:
             console.print("[yellow]Scheduler is not running[/yellow]")
         raise typer.Exit(0)
@@ -847,10 +946,15 @@ def scheduler_stop(
     success = scheduler.stop_daemon()
 
     if json_output:
-        console.print(json.dumps({
-            "success": success,
-            "message": "Scheduler stopped" if success else "Failed to stop scheduler",
-        }, indent=2))
+        console.print(
+            json.dumps(
+                {
+                    "success": success,
+                    "message": "Scheduler stopped" if success else "Failed to stop scheduler",
+                },
+                indent=2,
+            )
+        )
     else:
         if success:
             console.print("[green]Scheduler stopped[/green]")
@@ -866,7 +970,7 @@ def scheduler_status(
         "--json",
         help="Output as JSON",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         "-p",
@@ -886,10 +990,12 @@ def scheduler_status(
         console.print(json.dumps(status, indent=2))
         raise typer.Exit(0)
 
-    console.print(Panel.fit(
-        "[bold blue]Backup Scheduler Status[/bold blue]",
-        border_style="blue",
-    ))
+    console.print(
+        Panel.fit(
+            "[bold blue]Backup Scheduler Status[/bold blue]",
+            border_style="blue",
+        )
+    )
 
     # Status table
     table = Table(
@@ -917,9 +1023,15 @@ def scheduler_status(
     # Hooks
     hooks = config["hooks"]
     console.print("\n[bold]Hooks:[/bold]")
-    console.print(f"  Before build: {'[green]Enabled[/green]' if hooks['before_build'] else '[dim]Disabled[/dim]'}")
-    console.print(f"  After ticket: {'[green]Enabled[/green]' if hooks['after_ticket_completion'] else '[dim]Disabled[/dim]'}")
-    console.print(f"  On config change: {'[green]Enabled[/green]' if hooks['on_config_change'] else '[dim]Disabled[/dim]'}")
+    console.print(
+        f"  Before build: {'[green]Enabled[/green]' if hooks['before_build'] else '[dim]Disabled[/dim]'}"
+    )
+    console.print(
+        f"  After ticket: {'[green]Enabled[/green]' if hooks['after_ticket_completion'] else '[dim]Disabled[/dim]'}"
+    )
+    console.print(
+        f"  On config change: {'[green]Enabled[/green]' if hooks['on_config_change'] else '[dim]Disabled[/dim]'}"
+    )
 
     # State
     state = status["state"]
@@ -941,7 +1053,7 @@ def scheduler_restart(
         "--json",
         help="Output as JSON",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         "-p",
@@ -964,11 +1076,16 @@ def scheduler_restart(
 
     if json_output:
         status = scheduler.get_status()
-        console.print(json.dumps({
-            "success": success,
-            "pid": status["pid"] if success else None,
-            "message": "Scheduler restarted" if success else "Failed to restart scheduler",
-        }, indent=2))
+        console.print(
+            json.dumps(
+                {
+                    "success": success,
+                    "pid": status["pid"] if success else None,
+                    "message": "Scheduler restarted" if success else "Failed to restart scheduler",
+                },
+                indent=2,
+            )
+        )
     else:
         if success:
             status = scheduler.get_status()
@@ -991,27 +1108,27 @@ def backup_configure(
         "-i",
         help="Run in interactive mode",
     ),
-    interval: Optional[int] = typer.Option(
+    interval: int | None = typer.Option(
         None,
         "--interval",
         help="Backup interval in hours",
     ),
-    retention: Optional[int] = typer.Option(
+    retention: int | None = typer.Option(
         None,
         "--retention",
         help="Retention period in days",
     ),
-    backup_path: Optional[str] = typer.Option(
+    backup_path: str | None = typer.Option(
         None,
         "--backup-path",
         help="Path to store backups",
     ),
-    hook_before_build: Optional[bool] = typer.Option(
+    hook_before_build: bool | None = typer.Option(
         None,
         "--hook-before-build/--no-hook-before-build",
         help="Enable/disable before-build hook",
     ),
-    hook_after_ticket: Optional[bool] = typer.Option(
+    hook_after_ticket: bool | None = typer.Option(
         None,
         "--hook-after-ticket/--no-hook-after-ticket",
         help="Enable/disable after-ticket-completion hook",
@@ -1021,7 +1138,7 @@ def backup_configure(
         "--json",
         help="Output as JSON",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         "-p",
@@ -1040,7 +1157,7 @@ def backup_configure(
     AI agents should use this command to configure backups based on
     user preferences.
     """
-    from fastband.core.config import FastbandConfig, BackupConfig, BackupHooksConfig
+    from fastband.core.config import FastbandConfig
 
     project_path = (path or Path.cwd()).resolve()
     config_file = project_path / ".fastband" / "config.yaml"
@@ -1053,21 +1170,35 @@ def backup_configure(
 
     changes = []
 
-    if interactive and not any([interval, retention, backup_path, hook_before_build is not None, hook_after_ticket is not None]):
+    if interactive and not any(
+        [
+            interval,
+            retention,
+            backup_path,
+            hook_before_build is not None,
+            hook_after_ticket is not None,
+        ]
+    ):
         # Full interactive mode
-        console.print(Panel.fit(
-            "[bold blue]Backup Configuration[/bold blue]\n"
-            "[dim]Configure automated backup settings[/dim]",
-            border_style="blue",
-        ))
+        console.print(
+            Panel.fit(
+                "[bold blue]Backup Configuration[/bold blue]\n"
+                "[dim]Configure automated backup settings[/dim]",
+                border_style="blue",
+            )
+        )
 
         # Current settings
         console.print("\n[bold]Current Settings:[/bold]")
         console.print(f"  Interval: Every {config.backup.interval_hours} hours")
         console.print(f"  Retention: {config.backup.retention_days} days")
         console.print(f"  Backup path: {config.backup.backup_path}")
-        console.print(f"  Before-build hook: {'Enabled' if config.backup.hooks.before_build else 'Disabled'}")
-        console.print(f"  After-ticket hook: {'Enabled' if config.backup.hooks.after_ticket_completion else 'Disabled'}")
+        console.print(
+            f"  Before-build hook: {'Enabled' if config.backup.hooks.before_build else 'Disabled'}"
+        )
+        console.print(
+            f"  After-ticket hook: {'Enabled' if config.backup.hooks.after_ticket_completion else 'Disabled'}"
+        )
         console.print()
 
         # Ask for changes
@@ -1136,10 +1267,15 @@ def backup_configure(
 
     if not changes:
         if json_output:
-            console.print(json.dumps({
-                "success": True,
-                "message": "No changes made",
-            }, indent=2))
+            console.print(
+                json.dumps(
+                    {
+                        "success": True,
+                        "message": "No changes made",
+                    },
+                    indent=2,
+                )
+            )
         else:
             console.print("[yellow]No changes made[/yellow]")
         raise typer.Exit(0)
@@ -1148,25 +1284,32 @@ def backup_configure(
     config.save(config_file)
 
     if json_output:
-        console.print(json.dumps({
-            "success": True,
-            "changes": changes,
-            "config": {
-                "interval_hours": config.backup.interval_hours,
-                "retention_days": config.backup.retention_days,
-                "backup_path": config.backup.backup_path,
-                "hooks": {
-                    "before_build": config.backup.hooks.before_build,
-                    "after_ticket_completion": config.backup.hooks.after_ticket_completion,
-                    "on_config_change": config.backup.hooks.on_config_change,
+        console.print(
+            json.dumps(
+                {
+                    "success": True,
+                    "changes": changes,
+                    "config": {
+                        "interval_hours": config.backup.interval_hours,
+                        "retention_days": config.backup.retention_days,
+                        "backup_path": config.backup.backup_path,
+                        "hooks": {
+                            "before_build": config.backup.hooks.before_build,
+                            "after_ticket_completion": config.backup.hooks.after_ticket_completion,
+                            "on_config_change": config.backup.hooks.on_config_change,
+                        },
+                    },
                 },
-            },
-        }, indent=2))
+                indent=2,
+            )
+        )
     else:
-        console.print(f"\n[green]Configuration updated[/green]")
+        console.print("\n[green]Configuration updated[/green]")
         for change in changes:
             console.print(f"  - {change}")
-        console.print("\n[dim]Restart scheduler for changes to take effect: fastband backup scheduler restart[/dim]")
+        console.print(
+            "\n[dim]Restart scheduler for changes to take effect: fastband backup scheduler restart[/dim]"
+        )
 
 
 # =============================================================================
@@ -1181,7 +1324,7 @@ alerts_app = typer.Typer(
 backup_app.add_typer(alerts_app, name="alerts")
 
 
-def _get_alert_manager(path: Optional[Path] = None) -> AlertManager:
+def _get_alert_manager(path: Path | None = None) -> AlertManager:
     """Get the alert manager for the project."""
     project_path = (path or Path.cwd()).resolve()
     return get_alert_manager(project_path=project_path)
@@ -1207,7 +1350,7 @@ def alerts_list(
         "-l",
         help="Maximum number of alerts to show",
     ),
-    level: Optional[str] = typer.Option(
+    level: str | None = typer.Option(
         None,
         "--level",
         help="Filter by alert level (info, warning, error, critical)",
@@ -1223,7 +1366,7 @@ def alerts_list(
         "--json",
         help="Output as JSON",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         "-p",
@@ -1312,7 +1455,7 @@ def alerts_show(
         "--json",
         help="Output as JSON",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         "-p",
@@ -1347,12 +1490,13 @@ def alerts_show(
         raise typer.Exit(0)
 
     # Header panel
-    console.print(Panel.fit(
-        f"{_format_alert_level(alert.level)}\n"
-        f"[bold]{alert.title}[/bold]",
-        title="Alert Details",
-        border_style="red" if alert.level == AlertLevel.CRITICAL else "yellow",
-    ))
+    console.print(
+        Panel.fit(
+            f"{_format_alert_level(alert.level)}\n[bold]{alert.title}[/bold]",
+            title="Alert Details",
+            border_style="red" if alert.level == AlertLevel.CRITICAL else "yellow",
+        )
+    )
 
     # Info table
     info_table = Table(
@@ -1365,7 +1509,9 @@ def alerts_show(
     info_table.add_row("ID", alert.id)
     info_table.add_row("Level", alert.level.value.upper())
     info_table.add_row("Time", alert.timestamp.strftime("%Y-%m-%d %H:%M:%S"))
-    info_table.add_row("Acknowledged", "[green]Yes[/green]" if alert.acknowledged else "[yellow]No[/yellow]")
+    info_table.add_row(
+        "Acknowledged", "[green]Yes[/green]" if alert.acknowledged else "[yellow]No[/yellow]"
+    )
 
     console.print(info_table)
 
@@ -1398,7 +1544,7 @@ def alerts_ack(
         "--json",
         help="Output as JSON",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         "-p",
@@ -1420,11 +1566,16 @@ def alerts_ack(
 
         if not unacked:
             if json_output:
-                console.print(json.dumps({
-                    "success": True,
-                    "acknowledged": 0,
-                    "message": "No unacknowledged alerts",
-                }, indent=2))
+                console.print(
+                    json.dumps(
+                        {
+                            "success": True,
+                            "acknowledged": 0,
+                            "message": "No unacknowledged alerts",
+                        },
+                        indent=2,
+                    )
+                )
             else:
                 console.print("[green]No unacknowledged alerts[/green]")
             raise typer.Exit(0)
@@ -1435,10 +1586,15 @@ def alerts_ack(
                 acked_count += 1
 
         if json_output:
-            console.print(json.dumps({
-                "success": True,
-                "acknowledged": acked_count,
-            }, indent=2))
+            console.print(
+                json.dumps(
+                    {
+                        "success": True,
+                        "acknowledged": acked_count,
+                    },
+                    indent=2,
+                )
+            )
         else:
             console.print(f"[green]Acknowledged {acked_count} alert(s)[/green]")
 
@@ -1460,11 +1616,16 @@ def alerts_ack(
 
         if alert.acknowledged:
             if json_output:
-                console.print(json.dumps({
-                    "success": True,
-                    "message": "Alert already acknowledged",
-                    "alert_id": alert.id,
-                }, indent=2))
+                console.print(
+                    json.dumps(
+                        {
+                            "success": True,
+                            "message": "Alert already acknowledged",
+                            "alert_id": alert.id,
+                        },
+                        indent=2,
+                    )
+                )
             else:
                 console.print(f"[yellow]Alert already acknowledged: {alert.id}[/yellow]")
             raise typer.Exit(0)
@@ -1472,15 +1633,20 @@ def alerts_ack(
         success = manager.acknowledge_alert(alert.id)
 
         if json_output:
-            console.print(json.dumps({
-                "success": success,
-                "alert_id": alert.id,
-            }, indent=2))
+            console.print(
+                json.dumps(
+                    {
+                        "success": success,
+                        "alert_id": alert.id,
+                    },
+                    indent=2,
+                )
+            )
         else:
             if success:
                 console.print(f"[green]Acknowledged alert: {alert.id}[/green]")
             else:
-                console.print(f"[red]Failed to acknowledge alert[/red]")
+                console.print("[red]Failed to acknowledge alert[/red]")
                 raise typer.Exit(1)
 
 
@@ -1503,7 +1669,7 @@ def alerts_clear(
         "--json",
         help="Output as JSON",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         "-p",
@@ -1521,11 +1687,16 @@ def alerts_clear(
 
     if not alert_log_path.exists():
         if json_output:
-            console.print(json.dumps({
-                "success": True,
-                "cleared": 0,
-                "message": "No alerts to clear",
-            }, indent=2))
+            console.print(
+                json.dumps(
+                    {
+                        "success": True,
+                        "cleared": 0,
+                        "message": "No alerts to clear",
+                    },
+                    indent=2,
+                )
+            )
         else:
             console.print("[green]No alerts to clear[/green]")
         raise typer.Exit(0)
@@ -1538,11 +1709,16 @@ def alerts_clear(
 
     if not alerts_data:
         if json_output:
-            console.print(json.dumps({
-                "success": True,
-                "cleared": 0,
-                "message": "No alerts to clear",
-            }, indent=2))
+            console.print(
+                json.dumps(
+                    {
+                        "success": True,
+                        "cleared": 0,
+                        "message": "No alerts to clear",
+                    },
+                    indent=2,
+                )
+            )
         else:
             console.print("[green]No alerts to clear[/green]")
         raise typer.Exit(0)
@@ -1552,11 +1728,16 @@ def alerts_clear(
 
     if to_clear <= 0:
         if json_output:
-            console.print(json.dumps({
-                "success": True,
-                "cleared": 0,
-                "message": "Nothing to clear (keeping recent alerts)",
-            }, indent=2))
+            console.print(
+                json.dumps(
+                    {
+                        "success": True,
+                        "cleared": 0,
+                        "message": "Nothing to clear (keeping recent alerts)",
+                    },
+                    indent=2,
+                )
+            )
         else:
             console.print("[green]Nothing to clear (keeping recent alerts)[/green]")
         raise typer.Exit(0)
@@ -1580,11 +1761,16 @@ def alerts_clear(
     alert_log_path.write_text(json.dumps(alerts_data, indent=2))
 
     if json_output:
-        console.print(json.dumps({
-            "success": True,
-            "cleared": to_clear,
-            "remaining": len(alerts_data),
-        }, indent=2))
+        console.print(
+            json.dumps(
+                {
+                    "success": True,
+                    "cleared": to_clear,
+                    "remaining": len(alerts_data),
+                },
+                indent=2,
+            )
+        )
     else:
         console.print(f"[green]Cleared {to_clear} alert(s)[/green]")
 
@@ -1596,7 +1782,7 @@ def alerts_stats(
         "--json",
         help="Output as JSON",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         "-p",
@@ -1642,10 +1828,12 @@ def alerts_stats(
         console.print(json.dumps(stats, indent=2))
         raise typer.Exit(0)
 
-    console.print(Panel.fit(
-        "[bold blue]Alert Statistics[/bold blue]",
-        border_style="blue",
-    ))
+    console.print(
+        Panel.fit(
+            "[bold blue]Alert Statistics[/bold blue]",
+            border_style="blue",
+        )
+    )
 
     # Overview table
     table = Table(
@@ -1691,7 +1879,7 @@ def alerts_test(
         "--json",
         help="Output as JSON",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         "-p",
@@ -1728,23 +1916,33 @@ def alerts_test(
 
     if alert:
         if json_output:
-            console.print(json.dumps({
-                "success": True,
-                "alert_id": alert.id,
-                "level": alert.level.value,
-                "sent_to": alert.sent_to,
-            }, indent=2))
+            console.print(
+                json.dumps(
+                    {
+                        "success": True,
+                        "alert_id": alert.id,
+                        "level": alert.level.value,
+                        "sent_to": alert.sent_to,
+                    },
+                    indent=2,
+                )
+            )
         else:
-            console.print(f"[green]Test alert sent successfully[/green]")
+            console.print("[green]Test alert sent successfully[/green]")
             console.print(f"  ID: {alert.id}")
             console.print(f"  Level: {_format_alert_level(alert.level)}")
             console.print(f"  Channels: {', '.join(alert.sent_to)}")
     else:
         if json_output:
-            console.print(json.dumps({
-                "success": False,
-                "message": "Alert was rate-limited or below threshold",
-            }, indent=2))
+            console.print(
+                json.dumps(
+                    {
+                        "success": False,
+                        "message": "Alert was rate-limited or below threshold",
+                    },
+                    indent=2,
+                )
+            )
         else:
             console.print("[yellow]Alert was rate-limited or below threshold[/yellow]")
             console.print("[dim]Try using --level critical to bypass rate limits[/dim]")

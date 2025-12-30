@@ -4,15 +4,16 @@ OpenAI AI Provider.
 Implements the AIProvider interface for OpenAI's GPT models.
 """
 
-import os
 import logging
-from typing import Optional, Dict, Any, List, AsyncIterator
+import os
+from collections.abc import AsyncIterator
+from typing import Any
 
 from fastband.providers.base import (
     AIProvider,
-    ProviderConfig,
-    CompletionResponse,
     Capability,
+    CompletionResponse,
+    ProviderConfig,
 )
 
 logger = logging.getLogger(__name__)
@@ -71,7 +72,7 @@ class OpenAIProvider(AIProvider):
         return "openai"
 
     @property
-    def capabilities(self) -> List[Capability]:
+    def capabilities(self) -> list[Capability]:
         return [
             Capability.TEXT_COMPLETION,
             Capability.CODE_GENERATION,
@@ -86,6 +87,7 @@ class OpenAIProvider(AIProvider):
         if self._client is None:
             try:
                 from openai import AsyncOpenAI
+
                 self._client = AsyncOpenAI(api_key=self.config.api_key)
             except ImportError:
                 raise ImportError(
@@ -95,10 +97,7 @@ class OpenAIProvider(AIProvider):
         return self._client
 
     async def complete(
-        self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        **kwargs
+        self, prompt: str, system_prompt: str | None = None, **kwargs
     ) -> CompletionResponse:
         """
         Send a completion request to OpenAI.
@@ -135,15 +134,11 @@ class OpenAIProvider(AIProvider):
                 "total_tokens": response.usage.total_tokens,
             },
             finish_reason=choice.finish_reason or "stop",
-            raw_response=response.model_dump() if hasattr(response, 'model_dump') else None,
+            raw_response=response.model_dump() if hasattr(response, "model_dump") else None,
         )
 
     async def complete_with_tools(
-        self,
-        prompt: str,
-        tools: List[Dict[str, Any]],
-        system_prompt: Optional[str] = None,
-        **kwargs
+        self, prompt: str, tools: list[dict[str, Any]], system_prompt: str | None = None, **kwargs
     ) -> CompletionResponse:
         """
         Complete with tool/function calling support.
@@ -175,11 +170,13 @@ class OpenAIProvider(AIProvider):
         tool_calls = []
         if choice.message.tool_calls:
             for tc in choice.message.tool_calls:
-                tool_calls.append({
-                    "id": tc.id,
-                    "name": tc.function.name,
-                    "arguments": tc.function.arguments,
-                })
+                tool_calls.append(
+                    {
+                        "id": tc.id,
+                        "name": tc.function.name,
+                        "arguments": tc.function.arguments,
+                    }
+                )
 
         return CompletionResponse(
             content=choice.message.content or "",
@@ -193,15 +190,12 @@ class OpenAIProvider(AIProvider):
             finish_reason=choice.finish_reason or "stop",
             raw_response={
                 "tool_calls": tool_calls,
-                "full_response": response.model_dump() if hasattr(response, 'model_dump') else None,
+                "full_response": response.model_dump() if hasattr(response, "model_dump") else None,
             },
         )
 
     async def stream(
-        self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        **kwargs
+        self, prompt: str, system_prompt: str | None = None, **kwargs
     ) -> AsyncIterator[str]:
         """
         Stream completion response.
@@ -227,11 +221,7 @@ class OpenAIProvider(AIProvider):
                 yield chunk.choices[0].delta.content
 
     async def analyze_image(
-        self,
-        image_data: bytes,
-        prompt: str,
-        image_type: str = "image/png",
-        **kwargs
+        self, image_data: bytes, prompt: str, image_type: str = "image/png", **kwargs
     ) -> CompletionResponse:
         """
         Analyze an image using GPT-4 Vision.

@@ -6,14 +6,14 @@ Provides convenient APIs for common multi-agent workflows.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Set
+from typing import Any
 
 from fastband.agents.ops_log import (
-    OpsLog,
-    LogEntry,
     EventType,
+    LogEntry,
+    OpsLog,
     get_ops_log,
 )
 
@@ -21,11 +21,12 @@ from fastband.agents.ops_log import (
 @dataclass
 class AgentStatus:
     """Status information for an agent."""
+
     name: str
     is_active: bool
-    last_seen: Optional[str] = None
-    current_ticket: Optional[str] = None
-    last_action: Optional[str] = None
+    last_seen: str | None = None
+    current_ticket: str | None = None
+    last_action: str | None = None
     activity_count: int = 0
     has_clearance: bool = False
     under_hold: bool = False
@@ -34,11 +35,12 @@ class AgentStatus:
 @dataclass
 class CoordinationResult:
     """Result of a coordination operation."""
+
     success: bool
     message: str
-    entry: Optional[LogEntry] = None
-    conflicts: List[LogEntry] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
+    entry: LogEntry | None = None
+    conflicts: list[LogEntry] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
 
 class AgentCoordinator:
@@ -55,7 +57,7 @@ class AgentCoordinator:
     def __init__(
         self,
         agent_name: str,
-        ops_log: Optional[OpsLog] = None,
+        ops_log: OpsLog | None = None,
         auto_register: bool = True,
     ):
         """
@@ -139,7 +141,7 @@ class AgentCoordinator:
     def complete_ticket(
         self,
         ticket_id: str,
-        summary: Optional[str] = None,
+        summary: str | None = None,
     ) -> CoordinationResult:
         """
         Mark a ticket as completed.
@@ -165,7 +167,7 @@ class AgentCoordinator:
 
     def request_clearance(
         self,
-        tickets: List[str],
+        tickets: list[str],
         reason: str,
     ) -> CoordinationResult:
         """
@@ -200,8 +202,8 @@ class AgentCoordinator:
 
     def grant_clearance(
         self,
-        agents: List[str],
-        tickets: List[str],
+        agents: list[str],
+        tickets: list[str],
         reason: str,
     ) -> CoordinationResult:
         """
@@ -230,8 +232,8 @@ class AgentCoordinator:
 
     def issue_hold(
         self,
-        agents: List[str],
-        tickets: Optional[List[str]] = None,
+        agents: list[str],
+        tickets: list[str] | None = None,
         reason: str = "Coordination required",
     ) -> CoordinationResult:
         """
@@ -258,7 +260,7 @@ class AgentCoordinator:
             entry=entry,
         )
 
-    def check_for_hold(self) -> Optional[LogEntry]:
+    def check_for_hold(self) -> LogEntry | None:
         """
         Check if there's an active hold affecting this agent.
 
@@ -279,8 +281,8 @@ class AgentCoordinator:
     def announce_rebuild(
         self,
         container: str,
-        ticket_id: Optional[str] = None,
-        files_changed: Optional[List[str]] = None,
+        ticket_id: str | None = None,
+        files_changed: list[str] | None = None,
         status: str = "requested",
     ) -> CoordinationResult:
         """
@@ -309,7 +311,7 @@ class AgentCoordinator:
             entry=entry,
         )
 
-    def get_active_agents(self, within_hours: float = 1.0) -> Dict[str, AgentStatus]:
+    def get_active_agents(self, within_hours: float = 1.0) -> dict[str, AgentStatus]:
         """
         Get status of all recently active agents.
 
@@ -322,7 +324,7 @@ class AgentCoordinator:
         active = self.ops_log.check_active_agents(within_hours=within_hours)
         directive = self.ops_log.get_latest_directive()
 
-        results: Dict[str, AgentStatus] = {}
+        results: dict[str, AgentStatus] = {}
 
         for agent_name, info in active.items():
             has_clearance = False
@@ -355,8 +357,8 @@ class AgentCoordinator:
     def update_status(
         self,
         message: str,
-        ticket_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        ticket_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> LogEntry:
         """
         Post a general status update.
@@ -380,10 +382,11 @@ class AgentCoordinator:
 
 # Convenience functions for quick coordination tasks
 
+
 def check_active_agents(
     within_hours: float = 1.0,
-    project_path: Optional[Path] = None,
-) -> Dict[str, Dict[str, Any]]:
+    project_path: Path | None = None,
+) -> dict[str, dict[str, Any]]:
     """
     Check which agents are currently active.
 
@@ -400,9 +403,9 @@ def check_active_agents(
 
 def request_clearance(
     agent: str,
-    tickets: List[str],
+    tickets: list[str],
     reason: str,
-    project_path: Optional[Path] = None,
+    project_path: Path | None = None,
 ) -> LogEntry:
     """
     Request clearance to work on tickets.
@@ -433,9 +436,9 @@ def announce_rebuild(
     agent: str,
     container: str,
     status: str = "requested",
-    ticket_id: Optional[str] = None,
-    files_changed: Optional[List[str]] = None,
-    project_path: Optional[Path] = None,
+    ticket_id: str | None = None,
+    files_changed: list[str] | None = None,
+    project_path: Path | None = None,
 ) -> LogEntry:
     """
     Announce a container rebuild.
@@ -463,7 +466,7 @@ def announce_rebuild(
 
 def get_agent_status(
     agent_name: str,
-    project_path: Optional[Path] = None,
+    project_path: Path | None = None,
 ) -> AgentStatus:
     """
     Get status information for a specific agent.
@@ -514,8 +517,8 @@ def get_agent_status(
 
 
 def get_latest_directive(
-    project_path: Optional[Path] = None,
-) -> Optional[LogEntry]:
+    project_path: Path | None = None,
+) -> LogEntry | None:
     """
     Get the most recent clearance or hold directive.
 
@@ -532,8 +535,8 @@ def get_latest_directive(
 def detect_conflicts(
     ticket_id: str,
     agent: str,
-    project_path: Optional[Path] = None,
-) -> List[LogEntry]:
+    project_path: Path | None = None,
+) -> list[LogEntry]:
     """
     Detect conflicts for a ticket operation.
 

@@ -10,22 +10,20 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from fastband.hub.chat import ChatManager
 from fastband.hub.models import (
     Conversation,
     HubSession,
     SessionConfig,
-    SessionStatus,
     SubscriptionTier,
-    MessageRole,
 )
 from fastband.hub.session import SessionManager
-from fastband.hub.chat import ChatManager
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +34,7 @@ DEV_MODE = os.environ.get("FASTBAND_DEV_MODE", "").lower() in ("1", "true", "yes
 def _utc_now() -> datetime:
     """Get current UTC time with timezone info."""
     return datetime.now(timezone.utc)
+
 
 router = APIRouter(tags=["hub"])
 
@@ -50,10 +49,10 @@ class CreateSessionRequest(BaseModel):
 
     user_id: str = Field(..., description="User identifier")
     tier: str = Field(default="free", description="Subscription tier")
-    project_path: Optional[str] = Field(None, description="Project path")
+    project_path: str | None = Field(None, description="Project path")
     model: str = Field(default="claude-sonnet-4-20250514", description="AI model")
     temperature: float = Field(default=0.7, ge=0, le=2)
-    tools_enabled: List[str] = Field(default_factory=list)
+    tools_enabled: list[str] = Field(default_factory=list)
 
 
 class SessionResponse(BaseModel):
@@ -64,7 +63,7 @@ class SessionResponse(BaseModel):
     status: str
     tier: str
     created_at: str
-    current_conversation_id: Optional[str] = None
+    current_conversation_id: str | None = None
 
 
 class ChatRequest(BaseModel):
@@ -72,7 +71,7 @@ class ChatRequest(BaseModel):
 
     session_id: str = Field(..., description="Session identifier")
     content: str = Field(..., min_length=1, max_length=32000)
-    conversation_id: Optional[str] = Field(None, description="Conversation ID")
+    conversation_id: str | None = Field(None, description="Conversation ID")
     stream: bool = Field(default=False, description="Stream response via SSE")
 
 
@@ -84,7 +83,7 @@ class ChatResponse(BaseModel):
     content: str
     tokens_used: int
     conversation_id: str
-    tool_calls: List[Dict[str, Any]] = Field(default_factory=list)
+    tool_calls: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class ConversationResponse(BaseModel):
@@ -170,7 +169,7 @@ async def get_session_manager(request: Request) -> SessionManager:
     return manager
 
 
-async def get_chat_manager(request: Request) -> Optional[ChatManager]:
+async def get_chat_manager(request: Request) -> ChatManager | None:
     """Get chat manager from app state. Returns None in dev mode."""
     manager = getattr(request.app.state, "chat_manager", None)
     if not manager and not DEV_MODE:
@@ -273,7 +272,7 @@ async def get_session_usage(
 @router.post("/chat", response_model=ChatResponse)
 async def send_message(
     request: ChatRequest,
-    chat: Optional[ChatManager] = Depends(get_chat_manager),
+    chat: ChatManager | None = Depends(get_chat_manager),
 ):
     """Send a chat message.
 
@@ -289,10 +288,11 @@ async def send_message(
     # Dev mode mock response
     if DEV_MODE and not chat:
         import uuid
+
         return ChatResponse(
             message_id=str(uuid.uuid4()),
             role="assistant",
-            content=f"🔧 Dev Mode: Received \"{request.content}\". Configure API keys for real responses.",
+            content=f'🔧 Dev Mode: Received "{request.content}". Configure API keys for real responses.',
             tokens_used=50,
             conversation_id=request.conversation_id or "dev-conv-1",
             tool_calls=[],
@@ -334,7 +334,7 @@ async def send_message(
 @router.post("/chat/stream")
 async def stream_message(
     request: ChatRequest,
-    chat: Optional[ChatManager] = Depends(get_chat_manager),
+    chat: ChatManager | None = Depends(get_chat_manager),
 ):
     """Stream a chat response via SSE.
 
@@ -347,6 +347,7 @@ async def stream_message(
     - done: Stream complete
     - error: Error occurred
     """
+
     async def generate_dev_response():
         """Generate mock streaming response for dev mode."""
         import uuid
@@ -354,7 +355,7 @@ async def stream_message(
         # Mock AI response chunks
         mock_response = (
             "🔧 **Dev Mode Response**\n\n"
-            f"I received your message: *\"{request.content}\"*\n\n"
+            f'I received your message: *"{request.content}"*\n\n'
             "This is a mock response because the AI backend is running in development mode. "
             "To enable real AI responses, set up your API keys:\n\n"
             "```bash\n"
@@ -367,17 +368,19 @@ async def stream_message(
         # Stream chunks with delay for realistic effect
         words = mock_response.split(" ")
         for i in range(0, len(words), 3):
-            chunk = " ".join(words[i:i+3]) + " "
+            chunk = " ".join(words[i : i + 3]) + " "
             data = json.dumps({"type": "content", "content": chunk})
             yield f"data: {data}\n\n"
             await asyncio.sleep(0.05)
 
         # Send done event
-        data = json.dumps({
-            "type": "done",
-            "message_id": str(uuid.uuid4()),
-            "tokens_used": len(mock_response) // 4,
-        })
+        data = json.dumps(
+            {
+                "type": "done",
+                "message_id": str(uuid.uuid4()),
+                "tokens_used": len(mock_response) // 4,
+            }
+        )
         yield f"data: {data}\n\n"
 
     async def generate():
@@ -394,11 +397,13 @@ async def stream_message(
                     yield f"data: {data}\n\n"
                 else:
                     # Final message
-                    data = json.dumps({
-                        "type": "done",
-                        "message_id": chunk.message_id,
-                        "tokens_used": chunk.tokens_used,
-                    })
+                    data = json.dumps(
+                        {
+                            "type": "done",
+                            "message_id": chunk.message_id,
+                            "tokens_used": chunk.tokens_used,
+                        }
+                    )
                     yield f"data: {data}\n\n"
 
         except ValueError as e:
@@ -461,7 +466,7 @@ _DEV_CONVERSATIONS = [
 ]
 
 
-@router.get("/conversations", response_model=List[ConversationResponse])
+@router.get("/conversations", response_model=list[ConversationResponse])
 async def list_conversations(
     session_id: str,
     manager: SessionManager = Depends(get_session_manager),
@@ -485,7 +490,7 @@ async def list_conversations(
 @router.post("/conversations")
 async def create_conversation(
     session_id: str,
-    title: Optional[str] = None,
+    title: str | None = None,
     manager: SessionManager = Depends(get_session_manager),
 ):
     """Create a new conversation.
@@ -495,6 +500,7 @@ async def create_conversation(
     # Dev mode mock response
     if DEV_MODE:
         import uuid
+
         return ConversationResponse(
             conversation_id=str(uuid.uuid4()),
             session_id=session_id,

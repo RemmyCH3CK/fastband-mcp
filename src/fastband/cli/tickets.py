@@ -13,21 +13,18 @@ Provides commands for managing tickets:
 """
 
 import json
-import typer
-from datetime import datetime
 from pathlib import Path
-from typing import Optional, List
 
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
-from rich.syntax import Syntax
+import typer
 from rich import box
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
 
 from fastband.tickets import (
     Ticket,
-    TicketStatus,
     TicketPriority,
+    TicketStatus,
     TicketType,
     get_store,
 )
@@ -43,7 +40,7 @@ tickets_app = typer.Typer(
 console = Console()
 
 
-def _get_store(path: Optional[Path] = None):
+def _get_store(path: Path | None = None):
     """Get the ticket store for the project."""
     if path is None:
         path = Path.cwd() / ".fastband" / "tickets.json"
@@ -124,25 +121,25 @@ def _format_ticket_id(ticket: Ticket) -> str:
 
 @tickets_app.command("list")
 def list_tickets(
-    status: Optional[str] = typer.Option(
+    status: str | None = typer.Option(
         None,
         "--status",
         "-s",
         help="Filter by status (open, in_progress, under_review, awaiting_approval, resolved, closed, blocked)",
     ),
-    priority: Optional[str] = typer.Option(
+    priority: str | None = typer.Option(
         None,
         "--priority",
         "-p",
         help="Filter by priority (critical, high, medium, low)",
     ),
-    assigned_to: Optional[str] = typer.Option(
+    assigned_to: str | None = typer.Option(
         None,
         "--assigned-to",
         "-a",
         help="Filter by assigned agent",
     ),
-    ticket_type: Optional[str] = typer.Option(
+    ticket_type: str | None = typer.Option(
         None,
         "--type",
         "-t",
@@ -159,7 +156,7 @@ def list_tickets(
         "--json",
         help="Output as JSON",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         help="Path to ticket storage file",
@@ -276,13 +273,13 @@ def list_tickets(
 
 @tickets_app.command("create")
 def create_ticket(
-    title: Optional[str] = typer.Option(
+    title: str | None = typer.Option(
         None,
         "--title",
         "-t",
         help="Ticket title",
     ),
-    description: Optional[str] = typer.Option(
+    description: str | None = typer.Option(
         None,
         "--description",
         "-d",
@@ -299,13 +296,13 @@ def create_ticket(
         "-p",
         help="Priority (critical, high, medium, low)",
     ),
-    assigned_to: Optional[str] = typer.Option(
+    assigned_to: str | None = typer.Option(
         None,
         "--assigned-to",
         "-a",
         help="Assign to agent",
     ),
-    labels: Optional[str] = typer.Option(
+    labels: str | None = typer.Option(
         None,
         "--labels",
         "-l",
@@ -322,7 +319,7 @@ def create_ticket(
         "--json",
         help="Output created ticket as JSON",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         help="Path to ticket storage file",
@@ -341,16 +338,10 @@ def create_ticket(
         description = typer.prompt("Description", default="")
 
         type_choices = [t.value for t in TicketType]
-        ticket_type = typer.prompt(
-            f"Type ({', '.join(type_choices)})",
-            default="task"
-        )
+        ticket_type = typer.prompt(f"Type ({', '.join(type_choices)})", default="task")
 
         priority_choices = [p.value for p in TicketPriority]
-        priority = typer.prompt(
-            f"Priority ({', '.join(priority_choices)})",
-            default="medium"
-        )
+        priority = typer.prompt(f"Priority ({', '.join(priority_choices)})", default="medium")
 
         assigned_to = typer.prompt("Assign to (optional)", default="")
         if not assigned_to:
@@ -432,7 +423,7 @@ def show_ticket(
         "--json",
         help="Output as JSON",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         help="Path to ticket storage file",
@@ -457,12 +448,14 @@ def show_ticket(
 
     # Header panel
     ticket_id = ticket.ticket_number or ticket.id[:8]
-    console.print(Panel.fit(
-        f"[bold blue]{ticket_id}[/bold blue] {ticket.title}\n"
-        f"[dim]{ticket.description or 'No description'}[/dim]",
-        title="Ticket Details",
-        border_style="blue",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold blue]{ticket_id}[/bold blue] {ticket.title}\n"
+            f"[dim]{ticket.description or 'No description'}[/dim]",
+            title="Ticket Details",
+            border_style="blue",
+        )
+    )
 
     # Info table
     info_table = Table(
@@ -543,7 +536,9 @@ def show_ticket(
         for comment in ticket.comments[-3:]:  # Show last 3 comments
             timestamp = comment.created_at.strftime("%Y-%m-%d %H:%M")
             console.print(f"  [{timestamp}] {comment.author}:")
-            console.print(f"    {comment.content[:100]}{'...' if len(comment.content) > 100 else ''}")
+            console.print(
+                f"    {comment.content[:100]}{'...' if len(comment.content) > 100 else ''}"
+            )
 
 
 # =============================================================================
@@ -568,7 +563,7 @@ def claim_ticket(
         "--json",
         help="Output as JSON",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         help="Path to ticket storage file",
@@ -604,20 +599,28 @@ def claim_ticket(
 
     display_id = ticket.ticket_number or ticket.id[:8]
     if json_output:
-        console.print(json.dumps({
-            "success": True,
-            "ticket_id": ticket.id,
-            "ticket_number": ticket.ticket_number,
-            "agent": agent,
-            "status": ticket.status.value,
-        }, indent=2, ensure_ascii=False))
+        console.print(
+            json.dumps(
+                {
+                    "success": True,
+                    "ticket_id": ticket.id,
+                    "ticket_number": ticket.ticket_number,
+                    "agent": agent,
+                    "status": ticket.status.value,
+                },
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
         raise typer.Exit(0)
 
     console.print(f"[green]Claimed ticket {display_id}[/green]")
     console.print(f"  Title: {ticket.title}")
     console.print(f"  Assigned to: {agent}")
     console.print(f"  Status: {_format_status(ticket.status)}")
-    console.print(f"  Started at: {ticket.started_at.strftime('%Y-%m-%d %H:%M') if ticket.started_at else 'N/A'}")
+    console.print(
+        f"  Started at: {ticket.started_at.strftime('%Y-%m-%d %H:%M') if ticket.started_at else 'N/A'}"
+    )
 
 
 # =============================================================================
@@ -643,13 +646,13 @@ def complete_ticket(
         "-s",
         help="Summary of the solution implemented",
     ),
-    files: Optional[str] = typer.Option(
+    files: str | None = typer.Option(
         None,
         "--files",
         "-f",
         help="Comma-separated list of files modified",
     ),
-    testing: Optional[str] = typer.Option(
+    testing: str | None = typer.Option(
         None,
         "--testing",
         "-t",
@@ -660,7 +663,7 @@ def complete_ticket(
         "--json",
         help="Output as JSON",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         help="Path to ticket storage file",
@@ -681,7 +684,9 @@ def complete_ticket(
 
     # Check if ticket is in progress
     if ticket.status != TicketStatus.IN_PROGRESS:
-        console.print(f"[red]Cannot complete ticket with status: {ticket.status.display_name}[/red]")
+        console.print(
+            f"[red]Cannot complete ticket with status: {ticket.status.display_name}[/red]"
+        )
         console.print("[dim]Only IN_PROGRESS tickets can be completed[/dim]")
         raise typer.Exit(1)
 
@@ -710,15 +715,21 @@ def complete_ticket(
 
     display_id = ticket.ticket_number or ticket.id[:8]
     if json_output:
-        console.print(json.dumps({
-            "success": True,
-            "ticket_id": ticket.id,
-            "ticket_number": ticket.ticket_number,
-            "status": ticket.status.value,
-            "problem_summary": problem,
-            "solution_summary": solution,
-            "files_modified": file_list,
-        }, indent=2, ensure_ascii=False))
+        console.print(
+            json.dumps(
+                {
+                    "success": True,
+                    "ticket_id": ticket.id,
+                    "ticket_number": ticket.ticket_number,
+                    "status": ticket.status.value,
+                    "problem_summary": problem,
+                    "solution_summary": solution,
+                    "files_modified": file_list,
+                },
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
         raise typer.Exit(0)
 
     console.print(f"[green]Completed ticket {display_id}[/green]")
@@ -741,7 +752,7 @@ def search_tickets(
         ...,
         help="Search query",
     ),
-    fields: Optional[str] = typer.Option(
+    fields: str | None = typer.Option(
         None,
         "--fields",
         "-f",
@@ -758,7 +769,7 @@ def search_tickets(
         "--json",
         help="Output as JSON",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         help="Path to ticket storage file",
@@ -831,43 +842,43 @@ def update_ticket(
         ...,
         help="Ticket ID to update",
     ),
-    title: Optional[str] = typer.Option(
+    title: str | None = typer.Option(
         None,
         "--title",
         "-t",
         help="New title",
     ),
-    description: Optional[str] = typer.Option(
+    description: str | None = typer.Option(
         None,
         "--description",
         "-d",
         help="New description",
     ),
-    priority: Optional[str] = typer.Option(
+    priority: str | None = typer.Option(
         None,
         "--priority",
         "-p",
         help="New priority (critical, high, medium, low)",
     ),
-    status: Optional[str] = typer.Option(
+    status: str | None = typer.Option(
         None,
         "--status",
         "-s",
         help="New status (only valid transitions allowed)",
     ),
-    assigned_to: Optional[str] = typer.Option(
+    assigned_to: str | None = typer.Option(
         None,
         "--assigned-to",
         "-a",
         help="Assign to agent (use empty string to unassign)",
     ),
-    labels: Optional[str] = typer.Option(
+    labels: str | None = typer.Option(
         None,
         "--labels",
         "-l",
         help="New labels (comma-separated, replaces existing)",
     ),
-    notes: Optional[str] = typer.Option(
+    notes: str | None = typer.Option(
         None,
         "--notes",
         "-n",
@@ -878,7 +889,7 @@ def update_ticket(
         "--json",
         help="Output as JSON",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         help="Path to ticket storage file",
@@ -944,13 +955,15 @@ def update_ticket(
         try:
             new_status = TicketStatus.from_string(status)
             if not ticket.status.can_transition_to(new_status):
-                console.print(f"[red]Invalid status transition: {ticket.status.value} -> {new_status.value}[/red]")
+                console.print(
+                    f"[red]Invalid status transition: {ticket.status.value} -> {new_status.value}[/red]"
+                )
                 raise typer.Exit(1)
             success = ticket.transition_status(new_status, actor="cli", actor_type="system")
             if success:
                 changes.append(f"status: {new_status.value}")
             else:
-                console.print(f"[red]Failed to transition status[/red]")
+                console.print("[red]Failed to transition status[/red]")
                 raise typer.Exit(1)
         except ValueError:
             console.print(f"[red]Invalid status: {status}[/red]")
@@ -990,12 +1003,18 @@ def update_ticket(
 
     display_id = ticket.ticket_number or ticket.id[:8]
     if json_output:
-        console.print(json.dumps({
-            "success": True,
-            "ticket_id": ticket.id,
-            "ticket_number": ticket.ticket_number,
-            "changes": changes,
-        }, indent=2, ensure_ascii=False))
+        console.print(
+            json.dumps(
+                {
+                    "success": True,
+                    "ticket_id": ticket.id,
+                    "ticket_number": ticket.ticket_number,
+                    "changes": changes,
+                },
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
         raise typer.Exit(0)
 
     console.print(f"[green]Updated ticket {display_id}[/green]")
@@ -1033,7 +1052,7 @@ def start_web(
         "--open/--no-open",
         help="Open browser automatically",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         help="Path to ticket storage file",
@@ -1050,18 +1069,22 @@ def start_web(
     - Dark/light mode toggle
     """
     import webbrowser
+
     from fastband.tickets.web.app import serve as serve_web
 
     store = _get_store(path)
 
     url = f"http://{host}:{port}"
-    console.print(Panel.fit(
-        f"[bold blue]Ticket Web Dashboard[/bold blue]\n"
-        f"[dim]Starting at {url}[/dim]",
-        border_style="blue",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold blue]Ticket Web Dashboard[/bold blue]\n[dim]Starting at {url}[/dim]",
+            border_style="blue",
+        )
+    )
 
-    console.print(f"[green]✓[/green] Serving tickets from: {store.path if hasattr(store, 'path') else 'default store'}")
+    console.print(
+        f"[green]✓[/green] Serving tickets from: {store.path if hasattr(store, 'path') else 'default store'}"
+    )
     console.print(f"[green]✓[/green] Debug mode: {'enabled' if debug else 'disabled'}")
     console.print("\n[dim]Press Ctrl+C to stop the server[/dim]\n")
 
@@ -1069,10 +1092,13 @@ def start_web(
     if open_browser:
         # Delay browser open slightly to let server start
         import threading
+
         def open_delayed():
             import time
+
             time.sleep(1)
             webbrowser.open(url)
+
         threading.Thread(target=open_delayed, daemon=True).start()
 
     # Start the server

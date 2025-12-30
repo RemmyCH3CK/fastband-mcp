@@ -17,9 +17,9 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
-from fastband.backup.manager import BackupManager, BackupType, BackupInfo
+from fastband.backup.manager import BackupInfo, BackupManager, BackupType
 from fastband.core.config import BackupConfig, get_config
 
 # Import alerts (lazy to avoid circular imports)
@@ -31,6 +31,7 @@ def _get_alerts():
     global _alerts_module
     if _alerts_module is None:
         from fastband.backup import alerts
+
         _alerts_module = alerts
     return _alerts_module
 
@@ -41,15 +42,16 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SchedulerState:
     """Scheduler runtime state."""
+
     running: bool = False
-    pid: Optional[int] = None
-    started_at: Optional[datetime] = None
-    last_backup_at: Optional[datetime] = None
-    next_backup_at: Optional[datetime] = None
+    pid: int | None = None
+    started_at: datetime | None = None
+    last_backup_at: datetime | None = None
+    next_backup_at: datetime | None = None
     backups_created: int = 0
     errors: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "running": self.running,
@@ -62,14 +64,20 @@ class SchedulerState:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "SchedulerState":
+    def from_dict(cls, data: dict[str, Any]) -> "SchedulerState":
         """Create from dictionary."""
         return cls(
             running=data.get("running", False),
             pid=data.get("pid"),
-            started_at=datetime.fromisoformat(data["started_at"]) if data.get("started_at") else None,
-            last_backup_at=datetime.fromisoformat(data["last_backup_at"]) if data.get("last_backup_at") else None,
-            next_backup_at=datetime.fromisoformat(data["next_backup_at"]) if data.get("next_backup_at") else None,
+            started_at=datetime.fromisoformat(data["started_at"])
+            if data.get("started_at")
+            else None,
+            last_backup_at=datetime.fromisoformat(data["last_backup_at"])
+            if data.get("last_backup_at")
+            else None,
+            next_backup_at=datetime.fromisoformat(data["next_backup_at"])
+            if data.get("next_backup_at")
+            else None,
             backups_created=data.get("backups_created", 0),
             errors=data.get("errors", 0),
         )
@@ -88,8 +96,8 @@ class BackupScheduler:
 
     def __init__(
         self,
-        project_path: Optional[Path] = None,
-        config: Optional[BackupConfig] = None,
+        project_path: Path | None = None,
+        config: BackupConfig | None = None,
     ):
         """
         Initialize the backup scheduler.
@@ -127,7 +135,7 @@ class BackupScheduler:
         # State
         self.state = self._load_state()
         self._running = False
-        self._shutdown_event: Optional[asyncio.Event] = None
+        self._shutdown_event: asyncio.Event | None = None
 
     def _load_state(self) -> SchedulerState:
         """Load scheduler state from file."""
@@ -148,7 +156,7 @@ class BackupScheduler:
         """Write PID file."""
         self.pid_file.write_text(str(os.getpid()))
 
-    def _read_pid(self) -> Optional[int]:
+    def _read_pid(self) -> int | None:
         """Read PID from file."""
         if self.pid_file.exists():
             try:
@@ -182,7 +190,7 @@ class BackupScheduler:
             self._save_state()
         return False
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Get scheduler status."""
         running = self.is_running()
         state = self._load_state()
@@ -206,7 +214,7 @@ class BackupScheduler:
             "next_backup_in": self._time_until_next_backup(state) if running else None,
         }
 
-    def _time_until_next_backup(self, state: SchedulerState) -> Optional[str]:
+    def _time_until_next_backup(self, state: SchedulerState) -> str | None:
         """Calculate time until next backup."""
         if not state.next_backup_at:
             return None
@@ -225,7 +233,7 @@ class BackupScheduler:
         else:
             return f"{seconds}s"
 
-    def _create_backup(self, backup_type: BackupType, description: str = "") -> Optional[BackupInfo]:
+    def _create_backup(self, backup_type: BackupType, description: str = "") -> BackupInfo | None:
         """Create a backup and update state."""
         try:
             backup_info = self.manager.create_backup(
@@ -284,7 +292,7 @@ class BackupScheduler:
         remaining = self.manager.list_backups()
         if len(remaining) > self.config.max_backups:
             # Delete oldest backups
-            to_delete = remaining[self.config.max_backups:]
+            to_delete = remaining[self.config.max_backups :]
             for backup in to_delete:
                 if self.manager.delete_backup(backup.id):
                     pruned_count += 1
@@ -296,7 +304,7 @@ class BackupScheduler:
     # HOOK METHODS - Called by external code
     # =========================================================================
 
-    def trigger_before_build(self) -> Optional[BackupInfo]:
+    def trigger_before_build(self) -> BackupInfo | None:
         """
         Trigger backup before a build operation.
 
@@ -306,12 +314,9 @@ class BackupScheduler:
             return None
 
         logger.info("Triggering pre-build backup")
-        return self._create_backup(
-            BackupType.ON_CHANGE,
-            description="Pre-build backup"
-        )
+        return self._create_backup(BackupType.ON_CHANGE, description="Pre-build backup")
 
-    def trigger_after_ticket_completion(self, ticket_id: str = "") -> Optional[BackupInfo]:
+    def trigger_after_ticket_completion(self, ticket_id: str = "") -> BackupInfo | None:
         """
         Trigger backup after ticket completion.
 
@@ -320,17 +325,14 @@ class BackupScheduler:
         if not self.config.enabled or not self.config.hooks.after_ticket_completion:
             return None
 
-        description = f"Post-completion backup"
+        description = "Post-completion backup"
         if ticket_id:
             description = f"Post-completion backup (ticket #{ticket_id})"
 
-        logger.info(f"Triggering post-ticket-completion backup")
-        return self._create_backup(
-            BackupType.ON_CHANGE,
-            description=description
-        )
+        logger.info("Triggering post-ticket-completion backup")
+        return self._create_backup(BackupType.ON_CHANGE, description=description)
 
-    def trigger_on_config_change(self) -> Optional[BackupInfo]:
+    def trigger_on_config_change(self) -> BackupInfo | None:
         """
         Trigger backup when configuration changes.
 
@@ -340,10 +342,7 @@ class BackupScheduler:
             return None
 
         logger.info("Triggering config-change backup")
-        return self._create_backup(
-            BackupType.ON_CHANGE,
-            description="Config change backup"
-        )
+        return self._create_backup(BackupType.ON_CHANGE, description="Config change backup")
 
     # =========================================================================
     # DAEMON METHODS
@@ -360,10 +359,7 @@ class BackupScheduler:
 
             # Wait for interval or shutdown
             try:
-                await asyncio.wait_for(
-                    self._shutdown_event.wait(),
-                    timeout=interval_seconds
-                )
+                await asyncio.wait_for(self._shutdown_event.wait(), timeout=interval_seconds)
                 # Shutdown requested
                 break
             except asyncio.TimeoutError:
@@ -376,7 +372,7 @@ class BackupScheduler:
             # Create scheduled backup
             self._create_backup(
                 BackupType.FULL,
-                description=f"Scheduled backup (every {self.config.interval_hours}h)"
+                description=f"Scheduled backup (every {self.config.interval_hours}h)",
             )
 
     def start_daemon(self, foreground: bool = False) -> bool:
@@ -425,13 +421,12 @@ class BackupScheduler:
         self.state.next_backup_at = datetime.now() + timedelta(hours=self.config.interval_hours)
         self._save_state()
 
-        logger.info(f"Scheduler started (PID: {os.getpid()}, interval: {self.config.interval_hours}h)")
+        logger.info(
+            f"Scheduler started (PID: {os.getpid()}, interval: {self.config.interval_hours}h)"
+        )
 
         # Create initial backup
-        self._create_backup(
-            BackupType.FULL,
-            description="Scheduler start backup"
-        )
+        self._create_backup(BackupType.FULL, description="Scheduler start backup")
 
         try:
             asyncio.run(self._run_scheduler_loop())
@@ -536,16 +531,15 @@ class BackupScheduler:
 
 # Convenience functions
 
-def get_scheduler(project_path: Optional[Path] = None) -> BackupScheduler:
+
+def get_scheduler(project_path: Path | None = None) -> BackupScheduler:
     """Get a BackupScheduler instance for a project."""
     return BackupScheduler(project_path=project_path)
 
 
 def trigger_backup_hook(
-    hook_type: str,
-    project_path: Optional[Path] = None,
-    **kwargs
-) -> Optional[BackupInfo]:
+    hook_type: str, project_path: Path | None = None, **kwargs
+) -> BackupInfo | None:
     """
     Trigger a backup hook.
 

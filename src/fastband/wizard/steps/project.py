@@ -5,26 +5,21 @@ Detects project type, language, frameworks, and other characteristics
 using the detection system and allows user confirmation/override.
 """
 
-from typing import Any, Dict, List, Optional
-
+from rich import box
 from rich.console import Console
 from rich.table import Table
-from rich import box
 
-from fastband.wizard.base import WizardStep, WizardContext, StepResult
 from fastband.core.detection import (
-    detect_project,
-    ProjectInfo,
-    Language,
-    ProjectType,
     Framework,
-    PackageManager,
-    BuildTool,
+    Language,
+    ProjectInfo,
+    ProjectType,
+    detect_project,
 )
-
+from fastband.wizard.base import StepResult, WizardContext, WizardStep
 
 # Display name mappings for better user experience
-LANGUAGE_DISPLAY_NAMES: Dict[Language, str] = {
+LANGUAGE_DISPLAY_NAMES: dict[Language, str] = {
     Language.PYTHON: "Python",
     Language.JAVASCRIPT: "JavaScript",
     Language.TYPESCRIPT: "TypeScript",
@@ -42,7 +37,7 @@ LANGUAGE_DISPLAY_NAMES: Dict[Language, str] = {
     Language.UNKNOWN: "Unknown",
 }
 
-PROJECT_TYPE_DISPLAY_NAMES: Dict[ProjectType, str] = {
+PROJECT_TYPE_DISPLAY_NAMES: dict[ProjectType, str] = {
     ProjectType.WEB_APP: "Web Application",
     ProjectType.API_SERVICE: "API Service",
     ProjectType.MOBILE_IOS: "iOS Mobile App",
@@ -56,7 +51,7 @@ PROJECT_TYPE_DISPLAY_NAMES: Dict[ProjectType, str] = {
     ProjectType.UNKNOWN: "Unknown",
 }
 
-FRAMEWORK_DISPLAY_NAMES: Dict[Framework, str] = {
+FRAMEWORK_DISPLAY_NAMES: dict[Framework, str] = {
     Framework.FLASK: "Flask",
     Framework.DJANGO: "Django",
     Framework.FASTAPI: "FastAPI",
@@ -93,9 +88,9 @@ class ProjectDetectionStep(WizardStep):
     4. Saves project info to the wizard context
     """
 
-    def __init__(self, console: Optional[Console] = None):
+    def __init__(self, console: Console | None = None):
         super().__init__(console)
-        self._detected_info: Optional[ProjectInfo] = None
+        self._detected_info: ProjectInfo | None = None
 
     @property
     def name(self) -> str:
@@ -203,9 +198,7 @@ class ProjectDetectionStep(WizardStep):
         table.add_row("Language", lang_display, lang_confidence)
 
         # Project type
-        type_display = PROJECT_TYPE_DISPLAY_NAMES.get(
-            info.primary_type, info.primary_type.value
-        )
+        type_display = PROJECT_TYPE_DISPLAY_NAMES.get(info.primary_type, info.primary_type.value)
         type_confidence = f"{info.type_confidence:.0%}"
         table.add_row("Type", type_display, type_confidence)
 
@@ -225,9 +218,7 @@ class ProjectDetectionStep(WizardStep):
             fw_table.add_column("Confidence", justify="right")
 
             for fw in info.frameworks[:5]:  # Limit to top 5
-                fw_display = FRAMEWORK_DISPLAY_NAMES.get(
-                    fw.framework, fw.framework.value
-                )
+                fw_display = FRAMEWORK_DISPLAY_NAMES.get(fw.framework, fw.framework.value)
                 version = fw.version or "-"
                 confidence = f"{fw.confidence:.0%}"
                 fw_table.add_row(fw_display, version, confidence)
@@ -245,7 +236,9 @@ class ProjectDetectionStep(WizardStep):
 
         # Monorepo info
         if info.is_monorepo:
-            self.console.print(f"\n[yellow]Monorepo detected[/yellow] with {len(info.subprojects)} subprojects")
+            self.console.print(
+                f"\n[yellow]Monorepo detected[/yellow] with {len(info.subprojects)} subprojects"
+            )
             if info.subprojects:
                 for sp in info.subprojects[:5]:
                     self.console.print(f"  - {sp}")
@@ -254,9 +247,7 @@ class ProjectDetectionStep(WizardStep):
 
         self.console.print()
 
-    async def _confirm_or_override(
-        self, context: WizardContext, info: ProjectInfo
-    ) -> bool:
+    async def _confirm_or_override(self, context: WizardContext, info: ProjectInfo) -> bool:
         """
         Allow user to confirm or override detection results.
 

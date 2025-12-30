@@ -1,31 +1,28 @@
 """Tests for tool recommender."""
 
-import pytest
-from pathlib import Path
-import tempfile
 import json
+import tempfile
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+from fastband.core.detection import (
+    Framework,
+    Language,
+    ProjectType,
+)
+from fastband.tools.base import Tool, ToolCategory
 from fastband.tools.recommender import (
-    ToolRecommender,
-    ToolRecommendation,
-    RecommendationResult,
-    get_recommender,
-    recommend_tools,
-    PROJECT_TYPE_TOOLS,
     FRAMEWORK_TOOLS,
     LANGUAGE_TOOLS,
+    PROJECT_TYPE_TOOLS,
+    RecommendationResult,
+    ToolRecommendation,
+    ToolRecommender,
+    get_recommender,
+    recommend_tools,
 )
-from fastband.tools.base import Tool, ToolCategory, ToolDefinition, ToolParameter
-from fastband.core.detection import (
-    ProjectInfo,
-    ProjectType,
-    Language,
-    Framework,
-    DetectedLanguage,
-    DetectedFramework,
-)
-
 
 # =============================================================================
 # FIXTURES
@@ -60,10 +57,9 @@ dependencies = ["flask>=2.0"]
 @pytest.fixture
 def react_project(temp_dir):
     """Create a React project."""
-    (temp_dir / "package.json").write_text(json.dumps({
-        "name": "react-app",
-        "dependencies": {"react": "^18.2.0"}
-    }))
+    (temp_dir / "package.json").write_text(
+        json.dumps({"name": "react-app", "dependencies": {"react": "^18.2.0"}})
+    )
     (temp_dir / "package-lock.json").write_text("{}")
 
     src = temp_dir / "src"
@@ -84,6 +80,7 @@ def git_project(temp_dir):
 @pytest.fixture
 def mock_tool():
     """Create a mock tool for testing."""
+
     def _create_tool(name: str, category: ToolCategory):
         tool = MagicMock(spec=Tool)
         tool.name = name
@@ -92,6 +89,7 @@ def mock_tool():
         tool.definition.metadata = MagicMock()
         tool.definition.metadata.project_types = []
         return tool
+
     return _create_tool
 
 
@@ -261,7 +259,7 @@ class TestToolRecommender:
         recommender = ToolRecommender()
 
         # Patch at the import location inside the property
-        with patch('fastband.tools.registry.get_registry', return_value=mock_registry):
+        with patch("fastband.tools.registry.get_registry", return_value=mock_registry):
             reg = recommender.registry
             assert reg is mock_registry
 

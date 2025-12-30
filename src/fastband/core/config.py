@@ -4,17 +4,18 @@ Fastband configuration management.
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Any, Optional, List
-import os
+from typing import Any
+
 import yaml
 
 
 @dataclass
 class AIProviderConfig:
     """Configuration for a single AI provider."""
+
     model: str
-    api_key: Optional[str] = None
-    base_url: Optional[str] = None
+    api_key: str | None = None
+    base_url: str | None = None
     max_tokens: int = 4096
     temperature: float = 0.7
 
@@ -22,6 +23,7 @@ class AIProviderConfig:
 @dataclass
 class ToolsConfig:
     """Tool garage configuration."""
+
     max_active: int = 60
     auto_load_core: bool = True
     performance_warning_threshold: int = 40
@@ -30,6 +32,7 @@ class ToolsConfig:
 @dataclass
 class TicketsConfig:
     """Ticket manager configuration."""
+
     enabled: bool = True
     mode: str = "cli_web"  # cli, cli_web, embedded
     web_port: int = 5050
@@ -40,6 +43,7 @@ class TicketsConfig:
 @dataclass
 class BackupHooksConfig:
     """Backup hooks configuration."""
+
     before_build: bool = True
     after_ticket_completion: bool = True
     on_config_change: bool = False
@@ -48,6 +52,7 @@ class BackupHooksConfig:
 @dataclass
 class BackupConfig:
     """Backup manager configuration."""
+
     enabled: bool = True
 
     # Scheduler settings
@@ -79,6 +84,7 @@ class BackupConfig:
 @dataclass
 class GitHubConfig:
     """GitHub integration configuration."""
+
     enabled: bool = False
     automation_level: str = "hybrid"  # full, guided, hybrid, none
     default_branch: str = "main"
@@ -91,16 +97,17 @@ class FastbandConfig:
 
     Loaded from .fastband/config.yaml or environment variables.
     """
+
     version: str = "1.2025.12"
 
     # Project info (from detection)
-    project_name: Optional[str] = None
-    project_type: Optional[str] = None
-    primary_language: Optional[str] = None
+    project_name: str | None = None
+    project_type: str | None = None
+    primary_language: str | None = None
 
     # AI Providers
     default_provider: str = "claude"
-    providers: Dict[str, AIProviderConfig] = field(default_factory=dict)
+    providers: dict[str, AIProviderConfig] = field(default_factory=dict)
 
     # Components
     tools: ToolsConfig = field(default_factory=ToolsConfig)
@@ -124,7 +131,7 @@ class FastbandConfig:
         return cls.from_dict(data.get("fastband", data))
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "FastbandConfig":
+    def from_dict(cls, data: dict[str, Any]) -> "FastbandConfig":
         """Create config from dictionary."""
         config = cls()
 
@@ -210,9 +217,9 @@ class FastbandConfig:
 
         return config
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "fastband": {
                 "version": self.version,
             }
@@ -294,10 +301,10 @@ class FastbandConfig:
 
 
 # Global config instance
-_config: Optional[FastbandConfig] = None
+_config: FastbandConfig | None = None
 
 
-def get_config(project_path: Optional[Path] = None) -> FastbandConfig:
+def get_config(project_path: Path | None = None) -> FastbandConfig:
     """
     Get Fastband configuration.
 

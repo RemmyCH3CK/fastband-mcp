@@ -1,8 +1,7 @@
 """Tests for configuration management."""
 
-import pytest
-from pathlib import Path
 import tempfile
+from pathlib import Path
 
 from fastband.core.config import FastbandConfig, get_config
 
@@ -83,6 +82,7 @@ class TestGetConfig:
         """Test that get_config returns a FastbandConfig."""
         # Reset global config
         import fastband.core.config
+
         fastband.core.config._config = None
 
         config = get_config()
@@ -91,6 +91,7 @@ class TestGetConfig:
     def test_get_config_caches_result(self):
         """Test that get_config caches the config instance."""
         import fastband.core.config
+
         fastband.core.config._config = None
 
         config1 = get_config()

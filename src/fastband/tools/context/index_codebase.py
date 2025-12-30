@@ -6,14 +6,13 @@ MCP tool for indexing a codebase for semantic search.
 
 import os
 from pathlib import Path
-from typing import Optional
 
 from fastband.tools.base import (
     Tool,
+    ToolCategory,
     ToolDefinition,
     ToolMetadata,
     ToolParameter,
-    ToolCategory,
     ToolResult,
 )
 
@@ -73,7 +72,7 @@ class IndexCodebaseTool(Tool):
 
     async def execute(
         self,
-        directory: Optional[str] = None,
+        directory: str | None = None,
         provider: str = "openai",
         incremental: bool = True,
         clear: bool = False,

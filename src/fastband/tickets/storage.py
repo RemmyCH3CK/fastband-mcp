@@ -14,26 +14,27 @@ Performance Optimizations (Issue #38):
 - Thread-safe: Uses locks for concurrent access
 """
 
+import builtins
 import json
-import sqlite3
+import logging
 import shutil
+import sqlite3
+import threading
+import time
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
-from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Callable, Tuple
-import threading
-import time
-import logging
+from typing import Any
 
 from fastband.tickets.models import (
-    Ticket,
-    TicketStatus,
-    TicketPriority,
-    TicketType,
     Agent,
+    Ticket,
+    TicketPriority,
+    TicketStatus,
+    TicketType,
 )
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,7 @@ logger = logging.getLogger(__name__)
 @dataclass(slots=True)
 class CacheStats:
     """Statistics for cache performance monitoring."""
+
     hits: int = 0
     misses: int = 0
     evictions: int = 0
@@ -60,15 +62,16 @@ class TicketCache:
     Caches parsed Ticket objects to avoid repeated JSON parsing
     and object instantiation for frequently accessed tickets.
     """
-    __slots__ = ('_cache', '_max_size', '_stats', '_lock')
+
+    __slots__ = ("_cache", "_max_size", "_stats", "_lock")
 
     def __init__(self, max_size: int = 100):
-        self._cache: Dict[str, Tuple[Ticket, float]] = {}  # id -> (ticket, timestamp)
+        self._cache: dict[str, tuple[Ticket, float]] = {}  # id -> (ticket, timestamp)
         self._max_size = max_size
         self._stats = CacheStats()
         self._lock = threading.Lock()
 
-    def get(self, ticket_id: str) -> Optional[Ticket]:
+    def get(self, ticket_id: str) -> Ticket | None:
         """Get a ticket from cache."""
         with self._lock:
             if ticket_id in self._cache:
@@ -130,7 +133,7 @@ class TicketStore(ABC):
         pass
 
     @abstractmethod
-    def get(self, ticket_id: str) -> Optional[Ticket]:
+    def get(self, ticket_id: str) -> Ticket | None:
         """
         Get a ticket by ID or ticket_number.
 
@@ -154,27 +157,27 @@ class TicketStore(ABC):
     @abstractmethod
     def list(
         self,
-        status: Optional[TicketStatus] = None,
-        priority: Optional[TicketPriority] = None,
-        ticket_type: Optional[TicketType] = None,
-        assigned_to: Optional[str] = None,
-        labels: Optional[List[str]] = None,
+        status: TicketStatus | None = None,
+        priority: TicketPriority | None = None,
+        ticket_type: TicketType | None = None,
+        assigned_to: str | None = None,
+        labels: list[str] | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[Ticket]:
+    ) -> list[Ticket]:
         """List tickets with optional filters."""
         pass
 
     @abstractmethod
-    def search(self, query: str, fields: Optional[List[str]] = None) -> List[Ticket]:
+    def search(self, query: str, fields: builtins.list[str] | None = None) -> builtins.list[Ticket]:
         """Search tickets by text query."""
         pass
 
     @abstractmethod
     def count(
         self,
-        status: Optional[TicketStatus] = None,
-        priority: Optional[TicketPriority] = None,
+        status: TicketStatus | None = None,
+        priority: TicketPriority | None = None,
     ) -> int:
         """Count tickets with optional filters."""
         pass
@@ -190,13 +193,13 @@ class TicketStore(ABC):
         pass
 
     @abstractmethod
-    def get_by_number(self, ticket_number: str) -> Optional[Ticket]:
+    def get_by_number(self, ticket_number: str) -> Ticket | None:
         """Get a ticket by its human-friendly ticket_number."""
         pass
 
     # Agent management
     @abstractmethod
-    def get_agent(self, name: str) -> Optional[Agent]:
+    def get_agent(self, name: str) -> Agent | None:
         """Get an agent by name."""
         pass
 
@@ -206,7 +209,7 @@ class TicketStore(ABC):
         pass
 
     @abstractmethod
-    def list_agents(self, active_only: bool = True) -> List[Agent]:
+    def list_agents(self, active_only: bool = True) -> builtins.list[Agent]:
         """List all agents."""
         pass
 
@@ -239,12 +242,12 @@ class JSONTicketStore(TicketStore):
     - Batch save optimization with auto_save toggle
     """
 
-    __slots__ = ('path', 'auto_save', '_data', '_lock', '_cache', '_dirty')
+    __slots__ = ("path", "auto_save", "_data", "_lock", "_cache", "_dirty")
 
     def __init__(self, path: Path, auto_save: bool = True, cache_size: int = 100):
         self.path = Path(path)
         self.auto_save = auto_save
-        self._data: Dict[str, Any] = {
+        self._data: dict[str, Any] = {
             "tickets": {},
             "agents": {},
             "metadata": {
@@ -264,7 +267,7 @@ class JSONTicketStore(TicketStore):
         if self.path.exists():
             with self._lock:
                 try:
-                    with open(self.path, "r", encoding="utf-8") as f:
+                    with open(self.path, encoding="utf-8") as f:
                         self._data = json.load(f)
                     # Ensure required keys exist
                     self._data.setdefault("tickets", {})
@@ -311,7 +314,7 @@ class JSONTicketStore(TicketStore):
 
             return ticket
 
-    def get(self, ticket_id: str) -> Optional[Ticket]:
+    def get(self, ticket_id: str) -> Ticket | None:
         """
         Get a ticket by ID or ticket_number.
 
@@ -369,14 +372,14 @@ class JSONTicketStore(TicketStore):
 
     def list(
         self,
-        status: Optional[TicketStatus] = None,
-        priority: Optional[TicketPriority] = None,
-        ticket_type: Optional[TicketType] = None,
-        assigned_to: Optional[str] = None,
-        labels: Optional[List[str]] = None,
+        status: TicketStatus | None = None,
+        priority: TicketPriority | None = None,
+        ticket_type: TicketType | None = None,
+        assigned_to: str | None = None,
+        labels: list[str] | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[Ticket]:
+    ) -> list[Ticket]:
         """List tickets with optional filters."""
         with self._lock:
             tickets = []
@@ -407,7 +410,7 @@ class JSONTicketStore(TicketStore):
             # Apply pagination
             return tickets[offset : offset + limit]
 
-    def search(self, query: str, fields: Optional[List[str]] = None) -> List[Ticket]:
+    def search(self, query: str, fields: builtins.list[str] | None = None) -> builtins.list[Ticket]:
         """Search tickets by text query."""
         if fields is None:
             fields = ["title", "description", "requirements", "notes"]
@@ -437,8 +440,8 @@ class JSONTicketStore(TicketStore):
 
     def count(
         self,
-        status: Optional[TicketStatus] = None,
-        priority: Optional[TicketPriority] = None,
+        status: TicketStatus | None = None,
+        priority: TicketPriority | None = None,
     ) -> int:
         """Count tickets with optional filters."""
         with self._lock:
@@ -472,7 +475,7 @@ class JSONTicketStore(TicketStore):
         seq = int(self.get_next_id())
         return f"{prefix}-{seq:03d}"
 
-    def get_by_number(self, ticket_number: str) -> Optional[Ticket]:
+    def get_by_number(self, ticket_number: str) -> Ticket | None:
         """
         Get a ticket by its human-friendly ticket_number.
 
@@ -504,7 +507,7 @@ class JSONTicketStore(TicketStore):
 
         return None
 
-    def get_agent(self, name: str) -> Optional[Agent]:
+    def get_agent(self, name: str) -> Agent | None:
         """Get an agent by name."""
         with self._lock:
             data = self._data["agents"].get(name)
@@ -520,7 +523,7 @@ class JSONTicketStore(TicketStore):
             self._mark_dirty()
             return agent
 
-    def list_agents(self, active_only: bool = True) -> List[Agent]:
+    def list_agents(self, active_only: bool = True) -> builtins.list[Agent]:
         """List all agents."""
         with self._lock:
             agents = []
@@ -561,7 +564,7 @@ class JSONTicketStore(TicketStore):
         self._dirty = True
         self._save()
 
-    def get_cache_stats(self) -> Dict[str, Any]:
+    def get_cache_stats(self) -> dict[str, Any]:
         """
         Get cache performance statistics.
 
@@ -674,17 +677,11 @@ class SQLiteTicketStore(TicketStore):
             """)
 
             # Initialize next_id if not exists
-            cursor.execute(
-                "INSERT OR IGNORE INTO metadata (key, value) VALUES ('next_id', '1')"
-            )
+            cursor.execute("INSERT OR IGNORE INTO metadata (key, value) VALUES ('next_id', '1')")
 
             # Create indexes
-            cursor.execute(
-                "CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status)"
-            )
-            cursor.execute(
-                "CREATE INDEX IF NOT EXISTS idx_tickets_priority ON tickets(priority)"
-            )
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_tickets_priority ON tickets(priority)")
             cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_tickets_assigned ON tickets(assigned_to)"
             )
@@ -747,7 +744,7 @@ class SQLiteTicketStore(TicketStore):
 
         return ticket
 
-    def get(self, ticket_id: str) -> Optional[Ticket]:
+    def get(self, ticket_id: str) -> Ticket | None:
         """
         Get a ticket by ID or ticket_number.
 
@@ -821,17 +818,17 @@ class SQLiteTicketStore(TicketStore):
 
     def list(
         self,
-        status: Optional[TicketStatus] = None,
-        priority: Optional[TicketPriority] = None,
-        ticket_type: Optional[TicketType] = None,
-        assigned_to: Optional[str] = None,
-        labels: Optional[List[str]] = None,
+        status: TicketStatus | None = None,
+        priority: TicketPriority | None = None,
+        ticket_type: TicketType | None = None,
+        assigned_to: str | None = None,
+        labels: list[str] | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[Ticket]:
+    ) -> list[Ticket]:
         """List tickets with optional filters."""
         query = "SELECT data FROM tickets WHERE 1=1"
-        params: List[Any] = []
+        params: list[Any] = []
 
         if status:
             query += " AND status = ?"
@@ -859,7 +856,7 @@ class SQLiteTicketStore(TicketStore):
             cursor.execute(query, params)
             return [Ticket.from_dict(json.loads(row["data"])) for row in cursor.fetchall()]
 
-    def search(self, query: str, fields: Optional[List[str]] = None) -> List[Ticket]:
+    def search(self, query: str, fields: builtins.list[str] | None = None) -> builtins.list[Ticket]:
         """Search tickets by text query."""
         if fields is None:
             fields = ["title", "description", "notes"]
@@ -887,12 +884,12 @@ class SQLiteTicketStore(TicketStore):
 
     def count(
         self,
-        status: Optional[TicketStatus] = None,
-        priority: Optional[TicketPriority] = None,
+        status: TicketStatus | None = None,
+        priority: TicketPriority | None = None,
     ) -> int:
         """Count tickets with optional filters."""
         query = "SELECT COUNT(*) as count FROM tickets WHERE 1=1"
-        params: List[Any] = []
+        params: list[Any] = []
 
         if status:
             query += " AND status = ?"
@@ -925,7 +922,7 @@ class SQLiteTicketStore(TicketStore):
         seq = int(self.get_next_id())
         return f"{prefix}-{seq:03d}"
 
-    def get_by_number(self, ticket_number: str) -> Optional[Ticket]:
+    def get_by_number(self, ticket_number: str) -> Ticket | None:
         """
         Get a ticket by its human-friendly ticket_number.
 
@@ -938,8 +935,7 @@ class SQLiteTicketStore(TicketStore):
         with self._cursor() as cursor:
             # Try exact match first
             cursor.execute(
-                "SELECT data FROM tickets WHERE UPPER(ticket_number) = ?",
-                (ticket_number,)
+                "SELECT data FROM tickets WHERE UPPER(ticket_number) = ?", (ticket_number,)
             )
             row = cursor.fetchone()
             if row:
@@ -949,8 +945,7 @@ class SQLiteTicketStore(TicketStore):
             if ticket_number.isdigit():
                 pattern = f"%-{int(ticket_number):03d}"
                 cursor.execute(
-                    "SELECT data FROM tickets WHERE UPPER(ticket_number) LIKE ?",
-                    (pattern,)
+                    "SELECT data FROM tickets WHERE UPPER(ticket_number) LIKE ?", (pattern,)
                 )
                 row = cursor.fetchone()
                 if row:
@@ -958,7 +953,7 @@ class SQLiteTicketStore(TicketStore):
 
         return None
 
-    def get_agent(self, name: str) -> Optional[Agent]:
+    def get_agent(self, name: str) -> Agent | None:
         """Get an agent by name."""
         with self._cursor() as cursor:
             cursor.execute("SELECT data FROM agents WHERE name = ?", (name,))
@@ -990,7 +985,7 @@ class SQLiteTicketStore(TicketStore):
 
         return agent
 
-    def list_agents(self, active_only: bool = True) -> List[Agent]:
+    def list_agents(self, active_only: bool = True) -> builtins.list[Agent]:
         """List all agents."""
         query = "SELECT data FROM agents"
         if active_only:
@@ -1042,7 +1037,7 @@ class SQLiteTicketStore(TicketStore):
 class StorageFactory:
     """Factory for creating ticket storage instances."""
 
-    _stores: Dict[str, TicketStore] = {}
+    _stores: dict[str, TicketStore] = {}
 
     @classmethod
     def create(
@@ -1091,7 +1086,7 @@ class StorageFactory:
 
 
 def get_store(
-    path: Optional[Path] = None,
+    path: Path | None = None,
     storage_type: str = "json",
 ) -> TicketStore:
     """

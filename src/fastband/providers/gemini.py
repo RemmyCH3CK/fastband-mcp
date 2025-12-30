@@ -4,15 +4,16 @@ Google Gemini AI Provider.
 Implements the AIProvider interface for Google's Gemini models.
 """
 
-import os
 import logging
-from typing import Optional, Dict, Any, List, AsyncIterator
+import os
+from collections.abc import AsyncIterator
+from typing import Any
 
 from fastband.providers.base import (
     AIProvider,
-    ProviderConfig,
-    CompletionResponse,
     Capability,
+    CompletionResponse,
+    ProviderConfig,
 )
 
 logger = logging.getLogger(__name__)
@@ -73,7 +74,7 @@ class GeminiProvider(AIProvider):
         return "gemini"
 
     @property
-    def capabilities(self) -> List[Capability]:
+    def capabilities(self) -> list[Capability]:
         return [
             Capability.TEXT_COMPLETION,
             Capability.CODE_GENERATION,
@@ -88,6 +89,7 @@ class GeminiProvider(AIProvider):
         if self._genai is None:
             try:
                 import google.generativeai as genai
+
                 genai.configure(api_key=self.config.api_key)
                 self._genai = genai
             except ImportError:
@@ -97,17 +99,14 @@ class GeminiProvider(AIProvider):
                 )
         return self._genai
 
-    def _get_model(self, model_name: Optional[str] = None):
+    def _get_model(self, model_name: str | None = None):
         """Get or create a Gemini model instance."""
         genai = self._get_genai()
         name = model_name or self.config.model
         return genai.GenerativeModel(name)
 
     async def complete(
-        self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        **kwargs
+        self, prompt: str, system_prompt: str | None = None, **kwargs
     ) -> CompletionResponse:
         """
         Send a completion request to Gemini.
@@ -140,11 +139,11 @@ class GeminiProvider(AIProvider):
 
         # Extract usage if available
         usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
-        if hasattr(response, 'usage_metadata') and response.usage_metadata:
+        if hasattr(response, "usage_metadata") and response.usage_metadata:
             usage = {
-                "prompt_tokens": getattr(response.usage_metadata, 'prompt_token_count', 0),
-                "completion_tokens": getattr(response.usage_metadata, 'candidates_token_count', 0),
-                "total_tokens": getattr(response.usage_metadata, 'total_token_count', 0),
+                "prompt_tokens": getattr(response.usage_metadata, "prompt_token_count", 0),
+                "completion_tokens": getattr(response.usage_metadata, "candidates_token_count", 0),
+                "total_tokens": getattr(response.usage_metadata, "total_token_count", 0),
             }
 
         return CompletionResponse(
@@ -156,11 +155,7 @@ class GeminiProvider(AIProvider):
         )
 
     async def complete_with_tools(
-        self,
-        prompt: str,
-        tools: List[Dict[str, Any]],
-        system_prompt: Optional[str] = None,
-        **kwargs
+        self, prompt: str, tools: list[dict[str, Any]], system_prompt: str | None = None, **kwargs
     ) -> CompletionResponse:
         """
         Complete with tool/function calling support.
@@ -194,14 +189,16 @@ class GeminiProvider(AIProvider):
         content = ""
 
         for part in response.parts:
-            if hasattr(part, 'text'):
+            if hasattr(part, "text"):
                 content += part.text
-            if hasattr(part, 'function_call'):
+            if hasattr(part, "function_call"):
                 fc = part.function_call
-                tool_calls.append({
-                    "name": fc.name,
-                    "arguments": dict(fc.args),
-                })
+                tool_calls.append(
+                    {
+                        "name": fc.name,
+                        "arguments": dict(fc.args),
+                    }
+                )
 
         return CompletionResponse(
             content=content,
@@ -212,7 +209,7 @@ class GeminiProvider(AIProvider):
             raw_response={"tool_calls": tool_calls},
         )
 
-    def _convert_tools(self, openai_tools: List[Dict]) -> List:
+    def _convert_tools(self, openai_tools: list[dict]) -> list:
         """Convert OpenAI tool format to Gemini format."""
         genai = self._get_genai()
 
@@ -220,21 +217,20 @@ class GeminiProvider(AIProvider):
         for tool in openai_tools:
             if tool.get("type") == "function":
                 func = tool["function"]
-                function_declarations.append({
-                    "name": func["name"],
-                    "description": func.get("description", ""),
-                    "parameters": func.get("parameters", {}),
-                })
+                function_declarations.append(
+                    {
+                        "name": func["name"],
+                        "description": func.get("description", ""),
+                        "parameters": func.get("parameters", {}),
+                    }
+                )
 
         if function_declarations:
             return [genai.protos.Tool(function_declarations=function_declarations)]
         return []
 
     async def stream(
-        self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        **kwargs
+        self, prompt: str, system_prompt: str | None = None, **kwargs
     ) -> AsyncIterator[str]:
         """
         Stream completion response.
@@ -258,11 +254,7 @@ class GeminiProvider(AIProvider):
                 yield chunk.text
 
     async def analyze_image(
-        self,
-        image_data: bytes,
-        prompt: str,
-        image_type: str = "image/png",
-        **kwargs
+        self, image_data: bytes, prompt: str, image_type: str = "image/png", **kwargs
     ) -> CompletionResponse:
         """
         Analyze an image using Gemini's vision capability.
@@ -275,7 +267,7 @@ class GeminiProvider(AIProvider):
         Returns:
             Analysis response
         """
-        genai = self._get_genai()
+        self._get_genai()
         model = self._get_model(GEMINI_MODELS["vision"])
 
         # Create image part

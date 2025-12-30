@@ -11,21 +11,19 @@ Provides real-time broadcasting via WebSocket.
 
 import asyncio
 import logging
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from fastband.agents.ops_log import OpsLog, LogEntry, EventType, get_ops_log
-from fastband.agents.coordination import AgentCoordinator, AgentStatus
-from fastband.tickets.storage import TicketStore, get_store
-from fastband.tickets.models import Ticket, TicketStatus
+from fastband.agents.ops_log import EventType, LogEntry, OpsLog, get_ops_log
 from fastband.hub.websockets.manager import (
     WebSocketManager,
     WSEventType,
-    WSMessage,
     get_websocket_manager,
 )
+from fastband.tickets.models import Ticket, TicketStatus
+from fastband.tickets.storage import TicketStore, get_store
 
 logger = logging.getLogger(__name__)
 
@@ -33,32 +31,34 @@ logger = logging.getLogger(__name__)
 @dataclass
 class AgentActivity:
     """Agent activity information for dashboard display."""
+
     name: str
     is_active: bool
-    last_seen: Optional[str] = None
-    current_ticket: Optional[str] = None
-    last_action: Optional[str] = None
+    last_seen: str | None = None
+    current_ticket: str | None = None
+    last_action: str | None = None
     activity_count: int = 0
     has_clearance: bool = False
     under_hold: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
 @dataclass
 class TicketSummary:
     """Ticket summary for dashboard display."""
+
     id: str
     ticket_number: str
     title: str
     status: str
     priority: str
-    assigned_to: Optional[str] = None
+    assigned_to: str | None = None
     ticket_type: str = "task"
-    created_at: Optional[str] = None
+    created_at: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @classmethod
@@ -78,27 +78,29 @@ class TicketSummary:
 @dataclass
 class DirectiveState:
     """Current state of holds and clearances."""
+
     has_active_hold: bool = False
     has_active_clearance: bool = False
-    latest_directive: Optional[Dict[str, Any]] = None
-    affected_agents: List[str] = field(default_factory=list)
-    affected_tickets: List[str] = field(default_factory=list)
+    latest_directive: dict[str, Any] | None = None
+    affected_agents: list[str] = field(default_factory=list)
+    affected_tickets: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
 @dataclass
 class ControlPlaneDashboard:
     """Complete dashboard state."""
-    agents: List[AgentActivity]
-    ops_log_entries: List[Dict[str, Any]]
-    active_tickets: List[TicketSummary]
+
+    agents: list[AgentActivity]
+    ops_log_entries: list[dict[str, Any]]
+    active_tickets: list[TicketSummary]
     directive_state: DirectiveState
-    metrics: Dict[str, Any]
+    metrics: dict[str, Any]
     timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "agents": [a.to_dict() for a in self.agents],
             "ops_log_entries": self.ops_log_entries,
@@ -119,10 +121,10 @@ class ControlPlaneService:
 
     def __init__(
         self,
-        ops_log: Optional[OpsLog] = None,
-        ticket_store: Optional[TicketStore] = None,
-        ws_manager: Optional[WebSocketManager] = None,
-        project_path: Optional[Path] = None,
+        ops_log: OpsLog | None = None,
+        ticket_store: TicketStore | None = None,
+        ws_manager: WebSocketManager | None = None,
+        project_path: Path | None = None,
     ):
         """
         Initialize the Control Plane service.
@@ -140,7 +142,7 @@ class ControlPlaneService:
 
         # Polling configuration
         self._poll_interval = 1.0  # seconds
-        self._poll_task: Optional[asyncio.Task] = None
+        self._poll_task: asyncio.Task | None = None
         self._last_entry_count = 0
         self._running = False
 
@@ -155,9 +157,7 @@ class ControlPlaneService:
     def ticket_store(self) -> TicketStore:
         """Get the ticket store."""
         if self._ticket_store is None:
-            self._ticket_store = get_store(
-                path=self.project_path / ".fastband" / "tickets.json"
-            )
+            self._ticket_store = get_store(path=self.project_path / ".fastband" / "tickets.json")
         return self._ticket_store
 
     @property
@@ -275,7 +275,7 @@ class ControlPlaneService:
     async def get_active_agents(
         self,
         within_hours: float = 1.0,
-    ) -> List[AgentActivity]:
+    ) -> list[AgentActivity]:
         """
         Get all recently active agents.
 
@@ -304,26 +304,28 @@ class ControlPlaneService:
                     if is_global or agent_name in affected:
                         under_hold = True
 
-            agents.append(AgentActivity(
-                name=agent_name,
-                is_active=True,
-                last_seen=info.get("last_seen"),
-                current_ticket=info.get("current_ticket"),
-                last_action=info.get("last_action"),
-                activity_count=info.get("activity_count", 0),
-                has_clearance=has_clearance,
-                under_hold=under_hold,
-            ))
+            agents.append(
+                AgentActivity(
+                    name=agent_name,
+                    is_active=True,
+                    last_seen=info.get("last_seen"),
+                    current_ticket=info.get("current_ticket"),
+                    last_action=info.get("last_action"),
+                    activity_count=info.get("activity_count", 0),
+                    has_clearance=has_clearance,
+                    under_hold=under_hold,
+                )
+            )
 
         return agents
 
     async def get_operations_timeline(
         self,
-        since: Optional[str] = None,
-        agent: Optional[str] = None,
-        event_type: Optional[str] = None,
+        since: str | None = None,
+        agent: str | None = None,
+        event_type: str | None = None,
         limit: int = 100,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get filtered operations log entries.
 
@@ -344,7 +346,7 @@ class ControlPlaneService:
         )
         return [e.to_dict() for e in entries]
 
-    async def get_active_tickets(self) -> List[TicketSummary]:
+    async def get_active_tickets(self) -> list[TicketSummary]:
         """
         Get all non-closed tickets.
 
@@ -381,9 +383,7 @@ class ControlPlaneService:
         is_hold = directive.event_type == EventType.HOLD.value
         is_clearance = directive.event_type == EventType.CLEARANCE_GRANTED.value
 
-        affected_agents = directive.metadata.get(
-            "affected_agents" if is_hold else "granted_to", []
-        )
+        affected_agents = directive.metadata.get("affected_agents" if is_hold else "granted_to", [])
         affected_tickets = directive.metadata.get("tickets", [])
 
         return DirectiveState(
@@ -397,8 +397,8 @@ class ControlPlaneService:
     async def issue_hold(
         self,
         issuing_agent: str,
-        affected_agents: List[str],
-        tickets: Optional[List[str]] = None,
+        affected_agents: list[str],
+        tickets: list[str] | None = None,
         reason: str = "Coordination required",
     ) -> LogEntry:
         """
@@ -428,8 +428,8 @@ class ControlPlaneService:
     async def grant_clearance(
         self,
         granting_agent: str,
-        granted_to: List[str],
-        tickets: List[str],
+        granted_to: list[str],
+        tickets: list[str],
         reason: str,
     ) -> LogEntry:
         """
@@ -458,10 +458,10 @@ class ControlPlaneService:
 
     def _compute_metrics(
         self,
-        agents: List[AgentActivity],
-        tickets: List[TicketSummary],
-        entries: List[LogEntry],
-    ) -> Dict[str, Any]:
+        agents: list[AgentActivity],
+        tickets: list[TicketSummary],
+        entries: list[LogEntry],
+    ) -> dict[str, Any]:
         """Compute dashboard metrics."""
         # Agent metrics
         active_agent_count = len([a for a in agents if a.is_active])
@@ -474,8 +474,10 @@ class ControlPlaneService:
 
         # Activity metrics
         recent_entries = [
-            e for e in entries
-            if datetime.fromisoformat(e.timestamp.rstrip("Z")) > datetime.utcnow().replace(hour=0, minute=0, second=0)
+            e
+            for e in entries
+            if datetime.fromisoformat(e.timestamp.rstrip("Z"))
+            > datetime.utcnow().replace(hour=0, minute=0, second=0)
         ]
         today_activity_count = len(recent_entries)
 
@@ -492,11 +494,11 @@ class ControlPlaneService:
 
 
 # Global Control Plane service instance
-_control_plane_service: Optional[ControlPlaneService] = None
+_control_plane_service: ControlPlaneService | None = None
 
 
 def get_control_plane_service(
-    project_path: Optional[Path] = None,
+    project_path: Path | None = None,
     reset: bool = False,
 ) -> ControlPlaneService:
     """

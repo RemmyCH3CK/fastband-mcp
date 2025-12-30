@@ -12,37 +12,37 @@ Tests all ticket management tools for AI agents including:
 - add_ticket_comment
 """
 
-import pytest
-from pathlib import Path
-from datetime import datetime
-from unittest.mock import MagicMock, patch
 import tempfile
+from datetime import datetime
+from pathlib import Path
+from unittest.mock import MagicMock
+
+import pytest
 
 from fastband.tickets.models import (
-    Ticket,
-    TicketStatus,
-    TicketPriority,
-    TicketType,
     Agent,
-    TicketComment,
+    Ticket,
+    TicketPriority,
+    TicketStatus,
+    TicketType,
 )
 from fastband.tickets.storage import JSONTicketStore, TicketStore
 from fastband.tools.tickets import (
-    ListTicketsTool,
-    GetTicketDetailsTool,
-    CreateTicketTool,
+    TICKET_TOOLS,
+    AddTicketCommentTool,
     ClaimTicketTool,
     CompleteTicketSafelyTool,
-    UpdateTicketTool,
+    CreateTicketTool,
+    GetTicketDetailsTool,
+    ListTicketsTool,
     SearchTicketsTool,
-    AddTicketCommentTool,
-    TICKET_TOOLS,
+    UpdateTicketTool,
 )
-
 
 # =============================================================================
 # FIXTURES
 # =============================================================================
+
 
 @pytest.fixture
 def temp_store_path():
@@ -131,6 +131,7 @@ def claimed_ticket_store(store):
 # =============================================================================
 # LIST TICKETS TOOL TESTS
 # =============================================================================
+
 
 class TestListTicketsTool:
     """Tests for ListTicketsTool."""
@@ -223,6 +224,7 @@ class TestListTicketsTool:
 # GET TICKET DETAILS TOOL TESTS
 # =============================================================================
 
+
 class TestGetTicketDetailsTool:
     """Tests for GetTicketDetailsTool."""
 
@@ -265,6 +267,7 @@ class TestGetTicketDetailsTool:
 # =============================================================================
 # CREATE TICKET TOOL TESTS
 # =============================================================================
+
 
 class TestCreateTicketTool:
     """Tests for CreateTicketTool."""
@@ -359,6 +362,7 @@ class TestCreateTicketTool:
 # =============================================================================
 # CLAIM TICKET TOOL TESTS
 # =============================================================================
+
 
 class TestClaimTicketTool:
     """Tests for ClaimTicketTool."""
@@ -465,6 +469,7 @@ class TestClaimTicketTool:
 # =============================================================================
 # COMPLETE TICKET SAFELY TOOL TESTS
 # =============================================================================
+
 
 class TestCompleteTicketSafelyTool:
     """Tests for CompleteTicketSafelyTool."""
@@ -602,6 +607,7 @@ class TestCompleteTicketSafelyTool:
 # UPDATE TICKET TOOL TESTS
 # =============================================================================
 
+
 class TestUpdateTicketTool:
     """Tests for UpdateTicketTool."""
 
@@ -710,6 +716,7 @@ class TestUpdateTicketTool:
 # SEARCH TICKETS TOOL TESTS
 # =============================================================================
 
+
 class TestSearchTicketsTool:
     """Tests for SearchTicketsTool."""
 
@@ -766,6 +773,7 @@ class TestSearchTicketsTool:
 # =============================================================================
 # ADD TICKET COMMENT TOOL TESTS
 # =============================================================================
+
 
 class TestAddTicketCommentTool:
     """Tests for AddTicketCommentTool."""
@@ -850,6 +858,7 @@ class TestAddTicketCommentTool:
 # TOOL REGISTRATION TESTS
 # =============================================================================
 
+
 class TestToolRegistration:
     """Tests for tool registration and definitions."""
 
@@ -891,6 +900,7 @@ class TestToolRegistration:
 # =============================================================================
 # AGENT ENFORCEMENT TESTS
 # =============================================================================
+
 
 class TestAgentEnforcement:
     """Tests for agent enforcement rules."""
@@ -938,6 +948,7 @@ class TestAgentEnforcement:
 # STATUS TRANSITION TESTS
 # =============================================================================
 
+
 class TestStatusTransitions:
     """Tests for ticket status workflow transitions."""
 
@@ -974,6 +985,7 @@ class TestStatusTransitions:
 # ERROR HANDLING TESTS
 # =============================================================================
 
+
 class TestErrorHandling:
     """Tests for error handling."""
 
@@ -1006,6 +1018,7 @@ class TestErrorHandling:
 # =============================================================================
 # INTEGRATION TESTS
 # =============================================================================
+
 
 class TestIntegration:
     """Integration tests for complete workflows."""

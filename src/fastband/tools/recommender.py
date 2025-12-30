@@ -5,19 +5,18 @@ Analyzes project context and usage patterns to recommend
 relevant tools from the Tool Garage.
 """
 
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set
-from pathlib import Path
 import logging
+from dataclasses import dataclass
+from pathlib import Path
 
 from fastband.core.detection import (
+    Framework,
+    Language,
     ProjectDetector,
     ProjectInfo,
     ProjectType,
-    Framework,
-    Language,
 )
-from fastband.tools.base import Tool, ToolCategory, ProjectType as ToolProjectType
+from fastband.tools.base import Tool, ToolCategory
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +24,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ToolRecommendation:
     """A recommended tool with reasoning."""
+
     tool_name: str
     category: ToolCategory
     relevance_score: float  # 0.0 to 1.0
@@ -35,22 +35,23 @@ class ToolRecommendation:
 @dataclass
 class RecommendationResult:
     """Result of tool recommendation analysis."""
-    project_info: Optional[ProjectInfo]
-    recommendations: List[ToolRecommendation]
-    already_loaded: List[str]
+
+    project_info: ProjectInfo | None
+    recommendations: list[ToolRecommendation]
+    already_loaded: list[str]
     total_available: int
 
-    def get_by_priority(self, priority: int) -> List[ToolRecommendation]:
+    def get_by_priority(self, priority: int) -> list[ToolRecommendation]:
         """Get recommendations filtered by priority."""
         return [r for r in self.recommendations if r.priority == priority]
 
-    def get_high_priority(self) -> List[ToolRecommendation]:
+    def get_high_priority(self) -> list[ToolRecommendation]:
         """Get high priority recommendations."""
         return self.get_by_priority(1)
 
 
 # Mapping from project detection types to tool categories
-PROJECT_TYPE_TOOLS: Dict[ProjectType, List[ToolCategory]] = {
+PROJECT_TYPE_TOOLS: dict[ProjectType, list[ToolCategory]] = {
     ProjectType.WEB_APP: [
         ToolCategory.WEB,
         ToolCategory.TESTING,
@@ -102,7 +103,7 @@ PROJECT_TYPE_TOOLS: Dict[ProjectType, List[ToolCategory]] = {
 }
 
 # Framework-specific tool recommendations
-FRAMEWORK_TOOLS: Dict[Framework, List[str]] = {
+FRAMEWORK_TOOLS: dict[Framework, list[str]] = {
     Framework.FLASK: ["test_api", "debug_server"],
     Framework.DJANGO: ["test_api", "manage_django", "debug_server"],
     Framework.FASTAPI: ["test_api", "openapi_gen"],
@@ -115,7 +116,7 @@ FRAMEWORK_TOOLS: Dict[Framework, List[str]] = {
 }
 
 # Language-specific tool recommendations
-LANGUAGE_TOOLS: Dict[Language, List[str]] = {
+LANGUAGE_TOOLS: dict[Language, list[str]] = {
     Language.PYTHON: ["pytest_run", "pylint_check", "mypy_check"],
     Language.JAVASCRIPT: ["npm_test", "eslint_check"],
     Language.TYPESCRIPT: ["npm_test", "tsc_check", "eslint_check"],
@@ -144,7 +145,7 @@ class ToolRecommender:
             registry: ToolRegistry instance (uses global if not provided)
         """
         self._registry = registry
-        self._usage_stats: Dict[str, int] = {}  # tool_name -> usage count
+        self._usage_stats: dict[str, int] = {}  # tool_name -> usage count
         self._project_detector = ProjectDetector()
 
     @property
@@ -152,10 +153,11 @@ class ToolRecommender:
         """Get the tool registry."""
         if self._registry is None:
             from fastband.tools.registry import get_registry
+
             self._registry = get_registry()
         return self._registry
 
-    def analyze(self, path: Optional[Path] = None) -> RecommendationResult:
+    def analyze(self, path: Path | None = None) -> RecommendationResult:
         """
         Analyze project and recommend tools.
 
@@ -240,9 +242,9 @@ class ToolRecommender:
     def _recommend_for_project_type(
         self,
         project_type: ProjectType,
-        available: List[Tool],
-        loaded: Set[str],
-    ) -> List[ToolRecommendation]:
+        available: list[Tool],
+        loaded: set[str],
+    ) -> list[ToolRecommendation]:
         """Recommend tools based on project type."""
         recommendations = []
         categories = PROJECT_TYPE_TOOLS.get(project_type, [])
@@ -263,44 +265,48 @@ class ToolRecommender:
     def _recommend_for_framework(
         self,
         framework: Framework,
-        available: List[Tool],
-        loaded: Set[str],
-    ) -> List[ToolRecommendation]:
+        available: list[Tool],
+        loaded: set[str],
+    ) -> list[ToolRecommendation]:
         """Recommend tools based on framework."""
         recommendations = []
         tool_names = FRAMEWORK_TOOLS.get(framework, [])
 
         for tool in available:
             if tool.name in tool_names and tool.name not in loaded:
-                recommendations.append(ToolRecommendation(
-                    tool_name=tool.name,
-                    category=tool.category,
-                    relevance_score=0.9,
-                    reason=f"Optimized for {framework.value} development",
-                    priority=1,
-                ))
+                recommendations.append(
+                    ToolRecommendation(
+                        tool_name=tool.name,
+                        category=tool.category,
+                        relevance_score=0.9,
+                        reason=f"Optimized for {framework.value} development",
+                        priority=1,
+                    )
+                )
 
         return recommendations
 
     def _recommend_for_language(
         self,
         language: Language,
-        available: List[Tool],
-        loaded: Set[str],
-    ) -> List[ToolRecommendation]:
+        available: list[Tool],
+        loaded: set[str],
+    ) -> list[ToolRecommendation]:
         """Recommend tools based on language."""
         recommendations = []
         tool_names = LANGUAGE_TOOLS.get(language, [])
 
         for tool in available:
             if tool.name in tool_names and tool.name not in loaded:
-                recommendations.append(ToolRecommendation(
-                    tool_name=tool.name,
-                    category=tool.category,
-                    relevance_score=0.8,
-                    reason=f"Essential for {language.value} development",
-                    priority=2,
-                ))
+                recommendations.append(
+                    ToolRecommendation(
+                        tool_name=tool.name,
+                        category=tool.category,
+                        relevance_score=0.8,
+                        reason=f"Essential for {language.value} development",
+                        priority=2,
+                    )
+                )
 
         return recommendations
 
@@ -308,10 +314,10 @@ class ToolRecommender:
         self,
         category: ToolCategory,
         reason: str,
-        available: List[Tool],
-        loaded: Set[str],
+        available: list[Tool],
+        loaded: set[str],
         priority: int = 2,
-    ) -> List[ToolRecommendation]:
+    ) -> list[ToolRecommendation]:
         """Recommend all tools in a category."""
         recommendations = []
 
@@ -324,13 +330,15 @@ class ToolRecommender:
                 if metadata.project_types:
                     relevance = 0.85
 
-                recommendations.append(ToolRecommendation(
-                    tool_name=tool.name,
-                    category=category,
-                    relevance_score=relevance,
-                    reason=reason,
-                    priority=priority,
-                ))
+                recommendations.append(
+                    ToolRecommendation(
+                        tool_name=tool.name,
+                        category=category,
+                        relevance_score=relevance,
+                        reason=reason,
+                        priority=priority,
+                    )
+                )
 
         return recommendations
 
@@ -343,20 +351,17 @@ class ToolRecommender:
         """
         self._usage_stats[tool_name] = self._usage_stats.get(tool_name, 0) + 1
 
-    def get_usage_stats(self) -> Dict[str, int]:
+    def get_usage_stats(self) -> dict[str, int]:
         """Get tool usage statistics."""
         return dict(self._usage_stats)
 
-    def get_frequently_used(self, min_uses: int = 5) -> List[str]:
+    def get_frequently_used(self, min_uses: int = 5) -> list[str]:
         """Get frequently used tools."""
-        return [
-            name for name, count in self._usage_stats.items()
-            if count >= min_uses
-        ]
+        return [name for name, count in self._usage_stats.items() if count >= min_uses]
 
 
 # Global recommender instance
-_recommender: Optional[ToolRecommender] = None
+_recommender: ToolRecommender | None = None
 
 
 def get_recommender() -> ToolRecommender:
@@ -367,7 +372,7 @@ def get_recommender() -> ToolRecommender:
     return _recommender
 
 
-def recommend_tools(path: Optional[Path] = None) -> RecommendationResult:
+def recommend_tools(path: Path | None = None) -> RecommendationResult:
     """
     Convenience function to get tool recommendations.
 

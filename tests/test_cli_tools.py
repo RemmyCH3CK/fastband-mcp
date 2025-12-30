@@ -4,16 +4,15 @@ import pytest
 from typer.testing import CliRunner
 
 from fastband.cli.main import app
-from fastband.tools.registry import get_registry, reset_registry
 from fastband.tools.base import (
     Tool,
+    ToolCategory,
     ToolDefinition,
     ToolMetadata,
     ToolParameter,
-    ToolCategory,
     ToolResult,
 )
-
+from fastband.tools.registry import get_registry, reset_registry
 
 runner = CliRunner()
 
@@ -34,6 +33,7 @@ def reset_tools():
 @pytest.fixture
 def sample_tool():
     """Create a sample tool for testing."""
+
     class SampleTool(Tool):
         @property
         def definition(self) -> ToolDefinition:
@@ -71,6 +71,7 @@ def sample_tool():
 @pytest.fixture
 def analysis_tool():
     """Create an analysis tool (non-core, can be unloaded)."""
+
     class AnalysisTool(Tool):
         @property
         def definition(self) -> ToolDefinition:

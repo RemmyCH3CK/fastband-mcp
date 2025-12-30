@@ -4,15 +4,13 @@ Tool Selection Wizard Step.
 Allows users to select tools for their project based on recommendations.
 """
 
-from typing import Dict, List, Optional, Set
-
+from rich import box
 from rich.console import Console
 from rich.table import Table
-from rich import box
 
-from fastband.wizard.base import WizardStep, WizardContext, StepResult
-from fastband.tools.base import Tool, ToolCategory
-from fastband.tools.recommender import ToolRecommender, ToolRecommendation
+from fastband.tools.base import ToolCategory
+from fastband.tools.recommender import ToolRecommendation, ToolRecommender
+from fastband.wizard.base import StepResult, WizardContext, WizardStep
 
 
 class ToolSelectionStep(WizardStep):
@@ -27,7 +25,7 @@ class ToolSelectionStep(WizardStep):
     - Supports non-interactive mode (accepts recommended tools)
     """
 
-    def __init__(self, console: Optional[Console] = None, recommender: Optional[ToolRecommender] = None):
+    def __init__(self, console: Console | None = None, recommender: ToolRecommender | None = None):
         super().__init__(console)
         self._recommender = recommender
 
@@ -60,7 +58,7 @@ class ToolSelectionStep(WizardStep):
         result = self.recommender.analyze(context.project_path)
 
         # Get recommended tool names
-        recommended_tools = {rec.tool_name for rec in result.recommendations}
+        {rec.tool_name for rec in result.recommendations}
 
         if not context.interactive:
             # Non-interactive mode: accept all recommended tools
@@ -70,9 +68,7 @@ class ToolSelectionStep(WizardStep):
         return await self._interactive_selection(context, result)
 
     def _accept_recommended_tools(
-        self,
-        context: WizardContext,
-        recommendations: List[ToolRecommendation]
+        self, context: WizardContext, recommendations: list[ToolRecommendation]
     ) -> StepResult:
         """Accept all recommended tools (non-interactive mode)."""
         selected = [rec.tool_name for rec in recommendations]
@@ -90,13 +86,8 @@ class ToolSelectionStep(WizardStep):
             message=f"Selected {tool_count} recommended tools",
         )
 
-    async def _interactive_selection(
-        self,
-        context: WizardContext,
-        result
-    ) -> StepResult:
+    async def _interactive_selection(self, context: WizardContext, result) -> StepResult:
         """Interactive tool selection."""
-        from fastband.tools.recommender import RecommendationResult
 
         recommendations = result.recommendations
         recommended_names = {rec.tool_name for rec in recommendations}
@@ -134,11 +125,10 @@ class ToolSelectionStep(WizardStep):
         )
 
     def _group_by_category(
-        self,
-        recommendations: List[ToolRecommendation]
-    ) -> Dict[ToolCategory, List[ToolRecommendation]]:
+        self, recommendations: list[ToolRecommendation]
+    ) -> dict[ToolCategory, list[ToolRecommendation]]:
         """Group recommendations by category."""
-        grouped: Dict[ToolCategory, List[ToolRecommendation]] = {}
+        grouped: dict[ToolCategory, list[ToolRecommendation]] = {}
         for rec in recommendations:
             if rec.category not in grouped:
                 grouped[rec.category] = []
@@ -147,8 +137,8 @@ class ToolSelectionStep(WizardStep):
 
     def _display_tool_categories(
         self,
-        tools_by_category: Dict[ToolCategory, List[ToolRecommendation]],
-        recommended_names: Set[str]
+        tools_by_category: dict[ToolCategory, list[ToolRecommendation]],
+        recommended_names: set[str],
     ) -> None:
         """Display tools grouped by category using Rich tables."""
         if not tools_by_category:
@@ -159,10 +149,7 @@ class ToolSelectionStep(WizardStep):
             self._display_category_table(category, tools, recommended_names)
 
     def _display_category_table(
-        self,
-        category: ToolCategory,
-        tools: List[ToolRecommendation],
-        recommended_names: Set[str]
+        self, category: ToolCategory, tools: list[ToolRecommendation], recommended_names: set[str]
     ) -> None:
         """Display a single category's tools in a table."""
         table = Table(
@@ -192,10 +179,8 @@ class ToolSelectionStep(WizardStep):
         self.console.print()
 
     async def _get_user_selections(
-        self,
-        recommendations: List[ToolRecommendation],
-        recommended_names: Set[str]
-    ) -> List[str]:
+        self, recommendations: list[ToolRecommendation], recommended_names: set[str]
+    ) -> list[str]:
         """Get tool selections from user."""
         # Start with recommended tools selected
         selected = set(recommended_names)
@@ -227,10 +212,8 @@ class ToolSelectionStep(WizardStep):
             return self._customize_selection(recommendations, selected)
 
     def _customize_selection(
-        self,
-        recommendations: List[ToolRecommendation],
-        current_selection: Set[str]
-    ) -> List[str]:
+        self, recommendations: list[ToolRecommendation], current_selection: set[str]
+    ) -> list[str]:
         """Allow user to customize tool selection."""
         self.console.print("\n[bold]Customize Tool Selection[/bold]")
         self.console.print("[dim]Enter tool numbers separated by commas to toggle selection[/dim]")
@@ -271,13 +254,12 @@ class ToolSelectionStep(WizardStep):
         return list(current_selection)
 
     def _validate_tool_compatibility(
-        self,
-        selected_tools: List[str],
-        already_loaded: List[str]
-    ) -> Dict:
+        self, selected_tools: list[str], already_loaded: list[str]
+    ) -> dict:
         """Validate that selected tools are compatible with each other."""
         # Get the registry to check tool metadata
         from fastband.tools.registry import get_registry
+
         registry = get_registry()
 
         conflicts = []

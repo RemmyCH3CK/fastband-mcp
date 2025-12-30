@@ -11,8 +11,7 @@ import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional
-from uuid import uuid4
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +55,7 @@ class AuthConfig:
     jwt_secret: str = ""
     access_token_ttl: int = 3600  # 1 hour
     refresh_token_ttl: int = 604800  # 7 days
-    allowed_providers: List[AuthProvider] = field(
+    allowed_providers: list[AuthProvider] = field(
         default_factory=lambda: [AuthProvider.EMAIL, AuthProvider.GOOGLE, AuthProvider.GITHUB]
     )
     require_email_verification: bool = True
@@ -93,9 +92,9 @@ class User:
     email_verified: bool = False
     provider: AuthProvider = AuthProvider.EMAIL
     created_at: datetime = field(default_factory=datetime.utcnow)
-    last_sign_in: Optional[datetime] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    app_metadata: Dict[str, Any] = field(default_factory=dict)
+    last_sign_in: datetime | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    app_metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def display_name(self) -> str:
@@ -103,7 +102,7 @@ class User:
         return self.metadata.get("full_name") or self.metadata.get("name") or self.email
 
     @property
-    def avatar_url(self) -> Optional[str]:
+    def avatar_url(self) -> str | None:
         """Get avatar URL from metadata."""
         return self.metadata.get("avatar_url")
 
@@ -153,7 +152,7 @@ class SupabaseAuth:
         user = await auth.get_user(access_token)
     """
 
-    def __init__(self, config: Optional[AuthConfig] = None):
+    def __init__(self, config: AuthConfig | None = None):
         """Initialize auth client.
 
         Args:
@@ -191,7 +190,7 @@ class SupabaseAuth:
         self,
         email: str,
         password: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> Session:
         """Sign up a new user with email/password.
 
@@ -214,11 +213,13 @@ class SupabaseAuth:
             if metadata:
                 options["data"] = metadata
 
-            response = self._client.auth.sign_up({
-                "email": email,
-                "password": password,
-                "options": options,
-            })
+            response = self._client.auth.sign_up(
+                {
+                    "email": email,
+                    "password": password,
+                    "options": options,
+                }
+            )
 
             if response.user is None:
                 raise AuthError("Sign up failed", "signup_failed")
@@ -250,10 +251,12 @@ class SupabaseAuth:
             raise AuthError("Auth not initialized", "not_initialized")
 
         try:
-            response = self._client.auth.sign_in_with_password({
-                "email": email,
-                "password": password,
-            })
+            response = self._client.auth.sign_in_with_password(
+                {
+                    "email": email,
+                    "password": password,
+                }
+            )
 
             if response.user is None:
                 raise AuthError("Invalid credentials", "invalid_credentials")
@@ -267,8 +270,8 @@ class SupabaseAuth:
     async def get_oauth_url(
         self,
         provider: AuthProvider,
-        redirect_url: Optional[str] = None,
-        scopes: Optional[List[str]] = None,
+        redirect_url: str | None = None,
+        scopes: list[str] | None = None,
     ) -> str:
         """Get OAuth authorization URL.
 
@@ -296,10 +299,12 @@ class SupabaseAuth:
             if scopes:
                 options["scopes"] = " ".join(scopes)
 
-            response = self._client.auth.sign_in_with_oauth({
-                "provider": provider.value,
-                "options": options,
-            })
+            response = self._client.auth.sign_in_with_oauth(
+                {
+                    "provider": provider.value,
+                    "options": options,
+                }
+            )
 
             return response.url
 
@@ -417,7 +422,7 @@ class SupabaseAuth:
     async def reset_password(
         self,
         email: str,
-        redirect_url: Optional[str] = None,
+        redirect_url: str | None = None,
     ) -> None:
         """Send password reset email.
 
@@ -442,7 +447,7 @@ class SupabaseAuth:
     async def update_user(
         self,
         access_token: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ) -> User:
         """Update user metadata.
 
@@ -520,11 +525,11 @@ class SupabaseAuth:
 # GLOBAL SINGLETON
 # =============================================================================
 
-_auth: Optional[SupabaseAuth] = None
+_auth: SupabaseAuth | None = None
 _auth_lock = threading.Lock()
 
 
-def get_auth(config: Optional[AuthConfig] = None) -> SupabaseAuth:
+def get_auth(config: AuthConfig | None = None) -> SupabaseAuth:
     """Get or create the global auth client.
 
     Args:

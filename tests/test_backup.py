@@ -7,24 +7,28 @@ Tests cover:
 - BackupAlerts: Failure notifications across multiple channels
 """
 
-import asyncio
 import json
 import os
-import signal
-import tempfile
 import time
 from datetime import datetime, timedelta
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
-import threading
 
 import pytest
 
+from fastband.backup.alerts import (
+    Alert,
+    AlertConfig,
+    AlertLevel,
+    AlertManager,
+    FileChannel,
+    LogChannel,
+    get_alert_manager,
+    send_backup_alert,
+    send_backup_failure_alert,
+)
 from fastband.backup.manager import (
-    BackupManager,
     BackupInfo,
+    BackupManager,
     BackupType,
-    get_backup_manager,
 )
 from fastband.backup.scheduler import (
     BackupScheduler,
@@ -33,22 +37,11 @@ from fastband.backup.scheduler import (
     trigger_backup_hook,
 )
 from fastband.core.config import BackupConfig, BackupHooksConfig
-from fastband.backup.alerts import (
-    Alert,
-    AlertConfig,
-    AlertLevel,
-    AlertManager,
-    LogChannel,
-    FileChannel,
-    get_alert_manager,
-    send_backup_alert,
-    send_backup_failure_alert,
-)
-
 
 # =============================================================================
 # FIXTURES
 # =============================================================================
+
 
 @pytest.fixture
 def temp_project(tmp_path):
@@ -121,6 +114,7 @@ def backup_config():
 # BACKUP MANAGER TESTS
 # =============================================================================
 
+
 class TestBackupManager:
     """Tests for BackupManager class."""
 
@@ -185,7 +179,9 @@ class TestBackupManager:
         # Create multiple backups
         backup_manager.create_backup(backup_type=BackupType.FULL, description="First")
         time.sleep(0.1)
-        backup_manager.create_backup(backup_type=BackupType.MANUAL, description="Second", force=True)
+        backup_manager.create_backup(
+            backup_type=BackupType.MANUAL, description="Second", force=True
+        )
 
         backups = backup_manager.list_backups()
 
@@ -281,7 +277,9 @@ class TestBackupManager:
     def test_prune_old_backups(self, backup_manager):
         """Test pruning old backups."""
         # Create some backups with old dates
-        backup_manager.create_backup(backup_type=BackupType.FULL, description="Old backup", force=True)
+        backup_manager.create_backup(
+            backup_type=BackupType.FULL, description="Old backup", force=True
+        )
 
         # Manually set the backup date to old
         manifest = backup_manager._load_manifest()
@@ -347,6 +345,7 @@ class TestBackupManager:
 # =============================================================================
 # BACKUP SCHEDULER TESTS
 # =============================================================================
+
 
 class TestSchedulerState:
     """Tests for SchedulerState class."""
@@ -583,6 +582,7 @@ class TestSchedulerConvenience:
 # BACKUP FAILURE TESTS
 # =============================================================================
 
+
 class TestBackupFailures:
     """Tests for backup failure scenarios."""
 
@@ -631,6 +631,7 @@ class TestBackupFailures:
 # =============================================================================
 # INTEGRATION TESTS
 # =============================================================================
+
 
 class TestBackupIntegration:
     """Integration tests for the backup system."""
@@ -706,6 +707,7 @@ class TestBackupIntegration:
 # =============================================================================
 # ALERT SYSTEM TESTS
 # =============================================================================
+
 
 @pytest.fixture
 def alert_manager(temp_project):
@@ -902,7 +904,7 @@ class TestAlertManager:
     def test_send_critical_alert(self, alert_manager):
         """Test sending critical alert bypasses rate limiting."""
         # Send many alerts to trigger rate limiting
-        for i in range(20):
+        for _i in range(20):
             alert_manager.send_alert(
                 level=AlertLevel.WARNING,
                 title="Repeated Alert",
@@ -978,7 +980,7 @@ class TestAlertManager:
 
         # Send some alerts
         alert1 = alert_manager.send_alert(AlertLevel.INFO, "Alert 1", "Test")
-        alert2 = alert_manager.send_alert(AlertLevel.WARNING, "Alert 2", "Test", force=True)
+        alert_manager.send_alert(AlertLevel.WARNING, "Alert 2", "Test", force=True)
 
         count = alert_manager.get_unacknowledged_count()
         assert count >= 2
@@ -997,6 +999,7 @@ class TestAlertConvenience:
         """Test send_backup_alert convenience function."""
         # Reset global manager
         import fastband.backup.alerts as alerts_module
+
         alerts_module._alert_manager = None
 
         alert = send_backup_alert(
@@ -1013,6 +1016,7 @@ class TestAlertConvenience:
         """Test send_backup_failure_alert convenience function."""
         # Reset global manager
         import fastband.backup.alerts as alerts_module
+
         alerts_module._alert_manager = None
 
         error = ValueError("Disk full")
@@ -1031,6 +1035,7 @@ class TestAlertConvenience:
         """Test get_alert_manager returns consistent instance."""
         # Reset global manager
         import fastband.backup.alerts as alerts_module
+
         alerts_module._alert_manager = None
 
         manager1 = get_alert_manager(project_path=temp_project)
@@ -1046,6 +1051,7 @@ class TestAlertIntegration:
         """Test that backup failures trigger alerts."""
         # Reset global alert manager
         import fastband.backup.alerts as alerts_module
+
         alerts_module._alert_manager = None
 
         manager = BackupManager(project_path=temp_project)
@@ -1074,6 +1080,7 @@ class TestAlertIntegration:
         """Test scheduler backup failure triggers alert."""
         # Reset global alert manager
         import fastband.backup.alerts as alerts_module
+
         alerts_module._alert_manager = None
 
         scheduler = BackupScheduler(project_path=temp_project)

@@ -9,20 +9,18 @@ These tests verify that key operations meet performance targets:
 GitHub Issue: #38 - Performance optimization
 """
 
-import asyncio
 import gc
 import tempfile
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
-from unittest.mock import patch, MagicMock
 
 import pytest
-
 
 # =============================================================================
 # FIXTURES
 # =============================================================================
+
 
 @pytest.fixture
 def temp_tickets_path():
@@ -35,8 +33,8 @@ def temp_tickets_path():
 def reset_registries():
     """Reset all registries before and after tests."""
     # Import here to avoid affecting other tests
-    from fastband.tools.registry import reset_registry
     from fastband.providers.registry import ProviderRegistry
+    from fastband.tools.registry import reset_registry
 
     reset_registry()
     ProviderRegistry.clear_all()
@@ -48,6 +46,7 @@ def reset_registries():
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
+
 
 def time_function(func: Callable, *args, **kwargs) -> float:
     """Time a function call, return milliseconds."""
@@ -69,6 +68,7 @@ async def time_async_function(func: Callable, *args, **kwargs) -> float:
 # TOOL REGISTRY PERFORMANCE TESTS
 # =============================================================================
 
+
 class TestToolRegistryPerformance:
     """Performance tests for the tool registry."""
 
@@ -81,8 +81,8 @@ class TestToolRegistryPerformance:
 
     def test_tool_registration_time(self, reset_registries):
         """Test that registering a tool is fast."""
-        from fastband.tools.registry import ToolRegistry
         from fastband.tools.core.system import HealthCheckTool
+        from fastband.tools.registry import ToolRegistry
 
         registry = ToolRegistry()
         tool = HealthCheckTool()
@@ -92,8 +92,8 @@ class TestToolRegistryPerformance:
 
     def test_lazy_tool_registration_time(self, reset_registries):
         """Test that lazy registration is very fast (no import)."""
-        from fastband.tools.registry import ToolRegistry
         from fastband.tools.base import ToolCategory
+        from fastband.tools.registry import ToolRegistry
 
         registry = ToolRegistry()
 
@@ -102,14 +102,14 @@ class TestToolRegistryPerformance:
             "test_tool",
             "fastband.tools.core.system",
             "HealthCheckTool",
-            ToolCategory.CORE
+            ToolCategory.CORE,
         )
         assert elapsed < 1, f"Lazy registration took {elapsed:.2f}ms (target: <1ms)"
 
     def test_tool_load_time(self, reset_registries):
         """Test that loading a tool is under 50ms (target)."""
-        from fastband.tools.registry import ToolRegistry
         from fastband.tools.core.system import HealthCheckTool
+        from fastband.tools.registry import ToolRegistry
 
         registry = ToolRegistry()
         registry.register(HealthCheckTool())
@@ -119,15 +119,12 @@ class TestToolRegistryPerformance:
 
     def test_lazy_tool_load_time(self, reset_registries):
         """Test that loading a lazy tool is under 50ms (includes import)."""
-        from fastband.tools.registry import ToolRegistry
         from fastband.tools.base import ToolCategory
+        from fastband.tools.registry import ToolRegistry
 
         registry = ToolRegistry()
         registry.register_lazy(
-            "health_check",
-            "fastband.tools.core.system",
-            "HealthCheckTool",
-            ToolCategory.CORE
+            "health_check", "fastband.tools.core.system", "HealthCheckTool", ToolCategory.CORE
         )
 
         # First load includes import
@@ -136,8 +133,8 @@ class TestToolRegistryPerformance:
 
     def test_tool_get_time(self, reset_registries):
         """Test that getting a loaded tool is very fast (O(1))."""
-        from fastband.tools.registry import ToolRegistry
         from fastband.tools.core.system import HealthCheckTool
+        from fastband.tools.registry import ToolRegistry
 
         registry = ToolRegistry()
         registry.register(HealthCheckTool())
@@ -148,8 +145,8 @@ class TestToolRegistryPerformance:
 
     def test_is_registered_check_time(self, reset_registries):
         """Test that checking registration is fast."""
-        from fastband.tools.registry import ToolRegistry
         from fastband.tools.core.system import HealthCheckTool
+        from fastband.tools.registry import ToolRegistry
 
         registry = ToolRegistry()
         registry.register(HealthCheckTool())
@@ -161,6 +158,7 @@ class TestToolRegistryPerformance:
 # =============================================================================
 # PROVIDER REGISTRY PERFORMANCE TESTS
 # =============================================================================
+
 
 class TestProviderRegistryPerformance:
     """Performance tests for the provider registry."""
@@ -175,7 +173,7 @@ class TestProviderRegistryPerformance:
             ProviderRegistry.register_lazy,
             "test_provider",
             "fastband.providers.claude",
-            "ClaudeProvider"
+            "ClaudeProvider",
         )
         assert elapsed < 1, f"Lazy registration took {elapsed:.2f}ms (target: <1ms)"
 
@@ -203,6 +201,7 @@ class TestProviderRegistryPerformance:
 # TICKET STORAGE PERFORMANCE TESTS
 # =============================================================================
 
+
 class TestTicketStoragePerformance:
     """Performance tests for ticket storage."""
 
@@ -215,8 +214,8 @@ class TestTicketStoragePerformance:
 
     def test_ticket_create_time(self, temp_tickets_path):
         """Test that creating a ticket is fast."""
+        from fastband.tickets.models import Ticket, TicketPriority, TicketType
         from fastband.tickets.storage import JSONTicketStore
-        from fastband.tickets.models import Ticket, TicketType, TicketPriority
 
         store = JSONTicketStore(temp_tickets_path)
         ticket = Ticket(
@@ -231,8 +230,8 @@ class TestTicketStoragePerformance:
 
     def test_ticket_get_time(self, temp_tickets_path):
         """Test that getting a ticket is fast."""
+        from fastband.tickets.models import Ticket, TicketPriority, TicketType
         from fastband.tickets.storage import JSONTicketStore
-        from fastband.tickets.models import Ticket, TicketType, TicketPriority
 
         store = JSONTicketStore(temp_tickets_path)
         ticket = Ticket(
@@ -251,12 +250,14 @@ class TestTicketStoragePerformance:
         elapsed_hit = time_function(store.get, created.id)
         assert elapsed_hit < 1, f"Ticket get (hit) took {elapsed_hit:.2f}ms (target: <1ms)"
         # Cache hit should be no slower than miss (allow equal due to timing variability)
-        assert elapsed_hit <= elapsed_miss + 0.1, "Cache hit should not be significantly slower than miss"
+        assert elapsed_hit <= elapsed_miss + 0.1, (
+            "Cache hit should not be significantly slower than miss"
+        )
 
     def test_ticket_cache_effectiveness(self, temp_tickets_path):
         """Test that caching improves repeated access."""
+        from fastband.tickets.models import Ticket, TicketPriority, TicketType
         from fastband.tickets.storage import JSONTicketStore
-        from fastband.tickets.models import Ticket, TicketType, TicketPriority
 
         store = JSONTicketStore(temp_tickets_path, cache_size=10)
 
@@ -283,8 +284,8 @@ class TestTicketStoragePerformance:
 
     def test_ticket_list_time(self, temp_tickets_path):
         """Test that listing tickets is fast."""
+        from fastband.tickets.models import Ticket, TicketPriority, TicketType
         from fastband.tickets.storage import JSONTicketStore
-        from fastband.tickets.models import Ticket, TicketType, TicketPriority
 
         store = JSONTicketStore(temp_tickets_path)
 
@@ -304,8 +305,8 @@ class TestTicketStoragePerformance:
 
     def test_ticket_search_time(self, temp_tickets_path):
         """Test that searching tickets is fast."""
+        from fastband.tickets.models import Ticket, TicketPriority, TicketType
         from fastband.tickets.storage import JSONTicketStore
-        from fastband.tickets.models import Ticket, TicketType, TicketPriority
 
         store = JSONTicketStore(temp_tickets_path)
 
@@ -328,14 +329,16 @@ class TestTicketStoragePerformance:
 # LAZY LOADING VERIFICATION TESTS
 # =============================================================================
 
+
 class TestLazyLoading:
     """Tests to verify lazy loading is working correctly."""
 
     def test_lazy_tool_not_imported_until_accessed(self, reset_registries):
         """Verify lazy tools aren't imported until accessed."""
         import sys
-        from fastband.tools.registry import ToolRegistry
+
         from fastband.tools.base import ToolCategory
+        from fastband.tools.registry import ToolRegistry
 
         registry = ToolRegistry()
 
@@ -345,10 +348,7 @@ class TestLazyLoading:
 
         # Register lazily
         registry.register_lazy(
-            "read_file",
-            "fastband.tools.core.files",
-            "ReadFileTool",
-            ToolCategory.FILE_OPS
+            "read_file", "fastband.tools.core.files", "ReadFileTool", ToolCategory.FILE_OPS
         )
 
         # Module should NOT be imported yet
@@ -363,6 +363,7 @@ class TestLazyLoading:
     def test_lazy_provider_not_imported_until_accessed(self, reset_registries):
         """Verify lazy providers aren't imported until accessed."""
         import sys
+
         from fastband.providers.registry import ProviderRegistry
 
         ProviderRegistry.clear_all()
@@ -372,11 +373,7 @@ class TestLazyLoading:
             del sys.modules["fastband.providers.claude"]
 
         # Register lazily
-        ProviderRegistry.register_lazy(
-            "claude",
-            "fastband.providers.claude",
-            "ClaudeProvider"
-        )
+        ProviderRegistry.register_lazy("claude", "fastband.providers.claude", "ClaudeProvider")
 
         # Provider should NOT be loaded yet
         assert not ProviderRegistry.is_loaded("claude"), "Provider should not be loaded yet"
@@ -386,6 +383,7 @@ class TestLazyLoading:
 # =============================================================================
 # TOOL EXECUTION PERFORMANCE TESTS
 # =============================================================================
+
 
 class TestToolExecutionPerformance:
     """Performance tests for tool execution."""
@@ -403,8 +401,8 @@ class TestToolExecutionPerformance:
     @pytest.mark.asyncio
     async def test_registry_execute_time(self, reset_registries):
         """Test that executing through registry is fast."""
-        from fastband.tools.registry import ToolRegistry
         from fastband.tools.core.system import HealthCheckTool
+        from fastband.tools.registry import ToolRegistry
 
         registry = ToolRegistry()
         registry.register(HealthCheckTool())
@@ -418,14 +416,16 @@ class TestToolExecutionPerformance:
 # MEMORY TESTS (OPTIONAL - requires tracemalloc)
 # =============================================================================
 
+
 class TestMemoryUsage:
     """Memory usage tests."""
 
     def test_tool_registry_memory(self, reset_registries):
         """Test that tool registry has reasonable memory footprint."""
         import tracemalloc
-        from fastband.tools.registry import ToolRegistry
+
         from fastband.tools.core.system import HealthCheckTool
+        from fastband.tools.registry import ToolRegistry
 
         gc.collect()
         tracemalloc.start()
@@ -446,8 +446,9 @@ class TestMemoryUsage:
     def test_ticket_store_memory(self, temp_tickets_path):
         """Test that ticket store has reasonable memory footprint."""
         import tracemalloc
+
+        from fastband.tickets.models import Ticket, TicketPriority, TicketType
         from fastband.tickets.storage import JSONTicketStore
-        from fastband.tickets.models import Ticket, TicketType, TicketPriority
 
         gc.collect()
         tracemalloc.start()

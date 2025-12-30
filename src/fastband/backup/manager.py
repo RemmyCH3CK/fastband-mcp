@@ -7,14 +7,13 @@ Handles creation, restoration, and management of project backups.
 import hashlib
 import json
 import logging
-import os
 import shutil
 import tarfile
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastband.core.config import BackupConfig, get_config
 
@@ -27,6 +26,7 @@ def _get_alerts():
     global _alerts_module
     if _alerts_module is None:
         from fastband.backup import alerts
+
         _alerts_module = alerts
     return _alerts_module
 
@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 
 class BackupType(Enum):
     """Type of backup."""
+
     FULL = "full"
     INCREMENTAL = "incremental"
     ON_CHANGE = "on_change"
@@ -45,6 +46,7 @@ class BackupType(Enum):
 @dataclass
 class BackupInfo:
     """Information about a backup."""
+
     id: str
     backup_type: BackupType
     created_at: datetime
@@ -52,10 +54,10 @@ class BackupInfo:
     files_count: int
     checksum: str
     description: str = ""
-    parent_id: Optional[str] = None  # For incremental backups
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    parent_id: str | None = None  # For incremental backups
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -70,7 +72,7 @@ class BackupInfo:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "BackupInfo":
+    def from_dict(cls, data: dict[str, Any]) -> "BackupInfo":
         """Create from dictionary."""
         return cls(
             id=data["id"],
@@ -139,8 +141,8 @@ class BackupManager:
 
     def __init__(
         self,
-        project_path: Optional[Path] = None,
-        config: Optional[BackupConfig] = None,
+        project_path: Path | None = None,
+        config: BackupConfig | None = None,
     ):
         """
         Initialize the backup manager.
@@ -168,7 +170,7 @@ class BackupManager:
         # Load manifest
         self._manifest = self._load_manifest()
 
-    def _load_manifest(self) -> Dict[str, Any]:
+    def _load_manifest(self) -> dict[str, Any]:
         """Load the backup manifest."""
         if self.manifest_path.exists():
             try:
@@ -189,7 +191,7 @@ class BackupManager:
                 for chunk in iter(lambda: f.read(4096), b""):
                     hash_md5.update(chunk)
             return hash_md5.hexdigest()
-        except (OSError, IOError):
+        except OSError:
             return ""
 
     def _calculate_content_checksum(self) -> str:
@@ -223,6 +225,7 @@ class BackupManager:
     def _generate_backup_id(self) -> str:
         """Generate a unique backup ID with microseconds for uniqueness."""
         import uuid
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         # Add short UUID suffix to prevent collisions when multiple backups
         # are created in the same second (e.g., pre-restore backup)
@@ -245,7 +248,7 @@ class BackupManager:
         backup_type: BackupType = BackupType.MANUAL,
         description: str = "",
         force: bool = False,
-    ) -> Optional[BackupInfo]:
+    ) -> BackupInfo | None:
         """
         Create a new backup.
 
@@ -325,7 +328,9 @@ class BackupManager:
             self._manifest["last_checksum"] = self._calculate_content_checksum()
             self._save_manifest()
 
-            logger.info(f"Backup created: {backup_id} ({backup_info.size_human}, {files_count} files)")
+            logger.info(
+                f"Backup created: {backup_id} ({backup_info.size_human}, {files_count} files)"
+            )
             return backup_info
 
         except Exception as e:
@@ -357,7 +362,7 @@ class BackupManager:
             if temp_dir.exists():
                 shutil.rmtree(temp_dir)
 
-    def list_backups(self) -> List[BackupInfo]:
+    def list_backups(self) -> list[BackupInfo]:
         """
         List all available backups.
 
@@ -379,7 +384,7 @@ class BackupManager:
         backups.sort(key=lambda b: b.created_at, reverse=True)
         return backups
 
-    def get_backup(self, backup_id: str) -> Optional[BackupInfo]:
+    def get_backup(self, backup_id: str) -> BackupInfo | None:
         """
         Get information about a specific backup.
 
@@ -397,7 +402,7 @@ class BackupManager:
     def restore_backup(
         self,
         backup_id: str,
-        target_path: Optional[Path] = None,
+        target_path: Path | None = None,
         dry_run: bool = False,
     ) -> bool:
         """
@@ -450,6 +455,7 @@ class BackupManager:
             # Extract backup to system temp directory (outside project path)
             # to avoid deleting extracted content when restoring .fastband
             import tempfile
+
             with tempfile.TemporaryDirectory(prefix=f"fastband_restore_{backup_id}_") as temp_dir:
                 temp_path = Path(temp_dir)
 
@@ -514,8 +520,7 @@ class BackupManager:
 
             # Update manifest
             self._manifest["backups"] = [
-                b for b in self._manifest["backups"]
-                if b.get("id") != backup_id
+                b for b in self._manifest["backups"] if b.get("id") != backup_id
             ]
             self._save_manifest()
 
@@ -526,7 +531,7 @@ class BackupManager:
             logger.error(f"Failed to delete backup: {e}")
             return False
 
-    def prune_old_backups(self, dry_run: bool = False) -> List[BackupInfo]:
+    def prune_old_backups(self, dry_run: bool = False) -> list[BackupInfo]:
         """
         Remove old backups based on retention policy.
 
@@ -541,7 +546,9 @@ class BackupManager:
         pruned = []
 
         # Separate by type
-        daily_backups = [b for b in backups if b.backup_type in (BackupType.FULL, BackupType.ON_CHANGE)]
+        daily_backups = [
+            b for b in backups if b.backup_type in (BackupType.FULL, BackupType.ON_CHANGE)
+        ]
         manual_backups = [b for b in backups if b.backup_type == BackupType.MANUAL]
 
         # Determine cutoff dates
@@ -572,7 +579,7 @@ class BackupManager:
 
         return pruned
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """
         Get backup statistics.
 
@@ -591,10 +598,15 @@ class BackupManager:
             "total_backups": len(backups),
             "total_size_bytes": total_size,
             "total_size_human": BackupInfo(
-                id="", backup_type=BackupType.MANUAL,
-                created_at=datetime.now(), size_bytes=total_size,
-                files_count=0, checksum=""
-            ).size_human if total_size > 0 else "0 B",
+                id="",
+                backup_type=BackupType.MANUAL,
+                created_at=datetime.now(),
+                size_bytes=total_size,
+                files_count=0,
+                checksum="",
+            ).size_human
+            if total_size > 0
+            else "0 B",
             "by_type": by_type,
             "oldest": backups[-1].created_at.isoformat() if backups else None,
             "newest": backups[0].created_at.isoformat() if backups else None,
@@ -611,7 +623,7 @@ class BackupManager:
 
 
 # Convenience function
-def get_backup_manager(project_path: Optional[Path] = None) -> BackupManager:
+def get_backup_manager(project_path: Path | None = None) -> BackupManager:
     """
     Get a BackupManager instance for a project.
 

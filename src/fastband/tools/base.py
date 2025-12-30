@@ -5,36 +5,39 @@ All Fastband tools inherit from the Tool base class and define
 their parameters and execution logic.
 """
 
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import Dict, Any, List, Optional, Callable, Union
-from enum import Enum
-import time
 import logging
+import time
+from abc import ABC, abstractmethod
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class ToolCategory(Enum):
     """Tool categories for the garage system."""
-    CORE = "core"                  # Always loaded
-    FILE_OPS = "file_ops"          # File operations
-    GIT = "git"                    # Version control
-    WEB = "web"                    # Web development
-    MOBILE = "mobile"              # Mobile development
-    DESKTOP = "desktop"            # Desktop development
-    DEVOPS = "devops"              # CI/CD, containers
-    TESTING = "testing"            # Test execution
-    ANALYSIS = "analysis"          # Code quality, security
-    TICKETS = "tickets"            # Ticket management
-    SCREENSHOTS = "screenshots"    # Visual capture
-    AI = "ai"                      # AI-powered analysis
-    BACKUP = "backup"              # Backup operations
+
+    CORE = "core"  # Always loaded
+    FILE_OPS = "file_ops"  # File operations
+    GIT = "git"  # Version control
+    WEB = "web"  # Web development
+    MOBILE = "mobile"  # Mobile development
+    DESKTOP = "desktop"  # Desktop development
+    DEVOPS = "devops"  # CI/CD, containers
+    TESTING = "testing"  # Test execution
+    ANALYSIS = "analysis"  # Code quality, security
+    TICKETS = "tickets"  # Ticket management
+    SCREENSHOTS = "screenshots"  # Visual capture
+    AI = "ai"  # AI-powered analysis
+    BACKUP = "backup"  # Backup operations
     COORDINATION = "coordination"  # Multi-agent coordination
 
 
 class ProjectType(Enum):
     """Project types for tool recommendation."""
+
     WEB_APP = "web_app"
     API_SERVICE = "api_service"
     MOBILE_IOS = "mobile_ios"
@@ -51,16 +54,17 @@ class ProjectType(Enum):
 @dataclass
 class ToolParameter:
     """Parameter definition for a tool."""
+
     name: str
     type: str  # "string", "integer", "boolean", "number", "array", "object"
     description: str
     required: bool = True
     default: Any = None
-    enum: Optional[List[Any]] = None
+    enum: list[Any] | None = None
 
-    def to_json_schema(self) -> Dict[str, Any]:
+    def to_json_schema(self) -> dict[str, Any]:
         """Convert to JSON schema format."""
-        schema: Dict[str, Any] = {
+        schema: dict[str, Any] = {
             "type": self.type,
             "description": self.description,
         }
@@ -74,6 +78,7 @@ class ToolParameter:
 @dataclass
 class ToolMetadata:
     """Metadata for a tool."""
+
     name: str
     description: str
     category: ToolCategory
@@ -81,12 +86,12 @@ class ToolMetadata:
     author: str = "Fastband Team"
 
     # Recommendation hints
-    project_types: List[ProjectType] = field(default_factory=list)
-    tech_stack_hints: List[str] = field(default_factory=list)
+    project_types: list[ProjectType] = field(default_factory=list)
+    tech_stack_hints: list[str] = field(default_factory=list)
 
     # Dependencies
-    requires_tools: List[str] = field(default_factory=list)
-    conflicts_with: List[str] = field(default_factory=list)
+    requires_tools: list[str] = field(default_factory=list)
+    conflicts_with: list[str] = field(default_factory=list)
 
     # Resource hints
     memory_intensive: bool = False
@@ -95,16 +100,17 @@ class ToolMetadata:
 
     # Curation status (for third-party tools)
     curated: bool = True
-    curator_notes: Optional[str] = None
+    curator_notes: str | None = None
 
 
 @dataclass
 class ToolDefinition:
     """Complete tool definition for MCP registration."""
-    metadata: ToolMetadata
-    parameters: List[ToolParameter]
 
-    def to_mcp_schema(self) -> Dict[str, Any]:
+    metadata: ToolMetadata
+    parameters: list[ToolParameter]
+
+    def to_mcp_schema(self) -> dict[str, Any]:
         """Convert to MCP tool schema format."""
         properties = {}
         required = []
@@ -124,7 +130,7 @@ class ToolDefinition:
             },
         }
 
-    def to_openai_schema(self) -> Dict[str, Any]:
+    def to_openai_schema(self) -> dict[str, Any]:
         """Convert to OpenAI function calling schema."""
         mcp_schema = self.to_mcp_schema()
         return {
@@ -140,13 +146,14 @@ class ToolDefinition:
 @dataclass
 class ToolResult:
     """Result from tool execution."""
+
     success: bool
     data: Any = None
-    error: Optional[str] = None
+    error: str | None = None
     execution_time_ms: float = 0.0
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         result = {
             "success": self.success,
@@ -160,7 +167,7 @@ class ToolResult:
             result["metadata"] = self.metadata
         return result
 
-    def to_mcp_content(self) -> List[Dict[str, Any]]:
+    def to_mcp_content(self) -> list[dict[str, Any]]:
         """Convert to MCP content format."""
         import json
 
@@ -227,7 +234,7 @@ class Tool(ABC):
         """Get tool category from definition."""
         return self.definition.metadata.category
 
-    def validate_params(self, **kwargs) -> tuple[bool, Optional[str]]:
+    def validate_params(self, **kwargs) -> tuple[bool, str | None]:
         """
         Validate parameters against definition.
 
@@ -279,10 +286,7 @@ class Tool(ABC):
 
 
 def tool(
-    name: str,
-    description: str,
-    category: ToolCategory = ToolCategory.CORE,
-    **metadata_kwargs
+    name: str, description: str, category: ToolCategory = ToolCategory.CORE, **metadata_kwargs
 ) -> Callable:
     """
     Decorator for creating simple tools from functions.
@@ -292,6 +296,7 @@ def tool(
         async def greet(name: str = "World") -> ToolResult:
             return ToolResult(success=True, data=f"Hello, {name}!")
     """
+
     def decorator(func: Callable) -> Tool:
         import inspect
 
@@ -315,13 +320,15 @@ def tool(
                 }
                 param_type = type_map.get(param.annotation, "string")
 
-            parameters.append(ToolParameter(
-                name=param_name,
-                type=param_type,
-                description=f"Parameter: {param_name}",
-                required=param.default == inspect.Parameter.empty,
-                default=None if param.default == inspect.Parameter.empty else param.default,
-            ))
+            parameters.append(
+                ToolParameter(
+                    name=param_name,
+                    type=param_type,
+                    description=f"Parameter: {param_name}",
+                    required=param.default == inspect.Parameter.empty,
+                    default=None if param.default == inspect.Parameter.empty else param.default,
+                )
+            )
 
         class DecoratedTool(Tool):
             @property

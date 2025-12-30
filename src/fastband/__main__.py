@@ -6,7 +6,7 @@ Usage:
     fb [OPTIONS] COMMAND [ARGS]...  # Short alias
 """
 
-from fastband.cli.main import app, cli
+from fastband.cli.main import cli
 
 
 def main():

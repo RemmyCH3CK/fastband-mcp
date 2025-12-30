@@ -14,32 +14,26 @@ Comprehensive test suite covering:
 
 import json
 import os
-import pytest
 import tempfile
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from fastband.agents.ops_log import (
-    OpsLog,
-    LogEntry,
-    EventType,
-    get_ops_log,
-)
+import pytest
+
 from fastband.agents.coordination import (
     AgentCoordinator,
-    AgentStatus,
-    CoordinationResult,
     check_active_agents,
-    request_clearance,
-    announce_rebuild,
     get_agent_status,
-    get_latest_directive,
-    detect_conflicts,
 )
-
+from fastband.agents.ops_log import (
+    EventType,
+    LogEntry,
+    OpsLog,
+    get_ops_log,
+)
 
 # =============================================================================
 # FIXTURES
@@ -367,9 +361,7 @@ class TestOpsLogFiltering:
 
     def test_read_entries_by_event_type(self, populated_ops_log):
         """Test filtering by event type."""
-        entries = populated_ops_log.read_entries(
-            event_type=EventType.TICKET_CLAIMED
-        )
+        entries = populated_ops_log.read_entries(event_type=EventType.TICKET_CLAIMED)
 
         assert len(entries) == 2
         assert all(e.event_type == EventType.TICKET_CLAIMED.value for e in entries)
@@ -455,7 +447,7 @@ class TestOpsLogExpiration:
     def test_entry_expires(self, ops_log):
         """Test that expired entries are filtered out."""
         # Create entry that's already expired
-        entry = ops_log.write_entry(
+        ops_log.write_entry(
             agent="Agent1",
             event_type=EventType.STATUS_UPDATE,
             message="Expired",
@@ -463,9 +455,7 @@ class TestOpsLogExpiration:
         )
 
         # Manually set to past
-        ops_log._entries[0].expires_at = (
-            datetime.utcnow() - timedelta(hours=1)
-        ).isoformat() + "Z"
+        ops_log._entries[0].expires_at = (datetime.utcnow() - timedelta(hours=1)).isoformat() + "Z"
 
         entries = ops_log.read_entries(include_expired=False)
 
@@ -473,16 +463,14 @@ class TestOpsLogExpiration:
 
     def test_include_expired(self, ops_log):
         """Test including expired entries."""
-        entry = ops_log.write_entry(
+        ops_log.write_entry(
             agent="Agent1",
             event_type=EventType.STATUS_UPDATE,
             message="Expired",
             ttl_seconds=1,
         )
 
-        ops_log._entries[0].expires_at = (
-            datetime.utcnow() - timedelta(hours=1)
-        ).isoformat() + "Z"
+        ops_log._entries[0].expires_at = (datetime.utcnow() - timedelta(hours=1)).isoformat() + "Z"
 
         entries = ops_log.read_entries(include_expired=True)
 
@@ -909,7 +897,7 @@ class TestAgentCoordinator:
 
     def test_coordinator_auto_register(self, ops_log):
         """Test coordinator auto-registration."""
-        coord = AgentCoordinator(
+        AgentCoordinator(
             agent_name="TestAgent",
             ops_log=ops_log,
             auto_register=True,
@@ -1029,6 +1017,7 @@ class TestConvenienceFunctions:
         """Test check_active_agents function."""
         # Reset global instance
         import fastband.agents.ops_log as ops_log_module
+
         ops_log_module._ops_log = None
 
         log_path = temp_dir / ".fastband" / "ops_log.json"
@@ -1048,6 +1037,7 @@ class TestConvenienceFunctions:
     def test_get_agent_status_function(self, temp_dir):
         """Test get_agent_status function."""
         import fastband.agents.ops_log as ops_log_module
+
         ops_log_module._ops_log = None
 
         log_path = temp_dir / ".fastband" / "ops_log.json"
@@ -1063,6 +1053,7 @@ class TestConvenienceFunctions:
     def test_get_agent_status_inactive(self, temp_dir):
         """Test get_agent_status for inactive agent."""
         import fastband.agents.ops_log as ops_log_module
+
         ops_log_module._ops_log = None
 
         log_path = temp_dir / ".fastband" / "ops_log.json"
@@ -1084,6 +1075,7 @@ class TestThreadSafety:
 
     def test_concurrent_writes(self, ops_log):
         """Test concurrent write operations."""
+
         def write_entry(agent_num):
             for i in range(10):
                 ops_log.write_entry(
@@ -1095,7 +1087,7 @@ class TestThreadSafety:
 
         with ThreadPoolExecutor(max_workers=5) as executor:
             futures = [executor.submit(write_entry, i) for i in range(5)]
-            results = [f.result() for f in as_completed(futures)]
+            [f.result() for f in as_completed(futures)]
 
         # Should have 50 entries (5 agents x 10 messages each)
         assert ops_log.count() == 50
@@ -1121,9 +1113,9 @@ class TestThreadSafety:
 
         def reader():
             nonlocal read_count
-            for i in range(20):
+            for _i in range(20):
                 try:
-                    entries = ops_log.read_entries()
+                    ops_log.read_entries()
                     read_count += 1
                 except Exception as e:
                     errors.append(f"Read error: {e}")
@@ -1165,11 +1157,8 @@ class TestThreadSafety:
 
         with ThreadPoolExecutor(max_workers=3) as executor:
             # Stagger the claims to ensure at least some see prior claims
-            futures = [
-                executor.submit(claim_ticket, f"Agent{i}", i * 0.05)
-                for i in range(3)
-            ]
-            results = [f.result() for f in as_completed(futures)]
+            futures = [executor.submit(claim_ticket, f"Agent{i}", i * 0.05) for i in range(3)]
+            [f.result() for f in as_completed(futures)]
 
         # All claims should be recorded
         assert ops_log.count() == 3
@@ -1233,15 +1222,7 @@ class TestEdgeCases:
 
     def test_nested_metadata(self, ops_log):
         """Test deeply nested metadata."""
-        metadata = {
-            "level1": {
-                "level2": {
-                    "level3": {
-                        "value": 42
-                    }
-                }
-            }
-        }
+        metadata = {"level1": {"level2": {"level3": {"value": 42}}}}
 
         entry = ops_log.write_entry(
             agent="Agent1",
@@ -1293,6 +1274,7 @@ class TestGlobalInstance:
     def test_get_ops_log_default(self, temp_dir):
         """Test getting default OpsLog instance."""
         import fastband.agents.ops_log as ops_log_module
+
         ops_log_module._ops_log = None
 
         # Change to temp dir
@@ -1308,6 +1290,7 @@ class TestGlobalInstance:
     def test_get_ops_log_with_path(self, temp_dir):
         """Test getting OpsLog with specific path."""
         import fastband.agents.ops_log as ops_log_module
+
         ops_log_module._ops_log = None
 
         ops_log = get_ops_log(project_path=temp_dir)
@@ -1318,6 +1301,7 @@ class TestGlobalInstance:
     def test_get_ops_log_reset(self, temp_dir):
         """Test resetting OpsLog instance."""
         import fastband.agents.ops_log as ops_log_module
+
         ops_log_module._ops_log = None
 
         ops_log1 = get_ops_log(project_path=temp_dir)
@@ -1329,6 +1313,7 @@ class TestGlobalInstance:
     def test_get_ops_log_caches(self, temp_dir):
         """Test that get_ops_log caches the instance."""
         import fastband.agents.ops_log as ops_log_module
+
         ops_log_module._ops_log = None
 
         ops_log1 = get_ops_log(project_path=temp_dir)

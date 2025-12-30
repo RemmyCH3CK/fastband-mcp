@@ -10,7 +10,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -18,11 +18,12 @@ logger = logging.getLogger(__name__)
 @dataclass
 class OnboardingRequirement:
     """A document that must be acknowledged during onboarding."""
+
     path: str
     description: str
     required: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "path": self.path,
             "description": self.description,
@@ -33,16 +34,17 @@ class OnboardingRequirement:
 @dataclass
 class AgentSession:
     """Tracks an agent's onboarding session."""
+
     agent_name: str
     session_id: str
     started_at: str
     completed: bool = False
-    completed_at: Optional[str] = None
-    docs_acknowledged: List[str] = field(default_factory=list)
+    completed_at: str | None = None
+    docs_acknowledged: list[str] = field(default_factory=list)
     codebase_examined: bool = False
-    platform_understanding: Optional[str] = None
+    platform_understanding: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "agent_name": self.agent_name,
             "session_id": self.session_id,
@@ -55,7 +57,7 @@ class AgentSession:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "AgentSession":
+    def from_dict(cls, data: dict[str, Any]) -> "AgentSession":
         return cls(**data)
 
 
@@ -79,7 +81,7 @@ class AgentOnboarding:
     def __init__(
         self,
         project_path: Path,
-        session_file: Optional[Path] = None,
+        session_file: Path | None = None,
     ):
         """
         Initialize the onboarding system.
@@ -92,8 +94,8 @@ class AgentOnboarding:
         self.fastband_dir = self.project_path / ".fastband"
         self.session_file = session_file or self.fastband_dir / "agent_sessions.json"
 
-        self._sessions: Dict[str, AgentSession] = {}
-        self._requirements: List[OnboardingRequirement] = []
+        self._sessions: dict[str, AgentSession] = {}
+        self._requirements: list[OnboardingRequirement] = []
         self._load_sessions()
         self._build_requirements()
 
@@ -122,11 +124,13 @@ class AgentOnboarding:
         # Always require the Agent Bible if it exists
         bible_path = self.fastband_dir / "AGENT_BIBLE.md"
         if bible_path.exists():
-            self._requirements.append(OnboardingRequirement(
-                path=str(bible_path),
-                description="The Agent Bible - project rules and conventions all agents must follow",
-                required=True,
-            ))
+            self._requirements.append(
+                OnboardingRequirement(
+                    path=str(bible_path),
+                    description="The Agent Bible - project rules and conventions all agents must follow",
+                    required=True,
+                )
+            )
 
         # Add any additional required docs
         docs_config = self.fastband_dir / "onboarding_docs.json"
@@ -139,15 +143,15 @@ class AgentOnboarding:
                 logger.warning(f"Failed to load onboarding docs config: {e}")
 
     @property
-    def requirements(self) -> List[OnboardingRequirement]:
+    def requirements(self) -> list[OnboardingRequirement]:
         """Get the list of onboarding requirements."""
         return self._requirements
 
     def start_session(
         self,
         agent_name: str,
-        context: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        context: str | None = None,
+    ) -> dict[str, Any]:
         """
         Start a new onboarding session for an agent.
 
@@ -160,7 +164,9 @@ class AgentOnboarding:
         """
         import uuid
 
-        session_id = f"{agent_name}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+        session_id = (
+            f"{agent_name}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+        )
 
         session = AgentSession(
             agent_name=agent_name,
@@ -195,8 +201,8 @@ class AgentOnboarding:
         self,
         session_id: str,
         doc_path: str,
-        summary: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        summary: str | None = None,
+    ) -> dict[str, Any]:
         """
         Acknowledge that an agent has read a document.
 
@@ -245,7 +251,7 @@ class AgentOnboarding:
             "docs_complete": len(remaining) == 0,
         }
 
-    def _get_remaining_docs(self, session: AgentSession) -> List[Dict[str, Any]]:
+    def _get_remaining_docs(self, session: AgentSession) -> list[dict[str, Any]]:
         """Get documents not yet acknowledged."""
         acknowledged_set = set(session.docs_acknowledged)
         remaining = []
@@ -260,8 +266,8 @@ class AgentOnboarding:
         self,
         session_id: str,
         codebase_examined: bool = False,
-        platform_understanding: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        platform_understanding: str | None = None,
+    ) -> dict[str, Any]:
         """
         Complete the onboarding process.
 
@@ -318,17 +324,14 @@ class AgentOnboarding:
         session = self._sessions.get(session_id)
         return session is not None and session.completed
 
-    def get_session(self, session_id: str) -> Optional[AgentSession]:
+    def get_session(self, session_id: str) -> AgentSession | None:
         """Get a session by ID."""
         return self._sessions.get(session_id)
 
-    def get_status(self, agent_name: str) -> Dict[str, Any]:
+    def get_status(self, agent_name: str) -> dict[str, Any]:
         """Get onboarding status for an agent."""
         # Find most recent session for this agent
-        agent_sessions = [
-            s for s in self._sessions.values()
-            if s.agent_name == agent_name
-        ]
+        agent_sessions = [s for s in self._sessions.values() if s.agent_name == agent_name]
 
         if not agent_sessions:
             return {
@@ -377,10 +380,10 @@ class AgentOnboarding:
 
 
 # Global instance
-_onboarding: Optional[AgentOnboarding] = None
+_onboarding: AgentOnboarding | None = None
 
 
-def get_onboarding(project_path: Optional[Path] = None) -> AgentOnboarding:
+def get_onboarding(project_path: Path | None = None) -> AgentOnboarding:
     """Get the global onboarding instance."""
     global _onboarding
     if _onboarding is None:

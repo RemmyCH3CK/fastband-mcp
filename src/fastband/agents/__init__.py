@@ -9,18 +9,12 @@ Provides multi-agent coordination capabilities:
 - Agent onboarding and bible enforcement
 """
 
-from fastband.agents.ops_log import (
-    OpsLog,
-    LogEntry,
-    EventType,
-    get_ops_log,
-)
 from fastband.agents.coordination import (
     AgentCoordinator,
-    check_active_agents,
-    request_clearance,
     announce_rebuild,
+    check_active_agents,
     get_agent_status,
+    request_clearance,
 )
 from fastband.agents.onboarding import (
     AgentOnboarding,
@@ -28,6 +22,12 @@ from fastband.agents.onboarding import (
     OnboardingRequirement,
     get_onboarding,
     reset_onboarding,
+)
+from fastband.agents.ops_log import (
+    EventType,
+    LogEntry,
+    OpsLog,
+    get_ops_log,
 )
 
 __all__ = [

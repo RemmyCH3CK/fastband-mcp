@@ -6,36 +6,37 @@ Uses brute-force cosine similarity search (suitable for <200k vectors).
 """
 
 import json
+import logging
+import math
 import sqlite3
 import struct
 import threading
+from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional, Tuple, Any
-import logging
-import math
+from typing import Any
 
 from fastband.embeddings.base import ChunkMetadata, ChunkType
-from fastband.embeddings.storage.base import VectorStore, SearchResult, IndexStats
+from fastband.embeddings.storage.base import IndexStats, SearchResult, VectorStore
 
 logger = logging.getLogger(__name__)
 
 
-def _pack_embedding(embedding: List[float]) -> bytes:
+def _pack_embedding(embedding: list[float]) -> bytes:
     """Pack embedding list to bytes."""
-    return struct.pack(f'{len(embedding)}f', *embedding)
+    return struct.pack(f"{len(embedding)}f", *embedding)
 
 
-def _unpack_embedding(data: bytes) -> List[float]:
+def _unpack_embedding(data: bytes) -> list[float]:
     """Unpack bytes to embedding list."""
     count = len(data) // 4  # 4 bytes per float
-    return list(struct.unpack(f'{count}f', data))
+    return list(struct.unpack(f"{count}f", data))
 
 
-def _cosine_similarity(a: List[float], b: List[float]) -> float:
+def _cosine_similarity(a: list[float], b: list[float]) -> float:
     """Calculate cosine similarity between two vectors."""
-    dot_product = sum(x * y for x, y in zip(a, b))
+    dot_product = sum(x * y for x, y in zip(a, b, strict=False))
     norm_a = math.sqrt(sum(x * x for x in a))
     norm_b = math.sqrt(sum(x * x for x in b))
 
@@ -78,7 +79,7 @@ class SQLiteVectorStore(VectorStore):
         self._dimensions = 0
         self._local = threading.local()
         self._lock = threading.Lock()
-        self._all_connections: List[sqlite3.Connection] = []  # Track all thread connections
+        self._all_connections: list[sqlite3.Connection] = []  # Track all thread connections
         self._init_db()
 
     @property
@@ -144,12 +145,8 @@ class SQLiteVectorStore(VectorStore):
             """)
 
             # Create indexes for filtering
-            cursor.execute(
-                "CREATE INDEX IF NOT EXISTS idx_vectors_file_path ON vectors(file_path)"
-            )
-            cursor.execute(
-                "CREATE INDEX IF NOT EXISTS idx_vectors_file_type ON vectors(file_type)"
-            )
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_vectors_file_path ON vectors(file_path)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_vectors_file_type ON vectors(file_type)")
             cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_vectors_chunk_type ON vectors(chunk_type)"
             )
@@ -157,20 +154,17 @@ class SQLiteVectorStore(VectorStore):
             # Initialize metadata
             cursor.execute(
                 "INSERT OR IGNORE INTO metadata (key, value) VALUES ('provider', ?)",
-                (self._provider,)
+                (self._provider,),
             )
             cursor.execute(
-                "INSERT OR IGNORE INTO metadata (key, value) VALUES ('model', ?)",
-                (self._model,)
+                "INSERT OR IGNORE INTO metadata (key, value) VALUES ('model', ?)", (self._model,)
             )
-            cursor.execute(
-                "INSERT OR IGNORE INTO metadata (key, value) VALUES ('dimensions', '0')"
-            )
+            cursor.execute("INSERT OR IGNORE INTO metadata (key, value) VALUES ('dimensions', '0')")
 
     def store(
         self,
         chunk_id: str,
-        embedding: List[float],
+        embedding: list[float],
         content: str,
         metadata: ChunkMetadata,
     ) -> None:
@@ -182,37 +176,40 @@ class SQLiteVectorStore(VectorStore):
                 with self._cursor() as cursor:
                     cursor.execute(
                         "UPDATE metadata SET value = ? WHERE key = 'dimensions'",
-                        (str(self._dimensions),)
+                        (str(self._dimensions),),
                     )
 
             packed = _pack_embedding(embedding)
 
             with self._cursor() as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT OR REPLACE INTO vectors (
                         chunk_id, embedding, content, file_path, chunk_type,
                         start_line, end_line, name, docstring, imports,
                         parent_name, file_type, last_modified, chunk_hash, created_at
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    chunk_id,
-                    packed,
-                    content,
-                    metadata.file_path,
-                    metadata.chunk_type.value,
-                    metadata.start_line,
-                    metadata.end_line,
-                    metadata.name,
-                    metadata.docstring,
-                    json.dumps(metadata.imports),
-                    metadata.parent_name,
-                    metadata.file_type,
-                    metadata.last_modified.isoformat() if metadata.last_modified else None,
-                    metadata.chunk_hash,
-                    datetime.now().isoformat(),
-                ))
+                """,
+                    (
+                        chunk_id,
+                        packed,
+                        content,
+                        metadata.file_path,
+                        metadata.chunk_type.value,
+                        metadata.start_line,
+                        metadata.end_line,
+                        metadata.name,
+                        metadata.docstring,
+                        json.dumps(metadata.imports),
+                        metadata.parent_name,
+                        metadata.file_type,
+                        metadata.last_modified.isoformat() if metadata.last_modified else None,
+                        metadata.chunk_hash,
+                        datetime.now().isoformat(),
+                    ),
+                )
 
-    def store_batch(self, items: List[Tuple]) -> int:
+    def store_batch(self, items: list[tuple]) -> int:
         """Store multiple chunks efficiently."""
         if not items:
             return 0
@@ -224,52 +221,57 @@ class SQLiteVectorStore(VectorStore):
                 with self._cursor() as cursor:
                     cursor.execute(
                         "UPDATE metadata SET value = ? WHERE key = 'dimensions'",
-                        (str(self._dimensions),)
+                        (str(self._dimensions),),
                     )
 
             rows = []
             for chunk_id, embedding, content, metadata in items:
                 packed = _pack_embedding(embedding)
-                rows.append((
-                    chunk_id,
-                    packed,
-                    content,
-                    metadata.file_path,
-                    metadata.chunk_type.value,
-                    metadata.start_line,
-                    metadata.end_line,
-                    metadata.name,
-                    metadata.docstring,
-                    json.dumps(metadata.imports),
-                    metadata.parent_name,
-                    metadata.file_type,
-                    metadata.last_modified.isoformat() if metadata.last_modified else None,
-                    metadata.chunk_hash,
-                    datetime.now().isoformat(),
-                ))
+                rows.append(
+                    (
+                        chunk_id,
+                        packed,
+                        content,
+                        metadata.file_path,
+                        metadata.chunk_type.value,
+                        metadata.start_line,
+                        metadata.end_line,
+                        metadata.name,
+                        metadata.docstring,
+                        json.dumps(metadata.imports),
+                        metadata.parent_name,
+                        metadata.file_type,
+                        metadata.last_modified.isoformat() if metadata.last_modified else None,
+                        metadata.chunk_hash,
+                        datetime.now().isoformat(),
+                    )
+                )
 
             with self._cursor() as cursor:
-                cursor.executemany("""
+                cursor.executemany(
+                    """
                     INSERT OR REPLACE INTO vectors (
                         chunk_id, embedding, content, file_path, chunk_type,
                         start_line, end_line, name, docstring, imports,
                         parent_name, file_type, last_modified, chunk_hash, created_at
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, rows)
+                """,
+                    rows,
+                )
 
             return len(rows)
 
     def search(
         self,
-        query_embedding: List[float],
+        query_embedding: list[float],
         limit: int = 10,
-        filter_file_type: Optional[str] = None,
-        filter_file_path: Optional[str] = None,
-    ) -> List[SearchResult]:
+        filter_file_type: str | None = None,
+        filter_file_path: str | None = None,
+    ) -> list[SearchResult]:
         """Search for similar chunks using cosine similarity."""
         # Build query with optional filters
         query = "SELECT * FROM vectors WHERE 1=1"
-        params: List[Any] = []
+        params: list[Any] = []
 
         if filter_file_type:
             query += " AND file_type = ?"
@@ -289,18 +291,20 @@ class SQLiteVectorStore(VectorStore):
             embedding = _unpack_embedding(row["embedding"])
             score = _cosine_similarity(query_embedding, embedding)
 
-            results.append(SearchResult(
-                chunk_id=row["chunk_id"],
-                content=row["content"],
-                metadata=self._row_to_metadata(row),
-                score=score,
-            ))
+            results.append(
+                SearchResult(
+                    chunk_id=row["chunk_id"],
+                    content=row["content"],
+                    metadata=self._row_to_metadata(row),
+                    score=score,
+                )
+            )
 
         # Sort by score descending and limit
         results.sort(key=lambda r: r.score, reverse=True)
         return results[:limit]
 
-    def get(self, chunk_id: str) -> Optional[SearchResult]:
+    def get(self, chunk_id: str) -> SearchResult | None:
         """Get a specific chunk by ID."""
         with self._cursor() as cursor:
             cursor.execute("SELECT * FROM vectors WHERE chunk_id = ?", (chunk_id,))
@@ -365,7 +369,7 @@ class SQLiteVectorStore(VectorStore):
             cursor.execute("DELETE FROM vectors")
             cursor.execute("UPDATE metadata SET value = '0' WHERE key = 'dimensions'")
 
-    def get_file_hashes(self) -> Dict[str, str]:
+    def get_file_hashes(self) -> dict[str, str]:
         """Get hash values for all indexed files."""
         with self._cursor() as cursor:
             cursor.execute("""
@@ -387,8 +391,7 @@ class SQLiteVectorStore(VectorStore):
         """Update index metadata."""
         with self._cursor() as cursor:
             cursor.execute(
-                "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
-                (key, value)
+                "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)", (key, value)
             )
 
     def _row_to_metadata(self, row: sqlite3.Row) -> ChunkMetadata:
@@ -403,7 +406,9 @@ class SQLiteVectorStore(VectorStore):
             imports=json.loads(row["imports"]) if row["imports"] else [],
             parent_name=row["parent_name"],
             file_type=row["file_type"],
-            last_modified=datetime.fromisoformat(row["last_modified"]) if row["last_modified"] else None,
+            last_modified=datetime.fromisoformat(row["last_modified"])
+            if row["last_modified"]
+            else None,
             chunk_hash=row["chunk_hash"],
         )
 

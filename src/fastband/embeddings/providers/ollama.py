@@ -5,13 +5,13 @@ Uses Ollama for local embedding generation.
 Supports nomic-embed-text, all-minilm, mxbai-embed-large, and other models.
 """
 
-import os
 import logging
-from typing import Optional, Sequence
+import os
+from collections.abc import Sequence
 
 from fastband.embeddings.base import (
-    EmbeddingProvider,
     EmbeddingConfig,
+    EmbeddingProvider,
     EmbeddingResult,
 )
 
@@ -42,7 +42,7 @@ class OllamaEmbeddings(EmbeddingProvider):
         result = await provider.embed(["Hello, world!"])
     """
 
-    def __init__(self, config: Optional[EmbeddingConfig] = None):
+    def __init__(self, config: EmbeddingConfig | None = None):
         if config is None:
             config = EmbeddingConfig()
         super().__init__(config)
@@ -75,6 +75,7 @@ class OllamaEmbeddings(EmbeddingProvider):
         if self._client is None:
             try:
                 from ollama import AsyncClient
+
                 self._client = AsyncClient(host=self.config.base_url)
             except ImportError:
                 raise ImportError(

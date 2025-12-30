@@ -1,14 +1,13 @@
 """Tests for Fastband Hub memory system."""
 
-import pytest
-import tempfile
 import os
+import tempfile
 from pathlib import Path
-from datetime import datetime, timezone
-from unittest.mock import Mock, patch, AsyncMock
 
-from fastband.hub.models import MemoryEntry, MemoryContext
-from fastband.hub.memory import MemoryStore, SemanticMemory, MemoryConfig
+import pytest
+
+from fastband.hub.memory import MemoryConfig, MemoryStore, SemanticMemory
+from fastband.hub.models import MemoryContext, MemoryEntry
 
 
 class TestMemoryStore:
@@ -116,12 +115,14 @@ class TestMemoryStore:
     def test_get_entry_count(self, store):
         """Test counting entries by user."""
         for i in range(7):
-            store.insert(MemoryEntry(
-                entry_id=f"count_{i}",
-                user_id="user_count",
-                content=f"Content {i}",
-                source="test",
-            ))
+            store.insert(
+                MemoryEntry(
+                    entry_id=f"count_{i}",
+                    user_id="user_count",
+                    content=f"Content {i}",
+                    source="test",
+                )
+            )
 
         count = store.get_entry_count("user_count")
         assert count == 7
@@ -130,12 +131,14 @@ class TestMemoryStore:
         """Test deleting oldest entries."""
         # Save some entries
         for i in range(10):
-            store.insert(MemoryEntry(
-                entry_id=f"delete_{i}",
-                user_id="user_delete",
-                content=f"Content {i}",
-                source="test",
-            ))
+            store.insert(
+                MemoryEntry(
+                    entry_id=f"delete_{i}",
+                    user_id="user_delete",
+                    content=f"Content {i}",
+                    source="test",
+                )
+            )
 
         # Delete 5 oldest
         deleted = store.delete_oldest("user_delete", 5)
@@ -165,20 +168,24 @@ class TestMemoryStore:
         """Test clearing all entries for a user."""
         # Save entries for different users
         for i in range(3):
-            store.insert(MemoryEntry(
-                entry_id=f"mem_user1_{i}",
-                user_id="user_1",
-                content=f"Content {i}",
-                source="test",
-            ))
+            store.insert(
+                MemoryEntry(
+                    entry_id=f"mem_user1_{i}",
+                    user_id="user_1",
+                    content=f"Content {i}",
+                    source="test",
+                )
+            )
 
         for i in range(2):
-            store.insert(MemoryEntry(
-                entry_id=f"mem_user2_{i}",
-                user_id="user_2",
-                content=f"Content {i}",
-                source="test",
-            ))
+            store.insert(
+                MemoryEntry(
+                    entry_id=f"mem_user2_{i}",
+                    user_id="user_2",
+                    content=f"Content {i}",
+                    source="test",
+                )
+            )
 
         # Clear user_1
         deleted = store.clear_user("user_1")

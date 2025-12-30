@@ -9,16 +9,15 @@ Provides configurable logging with:
 - Integration with FastbandConfig
 """
 
-import logging
 import json
+import logging
 import os
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Optional, Dict, Any, Union
-
+from typing import Any
 
 # Log level mapping
 LOG_LEVELS = {
@@ -99,7 +98,7 @@ class LoggingConfig:
         return config
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "LoggingConfig":
+    def from_dict(cls, data: dict[str, Any]) -> "LoggingConfig":
         """Create logging config from dictionary."""
         config = cls()
 
@@ -128,7 +127,7 @@ class LoggingConfig:
 
         return config
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert config to dictionary."""
         return {
             "level": self.level,
@@ -197,10 +196,10 @@ class ColoredFormatter(logging.Formatter):
 
     # ANSI color codes
     COLORS = {
-        "DEBUG": "\033[36m",     # Cyan
-        "INFO": "\033[32m",      # Green
-        "WARNING": "\033[33m",   # Yellow
-        "ERROR": "\033[31m",     # Red
+        "DEBUG": "\033[36m",  # Cyan
+        "INFO": "\033[32m",  # Green
+        "WARNING": "\033[33m",  # Yellow
+        "ERROR": "\033[31m",  # Red
         "CRITICAL": "\033[35m",  # Magenta
     }
     RESET = "\033[0m"
@@ -209,7 +208,7 @@ class ColoredFormatter(logging.Formatter):
     def __init__(
         self,
         fmt: str,
-        datefmt: Optional[str] = None,
+        datefmt: str | None = None,
         use_colors: bool = True,
     ):
         super().__init__(fmt, datefmt)
@@ -240,8 +239,8 @@ class FastbandLogger:
 
     def __init__(
         self,
-        config: Optional[LoggingConfig] = None,
-        project_path: Optional[Path] = None,
+        config: LoggingConfig | None = None,
+        project_path: Path | None = None,
     ):
         """
         Initialize the logging system.
@@ -252,7 +251,7 @@ class FastbandLogger:
         """
         self.config = config or LoggingConfig.from_env()
         self.project_path = project_path or Path.cwd()
-        self._logger: Optional[logging.Logger] = None
+        self._logger: logging.Logger | None = None
         self._initialized = False
 
     @property
@@ -348,7 +347,7 @@ class FastbandLogger:
 
         self._logger.addHandler(handler)
 
-    def get_logger(self, name: Optional[str] = None) -> logging.Logger:
+    def get_logger(self, name: str | None = None) -> logging.Logger:
         """
         Get a logger instance.
 
@@ -365,7 +364,7 @@ class FastbandLogger:
             return self._logger.getChild(name)
         return self._logger
 
-    def set_level(self, level: Union[str, int]) -> None:
+    def set_level(self, level: str | int) -> None:
         """
         Change the log level dynamically.
 
@@ -392,12 +391,12 @@ class FastbandLogger:
 
 
 # Global logger instance
-_logger_instance: Optional[FastbandLogger] = None
+_logger_instance: FastbandLogger | None = None
 
 
 def setup_logging(
-    config: Optional[LoggingConfig] = None,
-    project_path: Optional[Path] = None,
+    config: LoggingConfig | None = None,
+    project_path: Path | None = None,
 ) -> logging.Logger:
     """
     Set up the Fastband logging system.
@@ -418,7 +417,7 @@ def setup_logging(
     return _logger_instance.setup()
 
 
-def get_logger(name: Optional[str] = None) -> logging.Logger:
+def get_logger(name: str | None = None) -> logging.Logger:
     """
     Get a logger instance.
 
@@ -438,7 +437,7 @@ def get_logger(name: Optional[str] = None) -> logging.Logger:
     return _logger_instance.get_logger(name)
 
 
-def set_log_level(level: Union[str, int]) -> None:
+def set_log_level(level: str | int) -> None:
     """
     Set the global log level.
 

@@ -16,9 +16,10 @@ import asyncio
 import logging
 import threading
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional, Set, Union
+from typing import Any
 from uuid import uuid4
 
 from fastband.agents.ops_log import EventType
@@ -26,8 +27,8 @@ from fastband.agents.ops_log import EventType
 logger = logging.getLogger(__name__)
 
 # Type aliases
-EventHandler = Callable[[Dict[str, Any]], None]
-AsyncEventHandler = Callable[[Dict[str, Any]], Any]  # Returns Coroutine
+EventHandler = Callable[[dict[str, Any]], None]
+AsyncEventHandler = Callable[[dict[str, Any]], Any]  # Returns Coroutine
 
 
 @dataclass(slots=True)
@@ -35,15 +36,17 @@ class EventData:
     """Structured event data for pub/sub."""
 
     event_type: EventType
-    data: Dict[str, Any]
+    data: dict[str, Any]
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     source: str = "system"
     correlation_id: str = field(default_factory=lambda: str(uuid4())[:8])
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
-            "event_type": self.event_type.value if isinstance(self.event_type, EventType) else self.event_type,
+            "event_type": self.event_type.value
+            if isinstance(self.event_type, EventType)
+            else self.event_type,
             "data": self.data,
             "timestamp": self.timestamp.isoformat() + "Z",
             "source": self.source,
@@ -79,11 +82,11 @@ class EventBus:
         })
     """
 
-    __slots__ = ('_handlers', '_wildcard_handlers', '_sync_lock', '_started')
+    __slots__ = ("_handlers", "_wildcard_handlers", "_sync_lock", "_started")
 
     def __init__(self):
-        self._handlers: Dict[EventType, List[tuple]] = defaultdict(list)
-        self._wildcard_handlers: List[tuple] = []
+        self._handlers: dict[EventType, list[tuple]] = defaultdict(list)
+        self._wildcard_handlers: list[tuple] = []
         self._sync_lock = threading.Lock()  # Thread-safe for subscribe/unsubscribe
         self._started = False
 
@@ -101,8 +104,8 @@ class EventBus:
 
     def subscribe(
         self,
-        event_type: Union[EventType, str],
-        handler: Union[EventHandler, AsyncEventHandler],
+        event_type: EventType | str,
+        handler: EventHandler | AsyncEventHandler,
         *,
         priority: int = 0,
     ) -> str:
@@ -167,7 +170,7 @@ class EventBus:
 
         return False
 
-    def on(self, event_type: Union[EventType, str], *, priority: int = 0):
+    def on(self, event_type: EventType | str, *, priority: int = 0):
         """
         Decorator for subscribing to events.
 
@@ -176,15 +179,17 @@ class EventBus:
             async def handle_completion(data):
                 print(f"Ticket completed: {data}")
         """
-        def decorator(func: Union[EventHandler, AsyncEventHandler]):
+
+        def decorator(func: EventHandler | AsyncEventHandler):
             self.subscribe(event_type, func, priority=priority)
             return func
+
         return decorator
 
     async def emit(
         self,
         event_type: EventType,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         *,
         source: str = "system",
     ) -> EventData:
@@ -231,7 +236,7 @@ class EventBus:
     def emit_sync(
         self,
         event_type: EventType,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         *,
         source: str = "system",
     ) -> None:
@@ -242,7 +247,7 @@ class EventBus:
         in async contexts.
         """
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             # Already in async context - schedule as task
             asyncio.create_task(self.emit(event_type, data, source=source))
         except RuntimeError:
@@ -251,8 +256,8 @@ class EventBus:
 
     async def _safe_invoke(
         self,
-        handler: Union[EventHandler, AsyncEventHandler],
-        data: Dict[str, Any],
+        handler: EventHandler | AsyncEventHandler,
+        data: dict[str, Any],
     ) -> None:
         """Safely invoke a handler with error isolation."""
         try:
@@ -265,7 +270,7 @@ class EventBus:
         except Exception as e:
             logger.error(f"Error in event handler: {e}", exc_info=True)
 
-    def get_subscriber_count(self, event_type: Optional[EventType] = None) -> int:
+    def get_subscriber_count(self, event_type: EventType | None = None) -> int:
         """Get number of subscribers for an event type (or all if None)."""
         if event_type is None:
             total = len(self._wildcard_handlers)
@@ -279,7 +284,7 @@ class EventBus:
 # Global Instance Management
 # =============================================================================
 
-_event_bus: Optional[EventBus] = None
+_event_bus: EventBus | None = None
 _bus_lock = threading.Lock()  # Thread-safe singleton creation
 
 
@@ -314,6 +319,7 @@ def reset_event_bus() -> None:
 # These are additional event types beyond what ops_log defines.
 # We could add these to EventType enum, but keeping them separate
 # allows gradual integration.
+
 
 class HubEventType:
     """Additional event types for Hub and plugin system."""

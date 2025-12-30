@@ -9,12 +9,11 @@ Performance Optimizations (Issue #38):
 - Fast path: Cached instance lookup is O(1)
 """
 
-from dataclasses import dataclass
-from typing import Dict, Type, Optional, List, Callable, Any
-import os
 import importlib
-import time
 import logging
+import os
+import time
+from dataclasses import dataclass
 
 from fastband.providers.base import AIProvider, ProviderConfig
 
@@ -29,12 +28,13 @@ class LazyProviderSpec:
     Stores the module path and class name instead of importing immediately.
     The provider class is only imported when get_class() is called.
     """
+
     module_path: str
     class_name: str
-    _class: Optional[Type[AIProvider]] = None
+    _class: type[AIProvider] | None = None
     _load_time_ms: float = 0.0
 
-    def get_class(self) -> Type[AIProvider]:
+    def get_class(self) -> type[AIProvider]:
         """
         Get the provider class, importing the module if needed.
 
@@ -77,13 +77,13 @@ class ProviderRegistry:
     """
 
     # Class-level storage for providers
-    _providers: Dict[str, Type[AIProvider]] = {}
-    _lazy_specs: Dict[str, LazyProviderSpec] = {}
-    _instances: Dict[str, AIProvider] = {}
-    _env_cache: Dict[str, ProviderConfig] = {}  # Cache env-based configs
+    _providers: dict[str, type[AIProvider]] = {}
+    _lazy_specs: dict[str, LazyProviderSpec] = {}
+    _instances: dict[str, AIProvider] = {}
+    _env_cache: dict[str, ProviderConfig] = {}  # Cache env-based configs
 
     @classmethod
-    def register(cls, name: str, provider_class: Type[AIProvider]) -> None:
+    def register(cls, name: str, provider_class: type[AIProvider]) -> None:
         """
         Register a provider class (eager registration).
 
@@ -129,7 +129,7 @@ class ProviderRegistry:
         logger.debug(f"Registered lazy provider: {name}")
 
     @classmethod
-    def _get_provider_class(cls, name: str) -> Optional[Type[AIProvider]]:
+    def _get_provider_class(cls, name: str) -> type[AIProvider] | None:
         """
         Get the provider class, handling lazy loading if needed.
 
@@ -154,7 +154,7 @@ class ProviderRegistry:
         return None
 
     @classmethod
-    def get(cls, name: str, config: Optional[ProviderConfig] = None) -> AIProvider:
+    def get(cls, name: str, config: ProviderConfig | None = None) -> AIProvider:
         """
         Get or create a provider instance.
 
@@ -227,7 +227,7 @@ class ProviderRegistry:
         return config
 
     @classmethod
-    def available_providers(cls) -> List[str]:
+    def available_providers(cls) -> list[str]:
         """
         List all registered providers (both eager and lazy).
 
@@ -282,7 +282,7 @@ class ProviderRegistry:
         cls._env_cache.clear()
 
 
-def get_provider(name: Optional[str] = None) -> AIProvider:
+def get_provider(name: str | None = None) -> AIProvider:
     """
     Get the configured AI provider.
 

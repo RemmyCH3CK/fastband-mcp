@@ -9,8 +9,8 @@ __version__ = "1.2025.12.0"
 __version_tuple__ = (1, 2025, 12, 0)
 __author__ = "Fastband Team"
 
-from fastband.core.config import get_config, FastbandConfig
-from fastband.providers.registry import get_provider, ProviderRegistry
+from fastband.core.config import FastbandConfig, get_config
+from fastband.providers.registry import ProviderRegistry, get_provider
 
 __all__ = [
     "__version__",

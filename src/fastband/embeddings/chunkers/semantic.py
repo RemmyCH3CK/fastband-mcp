@@ -9,10 +9,9 @@ import ast
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Tuple
 
-from fastband.embeddings.base import CodeChunk, ChunkMetadata, ChunkType
-from fastband.embeddings.chunkers.base import Chunker, ChunkerConfig
+from fastband.embeddings.base import ChunkMetadata, ChunkType, CodeChunk
+from fastband.embeddings.chunkers.base import Chunker
 
 
 class SemanticChunker(Chunker):
@@ -60,7 +59,7 @@ class SemanticChunker(Chunker):
         },
     }
 
-    def chunk_file(self, path: Path, content: str) -> List[CodeChunk]:
+    def chunk_file(self, path: Path, content: str) -> list[CodeChunk]:
         """
         Split a file into semantic chunks.
 
@@ -94,9 +93,9 @@ class SemanticChunker(Chunker):
         self,
         path: Path,
         content: str,
-        imports: List[str],
-        mtime: Optional[datetime],
-    ) -> List[CodeChunk]:
+        imports: list[str],
+        mtime: datetime | None,
+    ) -> list[CodeChunk]:
         """Chunk Python file using AST.
 
         Uses efficient single-pass traversal to avoid O(N²) re-parsing.
@@ -124,8 +123,13 @@ class SemanticChunker(Chunker):
                 for child in node.body:
                     if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
                         chunk = self._create_chunk_from_node(
-                            path, lines, child, ChunkType.METHOD, imports, mtime,
-                            parent_name=node.name
+                            path,
+                            lines,
+                            child,
+                            ChunkType.METHOD,
+                            imports,
+                            mtime,
+                            parent_name=node.name,
                         )
                         if chunk:
                             chunks.append(chunk)
@@ -147,13 +151,13 @@ class SemanticChunker(Chunker):
     def _create_chunk_from_node(
         self,
         path: Path,
-        lines: List[str],
+        lines: list[str],
         node: ast.AST,
         chunk_type: ChunkType,
-        imports: List[str],
-        mtime: Optional[datetime],
-        parent_name: Optional[str] = None,
-    ) -> Optional[CodeChunk]:
+        imports: list[str],
+        mtime: datetime | None,
+        parent_name: str | None = None,
+    ) -> CodeChunk | None:
         """Create a CodeChunk from an AST node.
 
         Args:
@@ -172,7 +176,7 @@ class SemanticChunker(Chunker):
         end_line = node.end_lineno or start_line
 
         # Get the source lines
-        chunk_lines = lines[start_line - 1:end_line]
+        chunk_lines = lines[start_line - 1 : end_line]
         content = "\n".join(chunk_lines)
 
         # Skip if too small (min_chunk_size is in characters)
@@ -181,7 +185,7 @@ class SemanticChunker(Chunker):
 
         # Extract docstring
         docstring = None
-        if hasattr(node, 'body') and node.body:
+        if hasattr(node, "body") and node.body:
             first = node.body[0]
             if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant):
                 if isinstance(first.value.value, str):
@@ -192,7 +196,7 @@ class SemanticChunker(Chunker):
             chunk_type=chunk_type,
             start_line=start_line,
             end_line=end_line,
-            name=node.name if hasattr(node, 'name') else None,
+            name=node.name if hasattr(node, "name") else None,
             docstring=docstring,
             imports=imports if self.config.include_imports else [],
             parent_name=parent_name,
@@ -210,9 +214,9 @@ class SemanticChunker(Chunker):
         path: Path,
         content: str,
         suffix: str,
-        imports: List[str],
-        mtime: Optional[datetime],
-    ) -> List[CodeChunk]:
+        imports: list[str],
+        mtime: datetime | None,
+    ) -> list[CodeChunk]:
         """Chunk non-Python file using regex patterns."""
         chunks = []
         lines = content.split("\n")
@@ -239,7 +243,7 @@ class SemanticChunker(Chunker):
             else:
                 end_line = len(lines)
 
-            chunk_content = "\n".join(lines[start_line - 1:end_line])
+            chunk_content = "\n".join(lines[start_line - 1 : end_line])
 
             # Determine chunk type
             if ptype in ("class", "type", "struct", "impl"):
@@ -272,9 +276,9 @@ class SemanticChunker(Chunker):
         self,
         path: Path,
         content: str,
-        imports: List[str],
-        mtime: Optional[datetime],
-    ) -> List[CodeChunk]:
+        imports: list[str],
+        mtime: datetime | None,
+    ) -> list[CodeChunk]:
         """Create a single chunk from entire file."""
         lines = content.split("\n")
 
@@ -302,9 +306,9 @@ class SemanticChunker(Chunker):
         self,
         path: Path,
         content: str,
-        imports: List[str],
-        mtime: Optional[datetime],
-    ) -> List[CodeChunk]:
+        imports: list[str],
+        mtime: datetime | None,
+    ) -> list[CodeChunk]:
         """Split a large file into smaller chunks."""
         chunks = []
         lines = content.split("\n")
@@ -340,7 +344,7 @@ class SemanticChunker(Chunker):
 
         return chunks
 
-    def _extract_imports(self, content: str, suffix: str) -> List[str]:
+    def _extract_imports(self, content: str, suffix: str) -> list[str]:
         """Extract import statements from file."""
         imports = []
 

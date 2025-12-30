@@ -1,24 +1,22 @@
 """Tests for Fastband Hub models."""
 
-import pytest
 from datetime import datetime
-from dataclasses import FrozenInstanceError
 
 from fastband.hub.models import (
-    SessionStatus,
-    MessageRole,
-    ConversationStatus,
-    SubscriptionTier,
+    AnalysisResult,
     AnalysisStatus,
-    SessionConfig,
-    HubSession,
     ChatMessage,
     Conversation,
-    MemoryEntry,
+    ConversationStatus,
+    HubSession,
     MemoryContext,
+    MemoryEntry,
+    MessageRole,
+    SessionConfig,
+    SessionStatus,
+    SubscriptionTier,
     TierLimits,
     UsageStats,
-    AnalysisResult,
 )
 
 
@@ -127,6 +125,7 @@ class TestHubSession:
         old_activity = session.last_activity
         # Small delay to ensure time difference
         import time
+
         time.sleep(0.01)
         session.touch()
 
@@ -234,6 +233,7 @@ class TestConversation:
 
         old_updated = conv.updated_at
         import time
+
         time.sleep(0.01)
         conv.add_message(msg)
 

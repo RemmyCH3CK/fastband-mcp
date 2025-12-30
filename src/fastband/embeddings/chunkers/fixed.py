@@ -7,9 +7,8 @@ Simple but may split mid-function.
 
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
 
-from fastband.embeddings.base import CodeChunk, ChunkMetadata, ChunkType
+from fastband.embeddings.base import ChunkMetadata, ChunkType, CodeChunk
 from fastband.embeddings.chunkers.base import Chunker
 
 
@@ -33,7 +32,7 @@ class FixedChunker(Chunker):
         chunks = chunker.chunk_file(Path("file.txt"), content)
     """
 
-    def chunk_file(self, path: Path, content: str) -> List[CodeChunk]:
+    def chunk_file(self, path: Path, content: str) -> list[CodeChunk]:
         """
         Split file into fixed-size chunks.
 
@@ -98,9 +97,9 @@ class FixedChunker(Chunker):
         self,
         path: Path,
         content: str,
-        lines: List[str],
-        mtime: Optional[datetime],
-    ) -> List[CodeChunk]:
+        lines: list[str],
+        mtime: datetime | None,
+    ) -> list[CodeChunk]:
         """Create a single chunk from entire file."""
         metadata = ChunkMetadata(
             file_path=str(path),

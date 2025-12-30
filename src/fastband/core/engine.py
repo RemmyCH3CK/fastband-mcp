@@ -6,22 +6,23 @@ The core MCP server that handles tool registration, execution, and protocol hand
 
 import asyncio
 import logging
-from typing import Dict, Any, List, Optional, Callable
 from pathlib import Path
+from typing import Any
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import (
-    Tool as MCPTool,
-    TextContent,
     CallToolResult,
+)
+from mcp.types import (
+    Tool as MCPTool,
 )
 
 from fastband import __version__
-from fastband.tools.registry import ToolRegistry, get_registry
+from fastband.core.config import FastbandConfig, get_config
 from fastband.tools.base import Tool, ToolResult
 from fastband.tools.core import CORE_TOOLS
-from fastband.core.config import FastbandConfig, get_config
+from fastband.tools.registry import get_registry
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +41,8 @@ class FastbandEngine:
 
     def __init__(
         self,
-        project_path: Optional[Path] = None,
-        config: Optional[FastbandConfig] = None,
+        project_path: Path | None = None,
+        config: FastbandConfig | None = None,
     ):
         self.project_path = project_path or Path.cwd()
         self.config = config or get_config(self.project_path)
@@ -54,20 +55,22 @@ class FastbandEngine:
         """Set up MCP server handlers."""
 
         @self.server.list_tools()
-        async def list_tools() -> List[MCPTool]:
+        async def list_tools() -> list[MCPTool]:
             """List all available tools."""
             tools = []
             for tool in self.registry.get_active_tools():
                 schema = tool.definition.to_mcp_schema()
-                tools.append(MCPTool(
-                    name=schema["name"],
-                    description=schema["description"],
-                    inputSchema=schema["inputSchema"],
-                ))
+                tools.append(
+                    MCPTool(
+                        name=schema["name"],
+                        description=schema["description"],
+                        inputSchema=schema["inputSchema"],
+                    )
+                )
             return tools
 
         @self.server.call_tool()
-        async def call_tool(name: str, arguments: Dict[str, Any]) -> CallToolResult:
+        async def call_tool(name: str, arguments: dict[str, Any]) -> CallToolResult:
             """Execute a tool and return result."""
             logger.info(f"Tool call: {name}")
             logger.debug(f"Arguments: {arguments}")
@@ -124,7 +127,7 @@ class FastbandEngine:
 
         logger.info(f"Loaded {loaded_count} additional tools (git, tickets, context)")
 
-    def register_tools(self, tools: List[Tool]) -> None:
+    def register_tools(self, tools: list[Tool]) -> None:
         """Register and load multiple tools."""
         for tool in tools:
             self.register_tool(tool)
@@ -167,19 +170,20 @@ class FastbandEngine:
         """Check if server is running."""
         return self._running
 
-    def get_tool_schemas(self) -> List[Dict]:
+    def get_tool_schemas(self) -> list[dict]:
         """Get MCP schemas for all active tools."""
         return self.registry.get_mcp_tools()
 
-    def get_openai_schemas(self) -> List[Dict]:
+    def get_openai_schemas(self) -> list[dict]:
         """Get OpenAI function schemas for all active tools."""
         return self.registry.get_openai_tools()
 
 
 # Convenience functions for running the server
 
+
 def create_engine(
-    project_path: Optional[Path] = None,
+    project_path: Path | None = None,
     load_core: bool = True,
     load_all: bool = False,
 ) -> FastbandEngine:
@@ -206,7 +210,7 @@ def create_engine(
 
 
 async def run_server(
-    project_path: Optional[Path] = None,
+    project_path: Path | None = None,
     load_core: bool = True,
     load_all: bool = False,
 ):

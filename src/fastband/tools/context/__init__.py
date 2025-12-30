@@ -8,8 +8,8 @@ Provides MCP tools for:
 """
 
 from fastband.tools.context.index_codebase import IndexCodebaseTool
-from fastband.tools.context.semantic_search import SemanticSearchTool
 from fastband.tools.context.index_status import IndexStatusTool
+from fastband.tools.context.semantic_search import SemanticSearchTool
 
 __all__ = [
     "IndexCodebaseTool",

@@ -4,17 +4,18 @@ Base classes for the embeddings module.
 Provides abstract interfaces and data classes used across the embeddings system.
 """
 
+import hashlib
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
-import hashlib
+from typing import Any
 
 
 class ChunkType(Enum):
     """Type of code chunk."""
+
     FUNCTION = "function"
     CLASS = "class"
     METHOD = "method"
@@ -31,19 +32,20 @@ class ChunkMetadata:
     Contains all the rich context about a chunk needed for
     filtering and display in search results.
     """
+
     file_path: str
     chunk_type: ChunkType
     start_line: int
     end_line: int
-    name: Optional[str] = None  # Function/class name
-    docstring: Optional[str] = None
-    imports: List[str] = field(default_factory=list)
-    parent_name: Optional[str] = None  # e.g., class name for methods
+    name: str | None = None  # Function/class name
+    docstring: str | None = None
+    imports: list[str] = field(default_factory=list)
+    parent_name: str | None = None  # e.g., class name for methods
     file_type: str = "unknown"
-    last_modified: Optional[datetime] = None
-    chunk_hash: Optional[str] = None  # For change detection
+    last_modified: datetime | None = None
+    chunk_hash: str | None = None  # For change detection
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
             "file_path": self.file_path,
@@ -60,7 +62,7 @@ class ChunkMetadata:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ChunkMetadata":
+    def from_dict(cls, data: dict[str, Any]) -> "ChunkMetadata":
         """Create from dictionary."""
         return cls(
             file_path=data["file_path"],
@@ -72,7 +74,9 @@ class ChunkMetadata:
             imports=data.get("imports", []),
             parent_name=data.get("parent_name"),
             file_type=data.get("file_type", "unknown"),
-            last_modified=datetime.fromisoformat(data["last_modified"]) if data.get("last_modified") else None,
+            last_modified=datetime.fromisoformat(data["last_modified"])
+            if data.get("last_modified")
+            else None,
             chunk_hash=data.get("chunk_hash"),
         )
 
@@ -84,6 +88,7 @@ class CodeChunk:
 
     Contains both the content to embed and its metadata.
     """
+
     content: str
     metadata: ChunkMetadata
 
@@ -102,23 +107,25 @@ class CodeChunk:
 @dataclass(slots=True)
 class EmbeddingConfig:
     """Configuration for an embedding provider."""
-    api_key: Optional[str] = None
-    model: Optional[str] = None
-    base_url: Optional[str] = None
-    dimensions: Optional[int] = None  # Output dimensions (for providers that support it)
+
+    api_key: str | None = None
+    model: str | None = None
+    base_url: str | None = None
+    dimensions: int | None = None  # Output dimensions (for providers that support it)
     batch_size: int = 100  # Max texts per API call
     timeout: int = 60
-    extra: Dict[str, Any] = field(default_factory=dict)
+    extra: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
 class EmbeddingResult:
     """Result from an embedding operation."""
-    embeddings: List[List[float]]
+
+    embeddings: list[list[float]]
     model: str
     provider: str
     dimensions: int
-    usage: Dict[str, int]  # token counts
+    usage: dict[str, int]  # token counts
 
 
 class EmbeddingProvider(ABC):
@@ -179,7 +186,7 @@ class EmbeddingProvider(ABC):
         """
         pass
 
-    async def embed_single(self, text: str) -> List[float]:
+    async def embed_single(self, text: str) -> list[float]:
         """
         Embed a single text string.
 

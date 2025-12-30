@@ -1,28 +1,29 @@
 """Tests for git tools."""
 
-import pytest
+import os
 import subprocess
 import tempfile
-import os
 from pathlib import Path
 
+import pytest
+
+from fastband.tools.base import ToolCategory
 from fastband.tools.git import (
-    GitStatusTool,
+    GIT_TOOLS,
+    GitBranchTool,
     GitCommitTool,
     GitDiffTool,
     GitLogTool,
-    GitBranchTool,
-    GIT_TOOLS,
-    _is_git_repository,
+    GitStatusTool,
     _get_repo_root,
+    _is_git_repository,
     _run_git_command,
 )
-from fastband.tools.base import ToolCategory, ToolResult
-
 
 # =============================================================================
 # TEST FIXTURES
 # =============================================================================
+
 
 @pytest.fixture
 def temp_git_repo():
@@ -35,11 +36,15 @@ def temp_git_repo():
         subprocess.run(["git", "init"], cwd=str(repo_path), check=True, capture_output=True)
         subprocess.run(
             ["git", "config", "user.email", "test@example.com"],
-            cwd=str(repo_path), check=True, capture_output=True
+            cwd=str(repo_path),
+            check=True,
+            capture_output=True,
         )
         subprocess.run(
             ["git", "config", "user.name", "Test User"],
-            cwd=str(repo_path), check=True, capture_output=True
+            cwd=str(repo_path),
+            check=True,
+            capture_output=True,
         )
 
         # Create an initial commit
@@ -48,7 +53,9 @@ def temp_git_repo():
         subprocess.run(["git", "add", "."], cwd=str(repo_path), check=True, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "Initial commit"],
-            cwd=str(repo_path), check=True, capture_output=True
+            cwd=str(repo_path),
+            check=True,
+            capture_output=True,
         )
 
         yield repo_path
@@ -64,6 +71,7 @@ def temp_non_git_dir():
 # =============================================================================
 # HELPER FUNCTION TESTS
 # =============================================================================
+
 
 class TestHelperFunctions:
     """Tests for helper functions."""
@@ -99,6 +107,7 @@ class TestHelperFunctions:
 # =============================================================================
 # GIT STATUS TOOL TESTS
 # =============================================================================
+
 
 class TestGitStatusTool:
     """Tests for GitStatusTool."""
@@ -183,6 +192,7 @@ class TestGitStatusTool:
 # GIT COMMIT TOOL TESTS
 # =============================================================================
 
+
 class TestGitCommitTool:
     """Tests for GitCommitTool."""
 
@@ -210,10 +220,7 @@ class TestGitCommitTool:
         new_file.write_text("content")
         subprocess.run(["git", "add", "file.txt"], cwd=str(temp_git_repo), check=True)
 
-        result = await tool.execute(
-            path=str(temp_git_repo),
-            message="Add new file"
-        )
+        result = await tool.execute(path=str(temp_git_repo), message="Add new file")
 
         assert result.success is True
         assert "commit_hash" in result.data
@@ -228,9 +235,7 @@ class TestGitCommitTool:
         new_file.write_text("content")
 
         result = await tool.execute(
-            path=str(temp_git_repo),
-            message="Add unstaged file",
-            files=["unstaged.txt"]
+            path=str(temp_git_repo), message="Add unstaged file", files=["unstaged.txt"]
         )
 
         assert result.success is True
@@ -243,11 +248,7 @@ class TestGitCommitTool:
         readme = temp_git_repo / "README.md"
         readme.write_text("Modified content")
 
-        result = await tool.execute(
-            path=str(temp_git_repo),
-            message="Modify README",
-            all=True
-        )
+        result = await tool.execute(path=str(temp_git_repo), message="Modify README", all=True)
 
         assert result.success is True
         assert "commit_hash" in result.data
@@ -255,10 +256,7 @@ class TestGitCommitTool:
     @pytest.mark.asyncio
     async def test_commit_empty_message_fails(self, tool, temp_git_repo):
         """Test that empty commit message fails."""
-        result = await tool.execute(
-            path=str(temp_git_repo),
-            message=""
-        )
+        result = await tool.execute(path=str(temp_git_repo), message="")
 
         assert result.success is False
         assert "empty" in result.error.lower()
@@ -266,10 +264,7 @@ class TestGitCommitTool:
     @pytest.mark.asyncio
     async def test_commit_short_message_fails(self, tool, temp_git_repo):
         """Test that too-short commit message fails."""
-        result = await tool.execute(
-            path=str(temp_git_repo),
-            message="ab"
-        )
+        result = await tool.execute(path=str(temp_git_repo), message="ab")
 
         assert result.success is False
         assert "short" in result.error.lower()
@@ -277,10 +272,7 @@ class TestGitCommitTool:
     @pytest.mark.asyncio
     async def test_commit_no_changes_fails(self, tool, temp_git_repo):
         """Test that commit with no staged changes fails."""
-        result = await tool.execute(
-            path=str(temp_git_repo),
-            message="No changes commit"
-        )
+        result = await tool.execute(path=str(temp_git_repo), message="No changes commit")
 
         assert result.success is False
         assert "No changes staged" in result.error
@@ -289,9 +281,7 @@ class TestGitCommitTool:
     async def test_commit_allow_empty(self, tool, temp_git_repo):
         """Test commit with allow_empty flag."""
         result = await tool.execute(
-            path=str(temp_git_repo),
-            message="Empty commit",
-            allow_empty=True
+            path=str(temp_git_repo), message="Empty commit", allow_empty=True
         )
 
         assert result.success is True
@@ -300,10 +290,7 @@ class TestGitCommitTool:
     @pytest.mark.asyncio
     async def test_commit_not_git_repo(self, tool, temp_non_git_dir):
         """Test commit on non-git directory."""
-        result = await tool.execute(
-            path=str(temp_non_git_dir),
-            message="Test message"
-        )
+        result = await tool.execute(path=str(temp_non_git_dir), message="Test message")
 
         assert result.success is False
         assert "Not a git repository" in result.error
@@ -312,6 +299,7 @@ class TestGitCommitTool:
 # =============================================================================
 # GIT DIFF TOOL TESTS
 # =============================================================================
+
 
 class TestGitDiffTool:
     """Tests for GitDiffTool."""
@@ -408,6 +396,7 @@ class TestGitDiffTool:
 # GIT LOG TOOL TESTS
 # =============================================================================
 
+
 class TestGitLogTool:
     """Tests for GitLogTool."""
 
@@ -424,8 +413,7 @@ class TestGitLogTool:
             file_path.write_text(f"content {i}")
             subprocess.run(["git", "add", "."], cwd=str(temp_git_repo), check=True)
             subprocess.run(
-                ["git", "commit", "-m", f"Commit {i+1}"],
-                cwd=str(temp_git_repo), check=True
+                ["git", "commit", "-m", f"Commit {i + 1}"], cwd=str(temp_git_repo), check=True
             )
         return temp_git_repo
 
@@ -465,10 +453,7 @@ class TestGitLogTool:
     @pytest.mark.asyncio
     async def test_log_author_filter(self, tool, repo_with_history):
         """Test log filtered by author."""
-        result = await tool.execute(
-            path=str(repo_with_history),
-            author="Test User"
-        )
+        result = await tool.execute(path=str(repo_with_history), author="Test User")
 
         assert result.success is True
         assert result.data["count"] >= 1
@@ -476,10 +461,7 @@ class TestGitLogTool:
     @pytest.mark.asyncio
     async def test_log_grep_filter(self, tool, repo_with_history):
         """Test log filtered by commit message pattern."""
-        result = await tool.execute(
-            path=str(repo_with_history),
-            grep="Commit 2"
-        )
+        result = await tool.execute(path=str(repo_with_history), grep="Commit 2")
 
         assert result.success is True
         assert result.data["count"] >= 1
@@ -487,10 +469,7 @@ class TestGitLogTool:
     @pytest.mark.asyncio
     async def test_log_file_filter(self, tool, repo_with_history):
         """Test log filtered by file."""
-        result = await tool.execute(
-            path=str(repo_with_history),
-            file="file1.txt"
-        )
+        result = await tool.execute(path=str(repo_with_history), file="file1.txt")
 
         assert result.success is True
         # Should only show commits that touched file1.txt
@@ -508,6 +487,7 @@ class TestGitLogTool:
 # =============================================================================
 # GIT BRANCH TOOL TESTS
 # =============================================================================
+
 
 class TestGitBranchTool:
     """Tests for GitBranchTool."""
@@ -541,11 +521,7 @@ class TestGitBranchTool:
     @pytest.mark.asyncio
     async def test_create_branch(self, tool, temp_git_repo):
         """Test creating a new branch."""
-        result = await tool.execute(
-            path=str(temp_git_repo),
-            action="create",
-            name="feature-branch"
-        )
+        result = await tool.execute(path=str(temp_git_repo), action="create", name="feature-branch")
 
         assert result.success is True
         assert result.data["branch"] == "feature-branch"
@@ -561,18 +537,12 @@ class TestGitBranchTool:
         """Test creating a branch from specific commit."""
         # Get current HEAD
         result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=str(temp_git_repo),
-            capture_output=True,
-            text=True
+            ["git", "rev-parse", "HEAD"], cwd=str(temp_git_repo), capture_output=True, text=True
         )
         head_commit = result.stdout.strip()
 
         result = await tool.execute(
-            path=str(temp_git_repo),
-            action="create",
-            name="from-commit",
-            start_point=head_commit
+            path=str(temp_git_repo), action="create", name="from-commit", start_point=head_commit
         )
 
         assert result.success is True
@@ -582,17 +552,11 @@ class TestGitBranchTool:
     async def test_create_duplicate_branch_fails(self, tool, temp_git_repo):
         """Test that creating duplicate branch fails."""
         # Create branch first
-        await tool.execute(
-            path=str(temp_git_repo),
-            action="create",
-            name="duplicate-branch"
-        )
+        await tool.execute(path=str(temp_git_repo), action="create", name="duplicate-branch")
 
         # Try to create again
         result = await tool.execute(
-            path=str(temp_git_repo),
-            action="create",
-            name="duplicate-branch"
+            path=str(temp_git_repo), action="create", name="duplicate-branch"
         )
 
         assert result.success is False
@@ -602,18 +566,10 @@ class TestGitBranchTool:
     async def test_delete_branch(self, tool, temp_git_repo):
         """Test deleting a branch."""
         # Create a branch first
-        await tool.execute(
-            path=str(temp_git_repo),
-            action="create",
-            name="to-delete"
-        )
+        await tool.execute(path=str(temp_git_repo), action="create", name="to-delete")
 
         # Delete the branch
-        result = await tool.execute(
-            path=str(temp_git_repo),
-            action="delete",
-            name="to-delete"
-        )
+        result = await tool.execute(path=str(temp_git_repo), action="delete", name="to-delete")
 
         assert result.success is True
         assert result.data["deleted"] is True
@@ -625,11 +581,7 @@ class TestGitBranchTool:
         list_result = await tool.execute(path=str(temp_git_repo), action="list")
         current = list_result.data["current_branch"]
 
-        result = await tool.execute(
-            path=str(temp_git_repo),
-            action="delete",
-            name=current
-        )
+        result = await tool.execute(path=str(temp_git_repo), action="delete", name=current)
 
         assert result.success is False
         assert "Cannot delete the current branch" in result.error
@@ -638,9 +590,7 @@ class TestGitBranchTool:
     async def test_delete_nonexistent_branch_fails(self, tool, temp_git_repo):
         """Test that deleting nonexistent branch fails."""
         result = await tool.execute(
-            path=str(temp_git_repo),
-            action="delete",
-            name="nonexistent-branch"
+            path=str(temp_git_repo), action="delete", name="nonexistent-branch"
         )
 
         assert result.success is False
@@ -649,10 +599,7 @@ class TestGitBranchTool:
     @pytest.mark.asyncio
     async def test_create_without_name_fails(self, tool, temp_git_repo):
         """Test that create without name fails."""
-        result = await tool.execute(
-            path=str(temp_git_repo),
-            action="create"
-        )
+        result = await tool.execute(path=str(temp_git_repo), action="create")
 
         assert result.success is False
         assert "required" in result.error.lower()
@@ -660,10 +607,7 @@ class TestGitBranchTool:
     @pytest.mark.asyncio
     async def test_delete_without_name_fails(self, tool, temp_git_repo):
         """Test that delete without name fails."""
-        result = await tool.execute(
-            path=str(temp_git_repo),
-            action="delete"
-        )
+        result = await tool.execute(path=str(temp_git_repo), action="delete")
 
         assert result.success is False
         assert "required" in result.error.lower()
@@ -680,6 +624,7 @@ class TestGitBranchTool:
 # =============================================================================
 # TOOL EXPORTS TESTS
 # =============================================================================
+
 
 class TestGitToolsExports:
     """Tests for git tools module exports."""
@@ -723,6 +668,7 @@ class TestGitToolsExports:
 # INTEGRATION TESTS
 # =============================================================================
 
+
 class TestGitToolsIntegration:
     """Integration tests for git tools working together."""
 
@@ -745,21 +691,20 @@ class TestGitToolsIntegration:
             ["git", "branch", "--show-current"],
             cwd=str(temp_git_repo),
             capture_output=True,
-            text=True
+            text=True,
         )
         default_branch = default_branch_result.stdout.strip()
 
         # 3. Create and switch to a new branch
         branch_result = await branch_tool.execute(
-            path=str(temp_git_repo),
-            action="create",
-            name="feature"
+            path=str(temp_git_repo), action="create", name="feature"
         )
         assert branch_result.success is True
 
         # Switch to the feature branch (git branch only creates, doesn't switch)
-        subprocess.run(["git", "checkout", "feature"], cwd=str(temp_git_repo),
-                       capture_output=True, check=True)
+        subprocess.run(
+            ["git", "checkout", "feature"], cwd=str(temp_git_repo), capture_output=True, check=True
+        )
 
         # 4. Create and modify a file
         new_file = temp_git_repo / "feature.txt"
@@ -772,9 +717,7 @@ class TestGitToolsIntegration:
 
         # 6. Commit the changes
         commit_result = await commit_tool.execute(
-            path=str(temp_git_repo),
-            message="Add feature file",
-            files=["feature.txt"]
+            path=str(temp_git_repo), message="Add feature file", files=["feature.txt"]
         )
         assert commit_result.success is True
 
@@ -785,13 +728,13 @@ class TestGitToolsIntegration:
 
         # 8. Check diff between branches
         # Switch back to the default branch and check diff
-        subprocess.run(["git", "checkout", default_branch], cwd=str(temp_git_repo),
-                       capture_output=True)
+        subprocess.run(
+            ["git", "checkout", default_branch], cwd=str(temp_git_repo), capture_output=True
+        )
 
         # Compare the default branch to the feature branch
         diff_result = await diff_tool.execute(
-            path=str(temp_git_repo),
-            commit_range=f"{default_branch}..feature"
+            path=str(temp_git_repo), commit_range=f"{default_branch}..feature"
         )
         assert diff_result.success is True
         assert diff_result.data["has_changes"] is True

@@ -1,26 +1,22 @@
 """Tests for the tool system."""
 
 import pytest
-from pathlib import Path
-import tempfile
-import os
 
 from fastband.tools.base import (
     Tool,
+    ToolCategory,
     ToolDefinition,
     ToolMetadata,
     ToolParameter,
-    ToolCategory,
     ToolResult,
     tool,
 )
-from fastband.tools.registry import ToolRegistry, get_registry, reset_registry
-from fastband.tools.core import files as files_module
-
+from fastband.tools.registry import ToolRegistry, reset_registry
 
 # =============================================================================
 # TEST FIXTURES
 # =============================================================================
+
 
 @pytest.fixture
 def registry():
@@ -32,6 +28,7 @@ def registry():
 @pytest.fixture
 def sample_tool():
     """Create a sample tool for testing."""
+
     class SampleTool(Tool):
         @property
         def definition(self) -> ToolDefinition:
@@ -70,6 +67,7 @@ def sample_tool():
 @pytest.fixture
 def failing_tool():
     """Create a tool that always fails."""
+
     class FailingTool(Tool):
         @property
         def definition(self) -> ToolDefinition:
@@ -91,6 +89,7 @@ def failing_tool():
 # =============================================================================
 # TOOL DEFINITION TESTS
 # =============================================================================
+
 
 class TestToolDefinition:
     """Tests for ToolDefinition."""
@@ -140,6 +139,7 @@ class TestToolParameter:
 # =============================================================================
 # TOOL EXECUTION TESTS
 # =============================================================================
+
 
 class TestToolExecution:
     """Tests for tool execution."""
@@ -218,6 +218,7 @@ class TestToolResult:
 # TOOL REGISTRY TESTS
 # =============================================================================
 
+
 class TestToolRegistry:
     """Tests for ToolRegistry."""
 
@@ -246,6 +247,7 @@ class TestToolRegistry:
 
     def test_unload_tool(self, registry):
         """Test unloading a tool."""
+
         # Create a non-core tool that can be unloaded
         class AnalysisTool(Tool):
             @property
@@ -333,12 +335,14 @@ class TestToolRegistry:
 # TOOL DECORATOR TESTS
 # =============================================================================
 
+
 class TestToolDecorator:
     """Tests for the @tool decorator."""
 
     @pytest.mark.asyncio
     async def test_decorated_function(self):
         """Test creating a tool from decorated function."""
+
         @tool("greet", "Greet someone", category=ToolCategory.CORE)
         async def greet(name: str = "World") -> ToolResult:
             return ToolResult(success=True, data=f"Hello, {name}!")
@@ -354,6 +358,7 @@ class TestToolDecorator:
 # =============================================================================
 # CORE TOOLS TESTS
 # =============================================================================
+
 
 class TestCoreTool:
     """Tests for core tools."""

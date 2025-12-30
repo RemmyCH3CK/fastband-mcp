@@ -7,27 +7,30 @@ Provides real-time event broadcasting with subscription-based filtering.
 import asyncio
 import json
 import logging
-from dataclasses import dataclass, field, asdict
+from collections.abc import Callable
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any
 
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import WebSocket
 
 logger = logging.getLogger(__name__)
 
 
 class SubscriptionType(str, Enum):
     """Types of event subscriptions for Control Plane."""
-    ALL = "all"                    # Full control plane updates
-    AGENTS = "agents"              # Agent status only
-    OPS_LOG = "ops_log"            # Operations log only
-    TICKETS = "tickets"            # Ticket updates only
-    DIRECTIVES = "directives"      # Clearance/hold only
+
+    ALL = "all"  # Full control plane updates
+    AGENTS = "agents"  # Agent status only
+    OPS_LOG = "ops_log"  # Operations log only
+    TICKETS = "tickets"  # Ticket updates only
+    DIRECTIVES = "directives"  # Clearance/hold only
 
 
 class WSEventType(str, Enum):
     """WebSocket event types."""
+
     # Agent events
     AGENT_STARTED = "agent:started"
     AGENT_STOPPED = "agent:stopped"
@@ -55,9 +58,10 @@ class WSEventType(str, Enum):
 @dataclass
 class WSMessage:
     """WebSocket message format."""
+
     type: str
     timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
-    data: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
 
     def to_json(self) -> str:
         """Convert to JSON string."""
@@ -75,7 +79,7 @@ class WSMessage:
 
 
 # Map event types to subscription types
-EVENT_SUBSCRIPTION_MAP: Dict[WSEventType, List[SubscriptionType]] = {
+EVENT_SUBSCRIPTION_MAP: dict[WSEventType, list[SubscriptionType]] = {
     WSEventType.AGENT_STARTED: [SubscriptionType.ALL, SubscriptionType.AGENTS],
     WSEventType.AGENT_STOPPED: [SubscriptionType.ALL, SubscriptionType.AGENTS],
     WSEventType.AGENT_STATUS: [SubscriptionType.ALL, SubscriptionType.AGENTS],
@@ -91,11 +95,12 @@ EVENT_SUBSCRIPTION_MAP: Dict[WSEventType, List[SubscriptionType]] = {
 @dataclass
 class Connection:
     """Represents a WebSocket connection."""
+
     id: str
     websocket: WebSocket
-    subscriptions: Set[SubscriptionType]
+    subscriptions: set[SubscriptionType]
     connected_at: datetime = field(default_factory=datetime.utcnow)
-    last_ping: Optional[datetime] = None
+    last_ping: datetime | None = None
 
 
 class WebSocketManager:
@@ -111,16 +116,16 @@ class WebSocketManager:
     """
 
     def __init__(self):
-        self._connections: Dict[str, Connection] = {}
+        self._connections: dict[str, Connection] = {}
         self._lock = asyncio.Lock()
         self._heartbeat_interval = 30  # seconds
-        self._heartbeat_task: Optional[asyncio.Task] = None
+        self._heartbeat_task: asyncio.Task | None = None
 
     async def connect(
         self,
         websocket: WebSocket,
         connection_id: str,
-        subscriptions: Optional[List[str]] = None,
+        subscriptions: list[str] | None = None,
     ) -> None:
         """
         Accept and register a new WebSocket connection.
@@ -133,7 +138,7 @@ class WebSocketManager:
         await websocket.accept()
 
         # Parse subscriptions
-        sub_set: Set[SubscriptionType] = set()
+        sub_set: set[SubscriptionType] = set()
         if subscriptions:
             for sub in subscriptions:
                 try:
@@ -210,7 +215,7 @@ class WebSocketManager:
     async def broadcast(
         self,
         event_type: WSEventType,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ) -> int:
         """
         Broadcast an event to all subscribed connections.
@@ -231,7 +236,7 @@ class WebSocketManager:
             connections = list(self._connections.values())
 
         sent_count = 0
-        failed_ids: List[str] = []
+        failed_ids: list[str] = []
 
         for conn in connections:
             # Check if connection is subscribed to this event type
@@ -270,10 +275,13 @@ class WebSocketManager:
             connections = list(self._connections.values())
 
         sent_count = 0
-        failed_ids: List[str] = []
+        failed_ids: list[str] = []
 
         for conn in connections:
-            if subscription not in conn.subscriptions and SubscriptionType.ALL not in conn.subscriptions:
+            if (
+                subscription not in conn.subscriptions
+                and SubscriptionType.ALL not in conn.subscriptions
+            ):
                 continue
 
             try:
@@ -302,7 +310,7 @@ class WebSocketManager:
             connections = list(self._connections.values())
 
         sent_count = 0
-        failed_ids: List[str] = []
+        failed_ids: list[str] = []
 
         for conn in connections:
             try:
@@ -320,7 +328,7 @@ class WebSocketManager:
     async def update_subscriptions(
         self,
         connection_id: str,
-        subscriptions: List[SubscriptionType],
+        subscriptions: list[SubscriptionType],
     ) -> bool:
         """
         Update subscriptions for a connection.
@@ -343,13 +351,12 @@ class WebSocketManager:
         """Get the number of active connections."""
         return len(self._connections)
 
-    def get_subscription_counts(self) -> Dict[str, int]:
+    def get_subscription_counts(self) -> dict[str, int]:
         """Get count of connections per subscription type."""
-        counts: Dict[str, int] = {}
+        counts: dict[str, int] = {}
         for sub in SubscriptionType:
             counts[sub.value] = sum(
-                1 for conn in self._connections.values()
-                if sub in conn.subscriptions
+                1 for conn in self._connections.values() if sub in conn.subscriptions
             )
         return counts
 
@@ -357,7 +364,7 @@ class WebSocketManager:
         self,
         connection_id: str,
         message: str,
-        handler: Optional[Callable[[str, WSMessage], None]] = None,
+        handler: Callable[[str, WSMessage], None] | None = None,
     ) -> None:
         """
         Handle an incoming message from a client.
@@ -400,9 +407,7 @@ class WebSocketManager:
         async def heartbeat_loop():
             while True:
                 await asyncio.sleep(self._heartbeat_interval)
-                await self.broadcast_all(
-                    WSMessage(type=WSEventType.PING.value, data={})
-                )
+                await self.broadcast_all(WSMessage(type=WSEventType.PING.value, data={}))
 
         self._heartbeat_task = asyncio.create_task(heartbeat_loop())
         logger.info("WebSocket heartbeat started")
@@ -416,7 +421,7 @@ class WebSocketManager:
 
 
 # Global WebSocket manager instance
-_websocket_manager: Optional[WebSocketManager] = None
+_websocket_manager: WebSocketManager | None = None
 
 
 def get_websocket_manager() -> WebSocketManager:

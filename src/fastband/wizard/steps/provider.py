@@ -7,17 +7,17 @@ Detects available API keys and provides setup instructions.
 
 import os
 from dataclasses import dataclass
-from typing import Dict, List, Optional
 
-from rich.table import Table
 from rich import box
+from rich.table import Table
 
-from fastband.wizard.base import WizardStep, WizardContext, StepResult
+from fastband.wizard.base import StepResult, WizardContext, WizardStep
 
 
 @dataclass
 class ProviderInfo:
     """Information about an AI provider."""
+
     name: str
     display_name: str
     env_var: str
@@ -27,7 +27,7 @@ class ProviderInfo:
 
 
 # Provider definitions with their configuration details
-PROVIDERS: Dict[str, ProviderInfo] = {
+PROVIDERS: dict[str, ProviderInfo] = {
     "claude": ProviderInfo(
         name="claude",
         display_name="Claude (Anthropic)",
@@ -110,14 +110,11 @@ class ProviderSelectionStep(WizardStep):
         # Check for API key
         return bool(os.environ.get(provider.env_var))
 
-    def _get_available_providers(self) -> List[str]:
+    def _get_available_providers(self) -> list[str]:
         """Get list of providers with valid credentials."""
-        return [
-            name for name in PROVIDER_PRIORITY
-            if self._check_provider_available(name)
-        ]
+        return [name for name in PROVIDER_PRIORITY if self._check_provider_available(name)]
 
-    def _get_all_providers(self) -> List[str]:
+    def _get_all_providers(self) -> list[str]:
         """Get list of all registered providers."""
         return list(PROVIDERS.keys())
 
@@ -172,14 +169,16 @@ class ProviderSelectionStep(WizardStep):
             self.console.print("  3. Start the Ollama server:")
             self.console.print("     [dim]ollama serve[/dim]")
         else:
-            self.console.print(f"  1. Get your API key from:")
+            self.console.print("  1. Get your API key from:")
             self.console.print(f"     [blue]{provider.setup_url}[/blue]")
             self.console.print()
-            self.console.print(f"  2. Set the environment variable:")
+            self.console.print("  2. Set the environment variable:")
             self.console.print(f"     [dim]export {provider.env_var}='your-api-key'[/dim]")
             self.console.print()
             self.console.print("  3. Add to your shell profile for persistence:")
-            self.console.print(f"     [dim]echo 'export {provider.env_var}=\"your-api-key\"' >> ~/.zshrc[/dim]")
+            self.console.print(
+                f"     [dim]echo 'export {provider.env_var}=\"your-api-key\"' >> ~/.zshrc[/dim]"
+            )
 
         self.console.print()
 
@@ -207,7 +206,7 @@ class ProviderSelectionStep(WizardStep):
     async def _execute_interactive(
         self,
         context: WizardContext,
-        available: List[str],
+        available: list[str],
     ) -> StepResult:
         """Execute in interactive mode."""
         # Show provider table
@@ -216,9 +215,7 @@ class ProviderSelectionStep(WizardStep):
 
         # Show summary of available providers
         if available:
-            ready_names = ", ".join(
-                PROVIDERS[p].display_name for p in available
-            )
+            ready_names = ", ".join(PROVIDERS[p].display_name for p in available)
             self.show_success(f"Ready to use: {ready_names}")
         else:
             self.show_warning("No providers have API keys configured")
@@ -236,17 +233,13 @@ class ProviderSelectionStep(WizardStep):
             selected = self._parse_provider_choice(choice)
             if selected:
                 break
-            self.show_error(
-                f"Invalid choice. Enter 1-{len(PROVIDER_PRIORITY)} or provider name"
-            )
+            self.show_error(f"Invalid choice. Enter 1-{len(PROVIDER_PRIORITY)} or provider name")
 
         # Check if selected provider is available
         is_available = self._check_provider_available(selected)
 
         if not is_available:
-            self.show_warning(
-                f"{PROVIDERS[selected].display_name} is not configured yet"
-            )
+            self.show_warning(f"{PROVIDERS[selected].display_name} is not configured yet")
             self._show_setup_instructions(selected)
 
             if not self.confirm("Continue with this provider anyway?", default=True):
@@ -260,9 +253,7 @@ class ProviderSelectionStep(WizardStep):
         # Save selection
         self._save_selection(context, selected)
 
-        self.show_success(
-            f"Selected {PROVIDERS[selected].display_name} as default provider"
-        )
+        self.show_success(f"Selected {PROVIDERS[selected].display_name} as default provider")
 
         return StepResult(
             success=True,
@@ -276,7 +267,7 @@ class ProviderSelectionStep(WizardStep):
     def _execute_non_interactive(
         self,
         context: WizardContext,
-        available: List[str],
+        available: list[str],
     ) -> StepResult:
         """Execute in non-interactive mode."""
         # Select first available provider by priority
@@ -299,7 +290,7 @@ class ProviderSelectionStep(WizardStep):
             },
         )
 
-    def _parse_provider_choice(self, choice: str) -> Optional[str]:
+    def _parse_provider_choice(self, choice: str) -> str | None:
         """
         Parse user's provider choice.
 
@@ -341,9 +332,12 @@ class ProviderSelectionStep(WizardStep):
         # Also store provider info in metadata
         if provider in PROVIDERS:
             provider_info = PROVIDERS[provider]
-            context.set("provider_info", {
-                "name": provider_info.name,
-                "display_name": provider_info.display_name,
-                "default_model": provider_info.default_model,
-                "env_var": provider_info.env_var,
-            })
+            context.set(
+                "provider_info",
+                {
+                    "name": provider_info.name,
+                    "display_name": provider_info.display_name,
+                    "default_model": provider_info.default_model,
+                    "env_var": provider_info.env_var,
+                },
+            )

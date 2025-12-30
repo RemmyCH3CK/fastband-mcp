@@ -11,7 +11,7 @@ import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastband.hub.models import SubscriptionTier
 
@@ -54,7 +54,7 @@ class BillingConfig:
     stripe_secret_key: str = ""
     stripe_publishable_key: str = ""
     stripe_webhook_secret: str = ""
-    price_ids: Dict[SubscriptionTier, str] = field(default_factory=dict)
+    price_ids: dict[SubscriptionTier, str] = field(default_factory=dict)
     free_trial_days: int = 14
     metered_price_id: str = ""
 
@@ -90,10 +90,10 @@ class Customer:
 
     id: str
     email: str
-    name: Optional[str] = None
-    user_id: Optional[str] = None
+    name: str | None = None
+    user_id: str | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -119,8 +119,8 @@ class Subscription:
     current_period_start: datetime
     current_period_end: datetime
     cancel_at_period_end: bool = False
-    trial_end: Optional[datetime] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    trial_end: datetime | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def is_active(self) -> bool:
@@ -153,15 +153,15 @@ class Invoice:
 
     id: str
     customer_id: str
-    subscription_id: Optional[str]
+    subscription_id: str | None
     amount_due: int
     amount_paid: int
     currency: str
     status: str
     created_at: datetime
-    paid_at: Optional[datetime] = None
-    hosted_invoice_url: Optional[str] = None
-    invoice_pdf: Optional[str] = None
+    paid_at: datetime | None = None
+    hosted_invoice_url: str | None = None
+    invoice_pdf: str | None = None
 
 
 @dataclass(slots=True)
@@ -180,7 +180,7 @@ class UsageMeter:
     messages_count: int = 0
     tokens_used: int = 0
     api_calls: int = 0
-    last_reported: Optional[datetime] = None
+    last_reported: datetime | None = None
 
 
 class StripeBilling:
@@ -209,7 +209,7 @@ class StripeBilling:
         invoices = await billing.list_invoices(customer_id)
     """
 
-    def __init__(self, config: Optional[BillingConfig] = None):
+    def __init__(self, config: BillingConfig | None = None):
         """Initialize billing client.
 
         Args:
@@ -245,8 +245,8 @@ class StripeBilling:
         self,
         email: str,
         user_id: str,
-        name: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        name: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> Customer:
         """Create a Stripe customer.
 
@@ -286,7 +286,7 @@ class StripeBilling:
     async def get_customer(
         self,
         customer_id: str,
-    ) -> Optional[Customer]:
+    ) -> Customer | None:
         """Get customer by ID.
 
         Args:
@@ -316,7 +316,7 @@ class StripeBilling:
     async def get_customer_by_user(
         self,
         user_id: str,
-    ) -> Optional[Customer]:
+    ) -> Customer | None:
         """Get customer by Fastband user ID.
 
         Args:
@@ -330,7 +330,7 @@ class StripeBilling:
 
         try:
             # Sanitize user_id to prevent injection attacks
-            safe_user_id = user_id.replace('\\', '\\\\').replace('"', '\\"')
+            safe_user_id = user_id.replace("\\", "\\\\").replace('"', '\\"')
             customers = self._stripe.Customer.search(
                 query=f'metadata["fastband_user_id"]:"{safe_user_id}"',
             )
@@ -355,7 +355,7 @@ class StripeBilling:
         self,
         customer_id: str,
         tier: SubscriptionTier,
-        trial_days: Optional[int] = None,
+        trial_days: int | None = None,
     ) -> Subscription:
         """Create a subscription for a customer.
 
@@ -395,7 +395,7 @@ class StripeBilling:
     async def get_subscription(
         self,
         subscription_id: str,
-    ) -> Optional[Subscription]:
+    ) -> Subscription | None:
         """Get subscription by ID.
 
         Args:
@@ -423,7 +423,7 @@ class StripeBilling:
     async def get_customer_subscription(
         self,
         customer_id: str,
-    ) -> Optional[Subscription]:
+    ) -> Subscription | None:
         """Get active subscription for a customer.
 
         Args:
@@ -484,10 +484,12 @@ class StripeBilling:
         # Update to new price
         updated_sub = self._stripe.Subscription.modify(
             subscription_id,
-            items=[{
-                "id": stripe_sub["items"]["data"][0].id,
-                "price": price_id,
-            }],
+            items=[
+                {
+                    "id": stripe_sub["items"]["data"][0].id,
+                    "price": price_id,
+                }
+            ],
             metadata={"tier": tier.value},
             proration_behavior="create_prorations",
         )
@@ -568,7 +570,7 @@ class StripeBilling:
         self,
         customer_id: str,
         limit: int = 10,
-    ) -> List[Invoice]:
+    ) -> list[Invoice]:
         """List invoices for a customer.
 
         Args:
@@ -597,7 +599,9 @@ class StripeBilling:
                     currency=inv.currency,
                     status=inv.status,
                     created_at=datetime.fromtimestamp(inv.created),
-                    paid_at=datetime.fromtimestamp(inv.status_transitions.paid_at) if inv.status_transitions.paid_at else None,
+                    paid_at=datetime.fromtimestamp(inv.status_transitions.paid_at)
+                    if inv.status_transitions.paid_at
+                    else None,
                     hosted_invoice_url=inv.hosted_invoice_url,
                     invoice_pdf=inv.invoice_pdf,
                 )
@@ -672,7 +676,7 @@ class StripeBilling:
         self,
         payload: bytes,
         signature: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Verify and parse a Stripe webhook.
 
         Args:
@@ -731,11 +735,11 @@ class StripeBilling:
 # GLOBAL SINGLETON
 # =============================================================================
 
-_billing: Optional[StripeBilling] = None
+_billing: StripeBilling | None = None
 _billing_lock = threading.Lock()
 
 
-def get_billing(config: Optional[BillingConfig] = None) -> StripeBilling:
+def get_billing(config: BillingConfig | None = None) -> StripeBilling:
     """Get or create the global billing client.
 
     Args:

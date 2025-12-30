@@ -12,11 +12,11 @@ Features:
 """
 
 from fastband.hub.auth.supabase import (
-    SupabaseAuth,
     AuthConfig,
-    User,
-    Session,
     AuthError,
+    Session,
+    SupabaseAuth,
+    User,
     get_auth,
 )
 

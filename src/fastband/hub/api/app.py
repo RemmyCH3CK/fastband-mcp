@@ -8,7 +8,6 @@ and lifecycle management.
 import logging
 import os
 from contextlib import asynccontextmanager
-from typing import Optional
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,10 +15,10 @@ from fastapi.responses import JSONResponse
 
 from fastband import __version__
 from fastband.hub.api.routes import router
-from fastband.hub.control_plane.routes import router as control_plane_router
 from fastband.hub.chat import ChatManager
-from fastband.hub.session import get_session_manager
+from fastband.hub.control_plane.routes import router as control_plane_router
 from fastband.hub.control_plane.service import get_control_plane_service
+from fastband.hub.session import get_session_manager
 from fastband.hub.websockets.manager import get_websocket_manager
 
 logger = logging.getLogger(__name__)
@@ -28,8 +27,8 @@ logger = logging.getLogger(__name__)
 DEV_MODE = os.environ.get("FASTBAND_DEV_MODE", "").lower() in ("1", "true", "yes")
 
 # Global app instance
-_app: Optional[FastAPI] = None
-_chat_manager: Optional[ChatManager] = None
+_app: FastAPI | None = None
+_chat_manager: ChatManager | None = None
 
 
 @asynccontextmanager
@@ -46,7 +45,8 @@ async def lifespan(app: FastAPI):
     memory = None
     if not DEV_MODE:
         try:
-            from fastband.hub.memory import SemanticMemory, MemoryConfig
+            from fastband.hub.memory import MemoryConfig, SemanticMemory
+
             memory_config = MemoryConfig()
             memory = SemanticMemory(memory_config)
             await memory.initialize()
@@ -58,6 +58,7 @@ async def lifespan(app: FastAPI):
     provider = None
     try:
         from fastband.providers import get_provider
+
         provider = get_provider("claude")
     except Exception as e:
         logger.warning(f"Could not load Claude provider: {e}")
@@ -108,7 +109,7 @@ async def lifespan(app: FastAPI):
 def create_app(
     title: str = "Fastband Agent Control Plane",
     description: str = "Multi-agent coordination and workflow management for AI development teams",
-    cors_origins: Optional[list[str]] = None,
+    cors_origins: list[str] | None = None,
 ) -> FastAPI:
     """Create the FastAPI application.
 
@@ -188,7 +189,7 @@ def get_app() -> FastAPI:
     return _app
 
 
-def get_chat_manager() -> Optional[ChatManager]:
+def get_chat_manager() -> ChatManager | None:
     """Get the chat manager instance.
 
     Returns:

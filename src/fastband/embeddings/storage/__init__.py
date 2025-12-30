@@ -6,7 +6,7 @@ Provides:
 - SQLiteVectorStore: SQLite-based vector storage
 """
 
-from fastband.embeddings.storage.base import VectorStore, SearchResult
+from fastband.embeddings.storage.base import SearchResult, VectorStore
 from fastband.embeddings.storage.sqlite import SQLiteVectorStore
 
 __all__ = [

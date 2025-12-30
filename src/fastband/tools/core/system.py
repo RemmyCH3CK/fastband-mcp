@@ -2,21 +2,20 @@
 System tools - Health check, configuration, version info.
 """
 
-from datetime import datetime
-from typing import Dict, Any
+import os
 import platform
 import sys
-import os
+from datetime import datetime
 
+from fastband import __version__
 from fastband.tools.base import (
     Tool,
+    ToolCategory,
     ToolDefinition,
     ToolMetadata,
     ToolParameter,
-    ToolCategory,
     ToolResult,
 )
-from fastband import __version__
 
 
 class HealthCheckTool(Tool):

@@ -5,13 +5,13 @@ Uses OpenAI's text-embedding models for generating embeddings.
 Supports text-embedding-3-small, text-embedding-3-large, and ada-002.
 """
 
-import os
 import logging
-from typing import Optional, Sequence
+import os
+from collections.abc import Sequence
 
 from fastband.embeddings.base import (
-    EmbeddingProvider,
     EmbeddingConfig,
+    EmbeddingProvider,
     EmbeddingResult,
 )
 
@@ -41,7 +41,7 @@ class OpenAIEmbeddings(EmbeddingProvider):
         result = await provider.embed(["Hello, world!"])
     """
 
-    def __init__(self, config: Optional[EmbeddingConfig] = None):
+    def __init__(self, config: EmbeddingConfig | None = None):
         if config is None:
             config = EmbeddingConfig()
         super().__init__(config)
@@ -63,8 +63,7 @@ class OpenAIEmbeddings(EmbeddingProvider):
 
         if self.config.model not in OPENAI_MODELS:
             raise ValueError(
-                f"Unknown model: {self.config.model}. "
-                f"Supported: {list(OPENAI_MODELS.keys())}"
+                f"Unknown model: {self.config.model}. Supported: {list(OPENAI_MODELS.keys())}"
             )
 
     @property
@@ -89,6 +88,7 @@ class OpenAIEmbeddings(EmbeddingProvider):
         if self._client is None:
             try:
                 from openai import AsyncOpenAI
+
                 self._client = AsyncOpenAI(api_key=self.config.api_key)
             except ImportError:
                 raise ImportError(
@@ -117,7 +117,7 @@ class OpenAIEmbeddings(EmbeddingProvider):
         # Process in batches
         batch_size = self.config.batch_size
         for i in range(0, len(texts_list), batch_size):
-            batch = texts_list[i:i + batch_size]
+            batch = texts_list[i : i + batch_size]
 
             kwargs = {
                 "model": self.config.model,

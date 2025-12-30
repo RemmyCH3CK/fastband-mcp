@@ -8,10 +8,8 @@ Configures the ticket management system including:
 - Agent coordination settings
 """
 
-from typing import Optional
-
-from fastband.wizard.base import WizardStep, WizardContext, StepResult
 from fastband.core.config import TicketsConfig
+from fastband.wizard.base import StepResult, WizardContext, WizardStep
 
 
 class TicketManagerStep(WizardStep):
@@ -81,11 +79,11 @@ class TicketManagerStep(WizardStep):
         # First try to get from project_info if available
         project_info = context.project_info
         if project_info is not None:
-            file_count = getattr(project_info, 'file_count', 0)
+            file_count = getattr(project_info, "file_count", 0)
 
         # Fall back to metadata if project_info doesn't have it
         if file_count == 0:
-            file_count = context.get('file_count', 0)
+            file_count = context.get("file_count", 0)
 
         return file_count >= self.LARGE_PROJECT_FILE_COUNT
 
@@ -148,9 +146,7 @@ class TicketManagerStep(WizardStep):
         # Show current recommendation
         default_mode = self._get_default_mode(context)
         if self._is_large_project(context):
-            self.show_info(
-                "Detected large project - ticket management recommended"
-            )
+            self.show_info("Detected large project - ticket management recommended")
 
         # Select mode
         self.console.print("\nSelect ticket management mode:")
@@ -264,9 +260,7 @@ class TicketManagerStep(WizardStep):
         context.set("multi_agent_enabled", multi_agent)
 
         if multi_agent:
-            self.show_info(
-                "Multi-agent mode enabled - agents can work on tickets concurrently"
-            )
+            self.show_info("Multi-agent mode enabled - agents can work on tickets concurrently")
 
     def _translate_mode(self, mode: str) -> str:
         """

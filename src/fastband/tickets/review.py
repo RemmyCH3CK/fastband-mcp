@@ -13,26 +13,26 @@ The review workflow:
 4. If rejected -> back to IN_PROGRESS with feedback
 """
 
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
-import uuid
+from typing import Any
 
 from fastband.tickets.models import (
     Ticket,
-    TicketStatus,
     TicketComment,
-    TicketHistory,
+    TicketStatus,
 )
 from fastband.tickets.storage import TicketStore
 
 
 class ReviewType(Enum):
     """Types of code reviews."""
-    CODE = "code"           # Code quality review
-    PROCESS = "process"     # Workflow compliance review
-    UIUX = "uiux"          # UI/UX review for frontend changes
+
+    CODE = "code"  # Code quality review
+    PROCESS = "process"  # Workflow compliance review
+    UIUX = "uiux"  # UI/UX review for frontend changes
 
     @classmethod
     def from_string(cls, value: str) -> "ReviewType":
@@ -56,6 +56,7 @@ class ReviewType(Enum):
 
 class ReviewStatus(Enum):
     """Status of a review."""
+
     PENDING = "pending"
     APPROVED = "approved"
     CHANGES_REQUESTED = "changes_requested"
@@ -77,6 +78,7 @@ class ReviewResult:
 
     Represents a single reviewer's assessment of a ticket.
     """
+
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     ticket_id: str = ""
     reviewer_name: str = ""
@@ -86,31 +88,31 @@ class ReviewResult:
 
     # Review content
     summary: str = ""
-    checks_passed: List[str] = field(default_factory=list)
-    issues_found: List[str] = field(default_factory=list)
-    suggestions: List[str] = field(default_factory=list)
+    checks_passed: list[str] = field(default_factory=list)
+    issues_found: list[str] = field(default_factory=list)
+    suggestions: list[str] = field(default_factory=list)
 
     # For rejections
     rejection_reason: str = ""
-    requested_changes: List[str] = field(default_factory=list)
-    checklist_failures: List[str] = field(default_factory=list)
+    requested_changes: list[str] = field(default_factory=list)
+    checklist_failures: list[str] = field(default_factory=list)
 
     # Security-specific
-    security_issues: List[str] = field(default_factory=list)
-    bug_risks: List[str] = field(default_factory=list)
-    performance_concerns: List[str] = field(default_factory=list)
-    code_quality_issues: List[str] = field(default_factory=list)
-    recommendations: List[str] = field(default_factory=list)
+    security_issues: list[str] = field(default_factory=list)
+    bug_risks: list[str] = field(default_factory=list)
+    performance_concerns: list[str] = field(default_factory=list)
+    code_quality_issues: list[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
 
     # Timestamps
     created_at: datetime = field(default_factory=datetime.now)
-    updated_at: Optional[datetime] = None
+    updated_at: datetime | None = None
 
     # Files reviewed
-    files_reviewed: List[str] = field(default_factory=list)
+    files_reviewed: list[str] = field(default_factory=list)
 
     # Metadata
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def is_approved(self) -> bool:
@@ -132,7 +134,7 @@ class ReviewResult:
         """Check if there are blocking issues."""
         return bool(self.security_issues or self.bug_risks or self.issues_found)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "id": self.id,
@@ -160,7 +162,7 @@ class ReviewResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ReviewResult":
+    def from_dict(cls, data: dict[str, Any]) -> "ReviewResult":
         """Create from dictionary."""
         review_type = data.get("review_type", "code")
         if isinstance(review_type, str):
@@ -189,8 +191,12 @@ class ReviewResult:
             performance_concerns=data.get("performance_concerns", []),
             code_quality_issues=data.get("code_quality_issues", []),
             recommendations=data.get("recommendations", []),
-            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else datetime.now(),
-            updated_at=datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else None,
+            created_at=datetime.fromisoformat(data["created_at"])
+            if data.get("created_at")
+            else datetime.now(),
+            updated_at=datetime.fromisoformat(data["updated_at"])
+            if data.get("updated_at")
+            else None,
             files_reviewed=data.get("files_reviewed", []),
             metadata=data.get("metadata", {}),
         )
@@ -201,6 +207,7 @@ class ReviewStatistics:
     """
     Aggregate statistics for reviews.
     """
+
     total_reviews: int = 0
     approved_count: int = 0
     rejected_count: int = 0
@@ -218,11 +225,11 @@ class ReviewStatistics:
     total_performance_concerns: int = 0
 
     # Timing
-    average_review_time_hours: Optional[float] = None
+    average_review_time_hours: float | None = None
 
     # Per reviewer stats
-    reviews_by_reviewer: Dict[str, int] = field(default_factory=dict)
-    approval_rate_by_reviewer: Dict[str, float] = field(default_factory=dict)
+    reviews_by_reviewer: dict[str, int] = field(default_factory=dict)
+    approval_rate_by_reviewer: dict[str, float] = field(default_factory=dict)
 
     @property
     def approval_rate(self) -> float:
@@ -232,7 +239,7 @@ class ReviewStatistics:
             return 0.0
         return self.approved_count / completed
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "total_reviews": self.total_reviews,
@@ -275,12 +282,12 @@ class ReviewManager:
             store: Ticket storage backend
         """
         self.store = store
-        self._required_review_types: Dict[str, List[ReviewType]] = {}
+        self._required_review_types: dict[str, list[ReviewType]] = {}
 
     def configure_required_reviews(
         self,
         ticket_id: str,
-        review_types: List[ReviewType],
+        review_types: list[ReviewType],
     ) -> None:
         """
         Configure which review types are required for a ticket.
@@ -291,7 +298,7 @@ class ReviewManager:
         """
         self._required_review_types[ticket_id] = review_types
 
-    def get_required_reviews(self, ticket_id: str) -> List[ReviewType]:
+    def get_required_reviews(self, ticket_id: str) -> list[ReviewType]:
         """
         Get required review types for a ticket.
 
@@ -307,10 +314,10 @@ class ReviewManager:
         self,
         ticket_id: str,
         review_type: ReviewType = ReviewType.CODE,
-        reviewer_name: Optional[str] = None,
-        files_to_review: Optional[List[str]] = None,
+        reviewer_name: str | None = None,
+        files_to_review: list[str] | None = None,
         notes: str = "",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Request a review for a ticket.
 
@@ -352,7 +359,7 @@ class ReviewManager:
         if notes:
             content += f"\n\nNotes: {notes}"
         if files_to_review:
-            content += f"\n\nFiles to review:\n" + "\n".join(f"- {f}" for f in files_to_review)
+            content += "\n\nFiles to review:\n" + "\n".join(f"- {f}" for f in files_to_review)
 
         comment = ticket.add_comment(
             content=content,
@@ -366,11 +373,13 @@ class ReviewManager:
         if "pending_reviews" not in ticket.metadata:
             ticket.metadata["pending_reviews"] = []
 
-        ticket.metadata["pending_reviews"].append({
-            "review_type": review_type.value,
-            "requested_at": datetime.now().isoformat(),
-            "reviewer": reviewer_name,
-        })
+        ticket.metadata["pending_reviews"].append(
+            {
+                "review_type": review_type.value,
+                "requested_at": datetime.now().isoformat(),
+                "reviewer": reviewer_name,
+            }
+        )
 
         self.store.update(ticket)
 
@@ -388,7 +397,7 @@ class ReviewManager:
         reviewer_name: str,
         review_type: ReviewType,
         result: ReviewResult,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Submit a review result.
 
@@ -462,7 +471,7 @@ class ReviewManager:
         self,
         ticket: Ticket,
         result: ReviewResult,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Handle an approved review."""
         # Check if all required reviews are approved
         required = self.get_required_reviews(ticket.id)
@@ -505,7 +514,7 @@ class ReviewManager:
         self,
         ticket: Ticket,
         result: ReviewResult,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Handle a rejected review."""
         ticket.review_status = "changes_requested"
         ticket.transition_status(
@@ -527,7 +536,7 @@ class ReviewManager:
             "message": "Review rejected. Ticket moved back to in progress.",
         }
 
-    def _get_approved_review_types(self, ticket: Ticket) -> List[ReviewType]:
+    def _get_approved_review_types(self, ticket: Ticket) -> list[ReviewType]:
         """Get list of approved review types for a ticket."""
         approved = []
         for comment in ticket.comments:
@@ -597,7 +606,7 @@ class ReviewManager:
 
         return "\n".join(lines)
 
-    def get_review_status(self, ticket_id: str) -> Dict[str, Any]:
+    def get_review_status(self, ticket_id: str) -> dict[str, Any]:
         """
         Get the current review status for a ticket.
 
@@ -662,7 +671,7 @@ class ReviewManager:
             "total_reviews": len(reviews),
         }
 
-    def _get_reviews(self, ticket: Ticket) -> List[ReviewResult]:
+    def _get_reviews(self, ticket: Ticket) -> list[ReviewResult]:
         """Extract review results from ticket comments."""
         reviews = []
         for comment in ticket.comments:
@@ -678,9 +687,9 @@ class ReviewManager:
     def get_feedback(
         self,
         ticket_id: str,
-        review_type: Optional[ReviewType] = None,
+        review_type: ReviewType | None = None,
         include_approved: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get all feedback for a ticket.
 
@@ -728,11 +737,13 @@ class ReviewManager:
             all_performance_concerns.extend(review.performance_concerns)
             all_recommendations.extend(review.recommendations)
             if review.rejection_reason:
-                rejection_reasons.append({
-                    "reviewer": review.reviewer_name,
-                    "review_type": review.review_type.value,
-                    "reason": review.rejection_reason,
-                })
+                rejection_reasons.append(
+                    {
+                        "reviewer": review.reviewer_name,
+                        "review_type": review.review_type.value,
+                        "reason": review.rejection_reason,
+                    }
+                )
 
         return {
             "success": True,
@@ -751,10 +762,10 @@ class ReviewManager:
 
     def get_statistics(
         self,
-        ticket_ids: Optional[List[str]] = None,
-        reviewer_name: Optional[str] = None,
-        review_type: Optional[ReviewType] = None,
-        since: Optional[datetime] = None,
+        ticket_ids: list[str] | None = None,
+        reviewer_name: str | None = None,
+        review_type: ReviewType | None = None,
+        since: datetime | None = None,
     ) -> ReviewStatistics:
         """
         Calculate review statistics.
@@ -769,8 +780,8 @@ class ReviewManager:
             ReviewStatistics with aggregated stats
         """
         stats = ReviewStatistics()
-        reviews_by_reviewer: Dict[str, List[ReviewResult]] = {}
-        review_times: List[float] = []
+        reviews_by_reviewer: dict[str, list[ReviewResult]] = {}
+        review_times: list[float] = []
 
         # Get all tickets or specific ones
         if ticket_ids:
@@ -848,11 +859,11 @@ class ReviewManager:
         reviewer_name: str,
         review_type: ReviewType,
         summary: str,
-        checks_passed: List[str],
-        issues_found: Optional[List[str]] = None,
-        suggestions: Optional[List[str]] = None,
-        files_reviewed: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        checks_passed: list[str],
+        issues_found: list[str] | None = None,
+        suggestions: list[str] | None = None,
+        files_reviewed: list[str] | None = None,
+    ) -> dict[str, Any]:
         """
         Convenience method to approve a review.
 
@@ -893,13 +904,13 @@ class ReviewManager:
         reviewer_name: str,
         review_type: ReviewType,
         rejection_reason: str,
-        issues_found: List[str],
-        requested_changes: List[str],
-        checklist_failures: Optional[List[str]] = None,
-        security_issues: Optional[List[str]] = None,
-        bug_risks: Optional[List[str]] = None,
-        files_reviewed: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        issues_found: list[str],
+        requested_changes: list[str],
+        checklist_failures: list[str] | None = None,
+        security_issues: list[str] | None = None,
+        bug_risks: list[str] | None = None,
+        files_reviewed: list[str] | None = None,
+    ) -> dict[str, Any]:
         """
         Convenience method to reject a review.
 
@@ -940,8 +951,8 @@ class ReviewManager:
 
     def get_pending_reviews(
         self,
-        reviewer_name: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        reviewer_name: str | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Get all tickets pending review.
 
@@ -962,15 +973,17 @@ class ReviewManager:
             missing = [rt for rt in required if rt not in approved_types]
 
             if missing:
-                pending.append({
-                    "ticket_id": ticket.id,
-                    "title": ticket.title,
-                    "assigned_to": ticket.assigned_to,
-                    "files_modified": ticket.files_modified,
-                    "missing_reviews": [rt.value for rt in missing],
-                    "approved_reviews": [rt.value for rt in approved_types],
-                    "reviewers": ticket.reviewers,
-                })
+                pending.append(
+                    {
+                        "ticket_id": ticket.id,
+                        "title": ticket.title,
+                        "assigned_to": ticket.assigned_to,
+                        "files_modified": ticket.files_modified,
+                        "missing_reviews": [rt.value for rt in missing],
+                        "approved_reviews": [rt.value for rt in approved_types],
+                        "reviewers": ticket.reviewers,
+                    }
+                )
 
         return pending
 
@@ -980,7 +993,7 @@ class ReviewManager:
         review_type: ReviewType,
         new_reviewer: str,
         reason: str = "",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Reassign a review to a different reviewer.
 

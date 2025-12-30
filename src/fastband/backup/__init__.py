@@ -10,18 +10,6 @@ Provides automated backup functionality for Fastband projects including:
 - Fire-alarm alerts for backup failures
 """
 
-from fastband.backup.manager import (
-    BackupManager,
-    BackupInfo,
-    BackupType,
-    get_backup_manager,
-)
-from fastband.backup.scheduler import (
-    BackupScheduler,
-    SchedulerState,
-    get_scheduler,
-    trigger_backup_hook,
-)
 from fastband.backup.alerts import (
     Alert,
     AlertConfig,
@@ -30,6 +18,18 @@ from fastband.backup.alerts import (
     get_alert_manager,
     send_backup_alert,
     send_backup_failure_alert,
+)
+from fastband.backup.manager import (
+    BackupInfo,
+    BackupManager,
+    BackupType,
+    get_backup_manager,
+)
+from fastband.backup.scheduler import (
+    BackupScheduler,
+    SchedulerState,
+    get_scheduler,
+    trigger_backup_hook,
 )
 
 __all__ = [

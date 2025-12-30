@@ -1,8 +1,9 @@
 """Pytest configuration and fixtures for Fastband tests."""
 
-import pytest
 import tempfile
 from pathlib import Path
+
+import pytest
 
 
 @pytest.fixture

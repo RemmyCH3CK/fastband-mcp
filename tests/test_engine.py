@@ -1,11 +1,9 @@
 """Tests for the MCP server engine."""
 
 import pytest
-from pathlib import Path
-import tempfile
 
 from fastband.core.engine import FastbandEngine, create_engine
-from fastband.tools.base import Tool, ToolDefinition, ToolMetadata, ToolCategory, ToolResult
+from fastband.tools.base import Tool, ToolCategory, ToolDefinition, ToolMetadata, ToolResult
 from fastband.tools.registry import reset_registry
 
 
@@ -26,6 +24,7 @@ def temp_project(temp_project_with_security):
 @pytest.fixture
 def custom_tool():
     """Create a custom tool for testing."""
+
     class CustomTool(Tool):
         @property
         def definition(self) -> ToolDefinition:

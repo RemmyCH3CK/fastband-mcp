@@ -10,15 +10,13 @@ Provides commands for managing the Tool Garage:
 """
 
 import typer
-from typing import Optional
-
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
 from rich import box
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
 
-from fastband.tools.registry import get_registry, reset_registry
 from fastband.tools.base import ToolCategory
+from fastband.tools.registry import get_registry
 
 # Create the tools subcommand app
 tools_app = typer.Typer(
@@ -38,7 +36,7 @@ console = Console()
 
 @tools_app.command("list")
 def list_tools(
-    category: Optional[str] = typer.Option(
+    category: str | None = typer.Option(
         None,
         "--category",
         "-c",
@@ -116,8 +114,8 @@ def list_tools(
             tool.category.value,
             status,
             tool.definition.metadata.description[:50] + "..."
-                if len(tool.definition.metadata.description) > 50
-                else tool.definition.metadata.description,
+            if len(tool.definition.metadata.description) > 50
+            else tool.definition.metadata.description,
         )
 
     console.print(table)
@@ -170,7 +168,9 @@ def load_tool(
 
     if status.loaded:
         console.print(f"[green]Loaded tool: {name}[/green]")
-        console.print(f"[dim]Category: {status.category.value} | Load time: {status.load_time_ms:.2f}ms[/dim]")
+        console.print(
+            f"[dim]Category: {status.category.value} | Load time: {status.load_time_ms:.2f}ms[/dim]"
+        )
     else:
         console.print(f"[red]Failed to load tool: {name}[/red]")
         if status.error:
@@ -268,13 +268,15 @@ def tool_info(
     is_loaded = registry.is_loaded(name)
     status_text = "[green]Loaded[/green]" if is_loaded else "[dim]Not Loaded[/dim]"
 
-    console.print(Panel.fit(
-        f"[bold blue]{metadata.name}[/bold blue]\n"
-        f"[dim]{metadata.description}[/dim]\n\n"
-        f"Status: {status_text}",
-        title="Tool Information",
-        border_style="blue",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold blue]{metadata.name}[/bold blue]\n"
+            f"[dim]{metadata.description}[/dim]\n\n"
+            f"Status: {status_text}",
+            title="Tool Information",
+            border_style="blue",
+        )
+    )
 
     # Metadata table
     meta_table = Table(
@@ -288,7 +290,9 @@ def tool_info(
     meta_table.add_row("Category", metadata.category.value)
     meta_table.add_row("Version", metadata.version)
     meta_table.add_row("Author", metadata.author)
-    meta_table.add_row("Curated", "[green]Yes[/green]" if metadata.curated else "[yellow]No[/yellow]")
+    meta_table.add_row(
+        "Curated", "[green]Yes[/green]" if metadata.curated else "[yellow]No[/yellow]"
+    )
 
     if metadata.project_types:
         types = ", ".join(pt.value for pt in metadata.project_types)
@@ -335,7 +339,9 @@ def tool_info(
                 param.type,
                 required,
                 default,
-                param.description[:40] + "..." if len(param.description) > 40 else param.description,
+                param.description[:40] + "..."
+                if len(param.description) > 40
+                else param.description,
             )
 
         console.print(param_table)
@@ -393,11 +399,13 @@ def tool_stats(
     }
     status_color = status_colors.get(report.status, "white")
 
-    console.print(Panel.fit(
-        f"[bold blue]Tool Garage Statistics[/bold blue]\n\n"
-        f"Status: [{status_color}]{report.status.upper()}[/{status_color}]",
-        border_style="blue",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold blue]Tool Garage Statistics[/bold blue]\n\n"
+            f"Status: [{status_color}]{report.status.upper()}[/{status_color}]",
+            border_style="blue",
+        )
+    )
 
     # Main stats table
     stats_table = Table(
@@ -436,11 +444,13 @@ def tool_stats(
 
     # Performance recommendation
     if report.recommendation:
-        console.print(Panel(
-            f"[yellow]{report.recommendation}[/yellow]",
-            title="Recommendation",
-            border_style="yellow",
-        ))
+        console.print(
+            Panel(
+                f"[yellow]{report.recommendation}[/yellow]",
+                title="Recommendation",
+                border_style="yellow",
+            )
+        )
 
     # Verbose: per-tool stats
     if verbose:
@@ -466,7 +476,9 @@ def tool_stats(
             detail_table.add_column("Max (ms)", justify="right")
 
             # Sort by total executions descending
-            sorted_stats = sorted(tools_with_stats, key=lambda s: s["total_executions"], reverse=True)
+            sorted_stats = sorted(
+                tools_with_stats, key=lambda s: s["total_executions"], reverse=True
+            )
 
             for stats in sorted_stats:
                 detail_table.add_row(

@@ -6,17 +6,15 @@ and conventions all AI agents must follow when working on this project.
 """
 
 from pathlib import Path
-from typing import Optional
 
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import Prompt, Confirm
 
-from fastband.wizard.base import WizardStep, WizardContext, StepResult
+from fastband.wizard.base import StepResult, WizardContext, WizardStep
 from fastband.wizard.bible_generator import (
     AgentBibleGenerator,
-    ProjectConfig,
     DatabaseRule,
+    ProjectConfig,
 )
 
 
@@ -31,7 +29,7 @@ class AgentBibleStep(WizardStep):
     4. Saves it to .fastband/AGENT_BIBLE.md
     """
 
-    def __init__(self, console: Optional[Console] = None):
+    def __init__(self, console: Console | None = None):
         super().__init__(console)
 
     @property
@@ -66,9 +64,7 @@ class AgentBibleStep(WizardStep):
         project_info = context.project_info
 
         if not project_info:
-            self.show_warning(
-                "Project detection was skipped. Using default configuration."
-            )
+            self.show_warning("Project detection was skipped. Using default configuration.")
 
         # Build configuration from context
         config = self._build_config_from_context(context)
@@ -120,8 +116,12 @@ class AgentBibleStep(WizardStep):
 
         # Determine project type and language
         if project_info:
-            project_type = project_info.project_type.value if project_info.project_type else "unknown"
-            language = project_info.primary_language.value if project_info.primary_language else "unknown"
+            project_type = (
+                project_info.project_type.value if project_info.project_type else "unknown"
+            )
+            language = (
+                project_info.primary_language.value if project_info.primary_language else "unknown"
+            )
             name = project_info.name or context.project_path.name
         else:
             project_type = "unknown"
@@ -189,10 +189,22 @@ class AgentBibleStep(WizardStep):
         # Database configuration
         if self.confirm("Does this project use a database?", default=True):
             db_choices = [
-                {"value": "postgresql", "label": "PostgreSQL", "description": "Recommended for production"},
+                {
+                    "value": "postgresql",
+                    "label": "PostgreSQL",
+                    "description": "Recommended for production",
+                },
                 {"value": "sqlite", "label": "SQLite", "description": "Simple, file-based"},
-                {"value": "mysql", "label": "MySQL/MariaDB", "description": "Popular relational DB"},
-                {"value": "none", "label": "No database rules", "description": "Skip database rules"},
+                {
+                    "value": "mysql",
+                    "label": "MySQL/MariaDB",
+                    "description": "Popular relational DB",
+                },
+                {
+                    "value": "none",
+                    "label": "No database rules",
+                    "description": "Skip database rules",
+                },
             ]
             db_type = self.select("Select database type:", db_choices)[0]
 
@@ -204,11 +216,13 @@ class AgentBibleStep(WizardStep):
         review_choices = [
             {"value": "1", "label": "1 Agent", "description": "Minimal review (code only)"},
             {"value": "2", "label": "2 Agents", "description": "Code + Process review"},
-            {"value": "3", "label": "3 Agents", "description": "Full review (Code + Process + UI/UX)"},
+            {
+                "value": "3",
+                "label": "3 Agents",
+                "description": "Full review (Code + Process + UI/UX)",
+            },
         ]
-        config.review_agent_count = int(
-            self.select("Number of review agents:", review_choices)[0]
-        )
+        config.review_agent_count = int(self.select("Number of review agents:", review_choices)[0])
 
         return config
 
@@ -222,7 +236,7 @@ class AgentBibleStep(WizardStep):
             prefix = name[:3].upper()
         return prefix
 
-    def _get_database_rule(self, db_type: str) -> Optional[DatabaseRule]:
+    def _get_database_rule(self, db_type: str) -> DatabaseRule | None:
         """Get database rule for type."""
         db_type = db_type.lower()
         if db_type == "postgresql":
@@ -236,18 +250,20 @@ class AgentBibleStep(WizardStep):
     def _show_summary(self, config: ProjectConfig, output_path: Path) -> None:
         """Display configuration summary."""
         self.console.print()
-        self.console.print(Panel.fit(
-            f"[bold green]Agent Bible Generated[/bold green]\n\n"
-            f"[cyan]Project:[/cyan] {config.name}\n"
-            f"[cyan]Type:[/cyan] {config.type}\n"
-            f"[cyan]Language:[/cyan] {config.language}\n"
-            f"[cyan]Ticket Prefix:[/cyan] {config.ticket_prefix}\n"
-            f"[cyan]Review Agents:[/cyan] {config.review_agent_count}\n"
-            f"[cyan]Database:[/cyan] {config.database_type or 'None'}\n"
-            f"\n[dim]Saved to: {output_path}[/dim]",
-            border_style="green",
-            title="Summary",
-        ))
+        self.console.print(
+            Panel.fit(
+                f"[bold green]Agent Bible Generated[/bold green]\n\n"
+                f"[cyan]Project:[/cyan] {config.name}\n"
+                f"[cyan]Type:[/cyan] {config.type}\n"
+                f"[cyan]Language:[/cyan] {config.language}\n"
+                f"[cyan]Ticket Prefix:[/cyan] {config.ticket_prefix}\n"
+                f"[cyan]Review Agents:[/cyan] {config.review_agent_count}\n"
+                f"[cyan]Database:[/cyan] {config.database_type or 'None'}\n"
+                f"\n[dim]Saved to: {output_path}[/dim]",
+                border_style="green",
+                title="Summary",
+            )
+        )
         self.console.print()
         self.console.print(
             "[bold yellow]⚠️  Important:[/bold yellow] All AI agents working on this project "

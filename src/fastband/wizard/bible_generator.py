@@ -7,7 +7,7 @@ Generates project-specific AGENT_BIBLE.md from template during setup wizard.
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Any
 
 try:
     from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -22,8 +22,8 @@ class DatabaseRule:
 
     title: str = "Follow Database Conventions"
     description: str = "Use the established database patterns for this project."
-    forbidden: List[str] = field(default_factory=list)
-    always: List[str] = field(default_factory=list)
+    forbidden: list[str] = field(default_factory=list)
+    always: list[str] = field(default_factory=list)
 
     @classmethod
     def postgresql(cls) -> "DatabaseRule":
@@ -100,21 +100,21 @@ class ProjectConfig:
     fastband_path: str = ".fastband"
 
     # Server/URL configuration (optional)
-    server_ip: Optional[str] = None
-    ssh_connection: Optional[str] = None
-    dev_url: Optional[str] = None
-    prod_url: Optional[str] = None
-    ops_log_url: Optional[str] = None
+    server_ip: str | None = None
+    ssh_connection: str | None = None
+    dev_url: str | None = None
+    prod_url: str | None = None
+    ops_log_url: str | None = None
 
     # Container configuration (optional)
-    container_name: Optional[str] = None
-    service_name: Optional[str] = None
-    container_app_path: Optional[str] = None
+    container_name: str | None = None
+    service_name: str | None = None
+    container_app_path: str | None = None
 
     # Database configuration (optional)
-    database_type: Optional[str] = None
-    database_connection: Optional[str] = None
-    database_rule: Optional[DatabaseRule] = None
+    database_type: str | None = None
+    database_connection: str | None = None
+    database_rule: DatabaseRule | None = None
 
     # Git configuration
     repo_name: str = "project"
@@ -124,7 +124,7 @@ class ProjectConfig:
     review_agent_count: int = 3  # 1-3 review agents
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ProjectConfig":
+    def from_dict(cls, data: dict[str, Any]) -> "ProjectConfig":
         """Create ProjectConfig from dictionary."""
         # Handle nested database_rule
         db_rule_data = data.pop("database_rule", None)
@@ -141,7 +141,7 @@ class ProjectConfig:
 
         return cls(**data)
 
-    def to_template_context(self) -> Dict[str, Any]:
+    def to_template_context(self) -> dict[str, Any]:
         """Convert to template context dictionary."""
         return {
             "project": self,
@@ -152,7 +152,7 @@ class ProjectConfig:
 class AgentBibleGenerator:
     """Generates project-specific Agent Bible from template."""
 
-    def __init__(self, template_dir: Optional[Path] = None):
+    def __init__(self, template_dir: Path | None = None):
         """
         Initialize generator.
 

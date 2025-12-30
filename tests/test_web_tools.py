@@ -1,20 +1,18 @@
 """Tests for web tools - Browser automation and HTTP request tools."""
 
-import asyncio
 import base64
-import json
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 
 from fastband.tools.base import (
     ToolCategory,
-    ToolResult,
 )
-
 
 # =============================================================================
 # TEST FIXTURES
 # =============================================================================
+
 
 @pytest.fixture
 def mock_playwright():
@@ -90,8 +88,8 @@ def mock_httpx():
 @pytest.fixture
 def reset_browser_manager():
     """Reset the browser manager singleton before each test."""
-    from fastband.tools.web import BrowserManager, _browser_manager
     import fastband.tools.web as web_module
+    from fastband.tools.web import BrowserManager
 
     # Reset singleton
     BrowserManager._instance = None
@@ -113,6 +111,7 @@ def reset_browser_manager():
 # =============================================================================
 # SCREENSHOT TOOL TESTS
 # =============================================================================
+
 
 class TestScreenshotTool:
     """Tests for ScreenshotTool."""
@@ -274,6 +273,7 @@ class TestScreenshotTool:
 # HTTP REQUEST TOOL TESTS
 # =============================================================================
 
+
 class TestHttpRequestTool:
     """Tests for HttpRequestTool."""
 
@@ -413,6 +413,7 @@ class TestHttpRequestTool:
 # DOM QUERY TOOL TESTS
 # =============================================================================
 
+
 class TestDomQueryTool:
     """Tests for DomQueryTool."""
 
@@ -440,10 +441,12 @@ class TestDomQueryTool:
 
         # Set up mock elements
         mock_element = AsyncMock()
-        mock_element.evaluate = AsyncMock(side_effect=[
-            "div",  # tag name
-            {"class": "test-class", "id": "test-id"},  # attributes
-        ])
+        mock_element.evaluate = AsyncMock(
+            side_effect=[
+                "div",  # tag name
+                {"class": "test-class", "id": "test-id"},  # attributes
+            ]
+        )
         mock_element.text_content = AsyncMock(return_value="Test content")
         mock_element.inner_text = AsyncMock(return_value="Test content")
         mock_element.get_attribute = AsyncMock(return_value="value")
@@ -487,10 +490,12 @@ class TestDomQueryTool:
         mock_element.evaluate = AsyncMock(return_value="a")
         mock_element.text_content = AsyncMock(return_value="Link text")
         mock_element.inner_text = AsyncMock(return_value="Link text")
-        mock_element.get_attribute = AsyncMock(side_effect=lambda attr: {
-            "href": "https://example.com",
-            "class": "link",
-        }.get(attr))
+        mock_element.get_attribute = AsyncMock(
+            side_effect=lambda attr: {
+                "href": "https://example.com",
+                "class": "link",
+            }.get(attr)
+        )
 
         mock_playwright["page"].query_selector_all = AsyncMock(return_value=[mock_element])
 
@@ -552,6 +557,7 @@ class TestDomQueryTool:
 # =============================================================================
 # BROWSER CONSOLE TOOL TESTS
 # =============================================================================
+
 
 class TestBrowserConsoleTool:
     """Tests for BrowserConsoleTool."""
@@ -643,6 +649,7 @@ class TestBrowserConsoleTool:
 # BROWSER MANAGER TESTS
 # =============================================================================
 
+
 class TestBrowserManager:
     """Tests for BrowserManager singleton."""
 
@@ -706,13 +713,14 @@ class TestBrowserManager:
 # VISION ANALYSIS TOOL TESTS
 # =============================================================================
 
+
 class TestVisionAnalysisTool:
     """Tests for VisionAnalysisTool - Claude Vision API integration."""
 
     def test_definition(self):
         """Test tool definition is correct."""
-        from fastband.tools.web import VisionAnalysisTool
         from fastband.tools.base import ToolCategory
+        from fastband.tools.web import VisionAnalysisTool
 
         tool = VisionAnalysisTool()
 
@@ -730,7 +738,11 @@ class TestVisionAnalysisTool:
         assert params["image_base64"].required is False
         assert "analysis_type" in params
         assert params["analysis_type"].enum == [
-            "general", "ui_review", "bug_detection", "accessibility", "verification"
+            "general",
+            "ui_review",
+            "bug_detection",
+            "accessibility",
+            "verification",
         ]
         assert "selector" in params
         assert "width" in params
@@ -846,19 +858,21 @@ class TestVisionAnalysisTool:
     @pytest.mark.asyncio
     async def test_execute_with_base64_image(self, mock_playwright, reset_browser_manager):
         """Test analysis with base64 image input."""
+        from fastband.providers.base import Capability, CompletionResponse
         from fastband.tools.web import VisionAnalysisTool
-        from fastband.providers.base import CompletionResponse, Capability
 
         # Mock the provider registry
         mock_provider = AsyncMock()
         mock_provider.capabilities = [Capability.VISION]
-        mock_provider.analyze_image = AsyncMock(return_value=CompletionResponse(
-            content="The UI looks clean with a centered login form.",
-            model="claude-sonnet-4-20250514",
-            provider="claude",
-            usage={"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
-            finish_reason="end_turn",
-        ))
+        mock_provider.analyze_image = AsyncMock(
+            return_value=CompletionResponse(
+                content="The UI looks clean with a centered login form.",
+                model="claude-sonnet-4-20250514",
+                provider="claude",
+                usage={"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
+                finish_reason="end_turn",
+            )
+        )
 
         with patch("fastband.providers.registry.ProviderRegistry.get", return_value=mock_provider):
             tool = VisionAnalysisTool()
@@ -880,19 +894,21 @@ class TestVisionAnalysisTool:
     @pytest.mark.asyncio
     async def test_execute_with_url(self, mock_playwright, reset_browser_manager):
         """Test analysis with URL input (captures screenshot)."""
+        from fastband.providers.base import Capability, CompletionResponse
         from fastband.tools.web import VisionAnalysisTool
-        from fastband.providers.base import CompletionResponse, Capability
 
         # Mock the provider
         mock_provider = AsyncMock()
         mock_provider.capabilities = [Capability.VISION]
-        mock_provider.analyze_image = AsyncMock(return_value=CompletionResponse(
-            content="The page shows a navigation bar and hero section.",
-            model="claude-sonnet-4-20250514",
-            provider="claude",
-            usage={"prompt_tokens": 200, "completion_tokens": 100, "total_tokens": 300},
-            finish_reason="end_turn",
-        ))
+        mock_provider.analyze_image = AsyncMock(
+            return_value=CompletionResponse(
+                content="The page shows a navigation bar and hero section.",
+                model="claude-sonnet-4-20250514",
+                provider="claude",
+                usage={"prompt_tokens": 200, "completion_tokens": 100, "total_tokens": 300},
+                finish_reason="end_turn",
+            )
+        )
 
         with patch("fastband.providers.registry.ProviderRegistry.get", return_value=mock_provider):
             tool = VisionAnalysisTool()
@@ -911,8 +927,8 @@ class TestVisionAnalysisTool:
     @pytest.mark.asyncio
     async def test_execute_with_selector(self, mock_playwright, reset_browser_manager):
         """Test analysis with element-specific screenshot."""
+        from fastband.providers.base import Capability, CompletionResponse
         from fastband.tools.web import VisionAnalysisTool
-        from fastband.providers.base import CompletionResponse, Capability
 
         # Set up mock element
         mock_element = AsyncMock()
@@ -921,13 +937,15 @@ class TestVisionAnalysisTool:
 
         mock_provider = AsyncMock()
         mock_provider.capabilities = [Capability.VISION]
-        mock_provider.analyze_image = AsyncMock(return_value=CompletionResponse(
-            content="The button has correct styling.",
-            model="claude-sonnet-4-20250514",
-            provider="claude",
-            usage={"prompt_tokens": 50, "completion_tokens": 20, "total_tokens": 70},
-            finish_reason="end_turn",
-        ))
+        mock_provider.analyze_image = AsyncMock(
+            return_value=CompletionResponse(
+                content="The button has correct styling.",
+                model="claude-sonnet-4-20250514",
+                provider="claude",
+                usage={"prompt_tokens": 50, "completion_tokens": 20, "total_tokens": 70},
+                finish_reason="end_turn",
+            )
+        )
 
         with patch("fastband.providers.registry.ProviderRegistry.get", return_value=mock_provider):
             tool = VisionAnalysisTool()
@@ -977,7 +995,10 @@ class TestVisionAnalysisTool:
         """Test handling when Claude provider is not available."""
         from fastband.tools.web import VisionAnalysisTool
 
-        with patch("fastband.providers.registry.ProviderRegistry.get", side_effect=Exception("ANTHROPIC_API_KEY not set")):
+        with patch(
+            "fastband.providers.registry.ProviderRegistry.get",
+            side_effect=Exception("ANTHROPIC_API_KEY not set"),
+        ):
             tool = VisionAnalysisTool()
             valid_base64 = base64.b64encode(b"fake_image").decode()
 
@@ -992,8 +1013,8 @@ class TestVisionAnalysisTool:
     @pytest.mark.asyncio
     async def test_execute_vision_api_error(self, mock_playwright, reset_browser_manager):
         """Test handling of Vision API errors."""
-        from fastband.tools.web import VisionAnalysisTool
         from fastband.providers.base import Capability
+        from fastband.tools.web import VisionAnalysisTool
 
         mock_provider = AsyncMock()
         mock_provider.capabilities = [Capability.VISION]
@@ -1014,18 +1035,20 @@ class TestVisionAnalysisTool:
     @pytest.mark.asyncio
     async def test_execute_url_normalization(self, mock_playwright, reset_browser_manager):
         """Test URL normalization (adding https://)."""
+        from fastband.providers.base import Capability, CompletionResponse
         from fastband.tools.web import VisionAnalysisTool
-        from fastband.providers.base import CompletionResponse, Capability
 
         mock_provider = AsyncMock()
         mock_provider.capabilities = [Capability.VISION]
-        mock_provider.analyze_image = AsyncMock(return_value=CompletionResponse(
-            content="Analysis complete.",
-            model="claude-sonnet-4-20250514",
-            provider="claude",
-            usage={"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
-            finish_reason="end_turn",
-        ))
+        mock_provider.analyze_image = AsyncMock(
+            return_value=CompletionResponse(
+                content="Analysis complete.",
+                model="claude-sonnet-4-20250514",
+                provider="claude",
+                usage={"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
+                finish_reason="end_turn",
+            )
+        )
 
         with patch("fastband.providers.registry.ProviderRegistry.get", return_value=mock_provider):
             tool = VisionAnalysisTool()
@@ -1043,18 +1066,20 @@ class TestVisionAnalysisTool:
     @pytest.mark.asyncio
     async def test_execute_records_execution_time(self, mock_playwright, reset_browser_manager):
         """Test that execution time is recorded."""
+        from fastband.providers.base import Capability, CompletionResponse
         from fastband.tools.web import VisionAnalysisTool
-        from fastband.providers.base import CompletionResponse, Capability
 
         mock_provider = AsyncMock()
         mock_provider.capabilities = [Capability.VISION]
-        mock_provider.analyze_image = AsyncMock(return_value=CompletionResponse(
-            content="Analysis complete.",
-            model="claude-sonnet-4-20250514",
-            provider="claude",
-            usage={"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
-            finish_reason="end_turn",
-        ))
+        mock_provider.analyze_image = AsyncMock(
+            return_value=CompletionResponse(
+                content="Analysis complete.",
+                model="claude-sonnet-4-20250514",
+                provider="claude",
+                usage={"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
+                finish_reason="end_turn",
+            )
+        )
 
         with patch("fastband.providers.registry.ProviderRegistry.get", return_value=mock_provider):
             tool = VisionAnalysisTool()
@@ -1076,10 +1101,10 @@ class TestWebToolsCollection:
         """Test that all web tools are properly exported."""
         from fastband.tools.web import (
             WEB_TOOLS,
-            ScreenshotTool,
-            HttpRequestTool,
-            DomQueryTool,
             BrowserConsoleTool,
+            DomQueryTool,
+            HttpRequestTool,
+            ScreenshotTool,
             VisionAnalysisTool,
         )
 
@@ -1097,7 +1122,9 @@ class TestWebToolsCollection:
         valid_categories = [ToolCategory.WEB, ToolCategory.AI]
         for tool_class in WEB_TOOLS:
             tool = tool_class()
-            assert tool.category in valid_categories, f"{tool.name} has unexpected category {tool.category}"
+            assert tool.category in valid_categories, (
+                f"{tool.name} has unexpected category {tool.category}"
+            )
 
     def test_playwright_available_exported(self):
         """Test that PLAYWRIGHT_AVAILABLE flag is exported."""
@@ -1110,6 +1137,7 @@ class TestWebToolsCollection:
 # INTEGRATION TESTS (marked for optional running)
 # =============================================================================
 
+
 @pytest.mark.integration
 class TestWebToolsIntegration:
     """
@@ -1121,7 +1149,7 @@ class TestWebToolsIntegration:
     @pytest.mark.asyncio
     async def test_real_screenshot(self):
         """Test real screenshot capture (requires Playwright)."""
-        from fastband.tools.web import ScreenshotTool, PLAYWRIGHT_AVAILABLE
+        from fastband.tools.web import PLAYWRIGHT_AVAILABLE, ScreenshotTool
 
         if not PLAYWRIGHT_AVAILABLE:
             pytest.skip("Playwright not installed")
@@ -1154,7 +1182,7 @@ class TestWebToolsIntegration:
     @pytest.mark.asyncio
     async def test_real_dom_query(self):
         """Test real DOM query (requires Playwright)."""
-        from fastband.tools.web import DomQueryTool, PLAYWRIGHT_AVAILABLE
+        from fastband.tools.web import PLAYWRIGHT_AVAILABLE, DomQueryTool
 
         if not PLAYWRIGHT_AVAILABLE:
             pytest.skip("Playwright not installed")

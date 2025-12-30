@@ -13,18 +13,18 @@ Performance Optimizations (Issue #38):
 import asyncio
 import logging
 import threading
-from datetime import datetime, timedelta, timezone
-from typing import Dict, Optional, Callable, Any
 from collections import OrderedDict
+from collections.abc import Callable
+from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from fastband.hub.models import (
+    Conversation,
     HubSession,
     SessionConfig,
     SessionStatus,
-    Conversation,
-    UsageStats,
     TierLimits,
-    SubscriptionTier,
+    UsageStats,
 )
 
 logger = logging.getLogger(__name__)
@@ -67,15 +67,15 @@ class SessionManager:
             cleanup_interval_seconds: Seconds between cleanup runs
         """
         self._sessions: OrderedDict[str, HubSession] = OrderedDict()
-        self._conversations: Dict[str, Dict[str, Conversation]] = {}
-        self._usage_stats: Dict[str, UsageStats] = {}
+        self._conversations: dict[str, dict[str, Conversation]] = {}
+        self._usage_stats: dict[str, UsageStats] = {}
         self._max_sessions = max_sessions
         self._idle_timeout = timedelta(minutes=idle_timeout_minutes)
         self._cleanup_interval = cleanup_interval_seconds
         self._lock = threading.RLock()
-        self._cleanup_task: Optional[asyncio.Task] = None
-        self._on_session_created: Optional[Callable[[HubSession], None]] = None
-        self._on_session_terminated: Optional[Callable[[HubSession], None]] = None
+        self._cleanup_task: asyncio.Task | None = None
+        self._on_session_created: Callable[[HubSession], None] | None = None
+        self._on_session_terminated: Callable[[HubSession], None] | None = None
 
     async def start(self) -> None:
         """Start the session manager background tasks."""
@@ -112,9 +112,7 @@ class SessionManager:
                 # Try to evict oldest idle session
                 evicted = self._evict_oldest_idle()
                 if not evicted:
-                    raise ValueError(
-                        f"Maximum sessions ({self._max_sessions}) reached"
-                    )
+                    raise ValueError(f"Maximum sessions ({self._max_sessions}) reached")
 
             # Create session
             session = HubSession.create(config)
@@ -135,7 +133,7 @@ class SessionManager:
 
             return session
 
-    def get_session(self, session_id: str) -> Optional[HubSession]:
+    def get_session(self, session_id: str) -> HubSession | None:
         """Get a session by ID.
 
         Args:
@@ -153,7 +151,7 @@ class SessionManager:
                 return session
             return None
 
-    def get_session_by_user(self, user_id: str) -> Optional[HubSession]:
+    def get_session_by_user(self, user_id: str) -> HubSession | None:
         """Get active session for a user.
 
         Args:
@@ -196,7 +194,7 @@ class SessionManager:
         self,
         session_id: str,
         conversation_id: str,
-    ) -> Optional[Conversation]:
+    ) -> Conversation | None:
         """Get a conversation from a session.
 
         Args:
@@ -213,8 +211,8 @@ class SessionManager:
     def create_conversation(
         self,
         session_id: str,
-        title: Optional[str] = None,
-    ) -> Optional[Conversation]:
+        title: str | None = None,
+    ) -> Conversation | None:
         """Create a new conversation in a session.
 
         Args:
@@ -254,7 +252,7 @@ class SessionManager:
     def check_rate_limit(
         self,
         user_id: str,
-    ) -> tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """Check if user can send a message.
 
         Args:
@@ -303,7 +301,7 @@ class SessionManager:
                 stats.tokens_used_today += tokens_used
                 stats.last_message_at = now
 
-    def get_usage_stats(self, user_id: str) -> Optional[UsageStats]:
+    def get_usage_stats(self, user_id: str) -> UsageStats | None:
         """Get usage stats for a user.
 
         Args:
@@ -320,7 +318,7 @@ class SessionManager:
         with self._lock:
             return sum(1 for s in self._sessions.values() if s.is_active())
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get session manager statistics."""
         with self._lock:
             active = sum(1 for s in self._sessions.values() if s.is_active())
@@ -328,9 +326,7 @@ class SessionManager:
                 "total_sessions": len(self._sessions),
                 "active_sessions": active,
                 "max_sessions": self._max_sessions,
-                "total_conversations": sum(
-                    len(convs) for convs in self._conversations.values()
-                ),
+                "total_conversations": sum(len(convs) for convs in self._conversations.values()),
                 "tracked_users": len(self._usage_stats),
             }
 
@@ -422,7 +418,7 @@ class SessionManager:
 # GLOBAL SINGLETON
 # =============================================================================
 
-_session_manager: Optional[SessionManager] = None
+_session_manager: SessionManager | None = None
 _manager_lock = threading.Lock()
 
 

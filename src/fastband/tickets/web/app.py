@@ -10,35 +10,33 @@ Provides a web interface for viewing and managing tickets with:
 - Dark/light mode toggle
 """
 
-import os
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from flask import (
     Flask,
+    Response,
     jsonify,
     render_template,
     request,
-    Response,
 )
 
 from fastband.tickets.models import (
-    Ticket,
-    TicketStatus,
     TicketPriority,
+    TicketStatus,
     TicketType,
-    Agent,
 )
-from fastband.tickets.storage import TicketStore, JSONTicketStore
+from fastband.tickets.storage import JSONTicketStore, TicketStore
 
 logger = logging.getLogger(__name__)
 
 
 def create_app(
-    store: Optional[TicketStore] = None,
-    config: Optional[Dict[str, Any]] = None,
+    store: TicketStore | None = None,
+    config: dict[str, Any] | None = None,
 ) -> Flask:
     """
     Create the Flask application for the ticket dashboard.
@@ -100,7 +98,7 @@ def register_filters(app: Flask) -> None:
     """Register custom Jinja2 filters."""
 
     @app.template_filter("datetime")
-    def format_datetime(value: Optional[datetime], fmt: str = "%Y-%m-%d %H:%M") -> str:
+    def format_datetime(value: datetime | None, fmt: str = "%Y-%m-%d %H:%M") -> str:
         """Format datetime for display."""
         if value is None:
             return ""
@@ -112,7 +110,7 @@ def register_filters(app: Flask) -> None:
         return value.strftime(fmt)
 
     @app.template_filter("relative_time")
-    def format_relative_time(value: Optional[datetime]) -> str:
+    def format_relative_time(value: datetime | None) -> str:
         """Format datetime as relative time (e.g., '2 hours ago')."""
         if value is None:
             return ""
@@ -272,7 +270,7 @@ def register_routes(app: Flask) -> None:
         per_page = request.args.get("per_page", 20, type=int)
 
         # Build filter kwargs
-        filter_kwargs: Dict[str, Any] = {
+        filter_kwargs: dict[str, Any] = {
             "limit": per_page,
             "offset": (page - 1) * per_page,
         }
@@ -302,7 +300,7 @@ def register_routes(app: Flask) -> None:
         if search_query:
             tickets = store.search(search_query)
             # Apply pagination manually for search
-            tickets = tickets[filter_kwargs["offset"]:filter_kwargs["offset"] + per_page]
+            tickets = tickets[filter_kwargs["offset"] : filter_kwargs["offset"] + per_page]
             total = len(store.search(search_query))
         else:
             tickets = store.list(**filter_kwargs)
@@ -316,9 +314,9 @@ def register_routes(app: Flask) -> None:
         total_pages = (total + per_page - 1) // per_page
 
         # Get filter options
-        statuses = [s for s in TicketStatus]
-        priorities = [p for p in TicketPriority]
-        types = [t for t in TicketType]
+        statuses = list(TicketStatus)
+        priorities = list(TicketPriority)
+        types = list(TicketType)
         agents = store.list_agents(active_only=False)
 
         return render_template(
@@ -384,7 +382,7 @@ def register_routes(app: Flask) -> None:
         offset = request.args.get("offset", 0, type=int)
 
         # Build filter kwargs
-        filter_kwargs: Dict[str, Any] = {
+        filter_kwargs: dict[str, Any] = {
             "limit": limit,
             "offset": offset,
         }
@@ -413,7 +411,7 @@ def register_routes(app: Flask) -> None:
         # Get tickets
         if search_query:
             tickets = store.search(search_query)
-            tickets = tickets[offset:offset + limit]
+            tickets = tickets[offset : offset + limit]
             total = len(store.search(search_query))
         else:
             tickets = store.list(**filter_kwargs)
@@ -422,12 +420,14 @@ def register_routes(app: Flask) -> None:
                 priority=filter_kwargs.get("priority"),
             )
 
-        return jsonify({
-            "tickets": [t.to_dict() for t in tickets],
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-        })
+        return jsonify(
+            {
+                "tickets": [t.to_dict() for t in tickets],
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+            }
+        )
 
     @app.route("/api/tickets/<ticket_id>")
     def api_ticket_detail(ticket_id: str) -> Response:
@@ -438,9 +438,11 @@ def register_routes(app: Flask) -> None:
         if ticket is None:
             return jsonify({"error": f"Ticket #{ticket_id} not found"}), 404
 
-        return jsonify({
-            "ticket": ticket.to_dict(),
-        })
+        return jsonify(
+            {
+                "ticket": ticket.to_dict(),
+            }
+        )
 
     @app.route("/api/agents")
     def api_agents() -> Response:
@@ -450,10 +452,12 @@ def register_routes(app: Flask) -> None:
 
         agents = store.list_agents(active_only=active_only)
 
-        return jsonify({
-            "agents": [a.to_dict() for a in agents],
-            "total": len(agents),
-        })
+        return jsonify(
+            {
+                "agents": [a.to_dict() for a in agents],
+                "total": len(agents),
+            }
+        )
 
     @app.route("/api/stats")
     def api_stats() -> Response:
@@ -488,10 +492,12 @@ def register_routes(app: Flask) -> None:
     @app.route("/api/health")
     def api_health() -> Response:
         """Health check endpoint."""
-        return jsonify({
-            "status": "healthy",
-            "timestamp": datetime.now().isoformat(),
-        })
+        return jsonify(
+            {
+                "status": "healthy",
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
 
     # =========================================================================
     # ERROR HANDLERS
@@ -513,7 +519,7 @@ def register_routes(app: Flask) -> None:
 
 
 def serve(
-    store: Optional[TicketStore] = None,
+    store: TicketStore | None = None,
     host: str = "127.0.0.1",
     port: int = 5000,
     debug: bool = False,

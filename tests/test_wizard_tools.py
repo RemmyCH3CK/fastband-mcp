@@ -1,27 +1,26 @@
 """Tests for the Tool Selection Wizard Step."""
 
-import pytest
-from pathlib import Path
 import tempfile
-from unittest.mock import MagicMock, patch, AsyncMock
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
-from fastband.wizard.base import WizardContext, StepResult, StepStatus
-from fastband.wizard.steps.tools import ToolSelectionStep
+import pytest
+
+from fastband.core.config import FastbandConfig
 from fastband.tools.base import (
     Tool,
     ToolCategory,
     ToolDefinition,
     ToolMetadata,
-    ToolParameter,
     ToolResult,
 )
 from fastband.tools.recommender import (
-    ToolRecommender,
-    ToolRecommendation,
     RecommendationResult,
+    ToolRecommendation,
+    ToolRecommender,
 )
-from fastband.core.config import FastbandConfig
-
+from fastband.wizard.base import StepStatus, WizardContext
+from fastband.wizard.steps.tools import ToolSelectionStep
 
 # =============================================================================
 # TEST FIXTURES
@@ -423,7 +422,10 @@ class TestToolCompatibilityValidation:
             result = step._validate_tool_compatibility(["tool_a", "tool_b"], [])
 
             assert result["valid"] is False
-            assert "dependencies" in result["message"].lower() or "requires" in result["message"].lower()
+            assert (
+                "dependencies" in result["message"].lower()
+                or "requires" in result["message"].lower()
+            )
             assert len(result["missing_deps"]) == 1
 
     def test_dependency_in_already_loaded(self):

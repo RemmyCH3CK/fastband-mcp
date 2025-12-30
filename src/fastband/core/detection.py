@@ -5,18 +5,18 @@ Automatically detects project type, language, frameworks, and build tools
 based on directory contents.
 """
 
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
-from enum import Enum
 import json
 import logging
+from dataclasses import dataclass, field
+from enum import Enum
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 
 class Language(Enum):
     """Programming languages."""
+
     PYTHON = "python"
     JAVASCRIPT = "javascript"
     TYPESCRIPT = "typescript"
@@ -36,6 +36,7 @@ class Language(Enum):
 
 class ProjectType(Enum):
     """Project types."""
+
     WEB_APP = "web_app"
     API_SERVICE = "api_service"
     MOBILE_IOS = "mobile_ios"
@@ -51,6 +52,7 @@ class ProjectType(Enum):
 
 class Framework(Enum):
     """Frameworks and libraries."""
+
     # Python
     FLASK = "flask"
     DJANGO = "django"
@@ -86,6 +88,7 @@ class Framework(Enum):
 
 class PackageManager(Enum):
     """Package managers."""
+
     PIP = "pip"
     POETRY = "poetry"
     PIPENV = "pipenv"
@@ -109,6 +112,7 @@ class PackageManager(Enum):
 
 class BuildTool(Enum):
     """Build tools."""
+
     SETUPTOOLS = "setuptools"
     WEBPACK = "webpack"
     VITE = "vite"
@@ -128,19 +132,21 @@ class BuildTool(Enum):
 @dataclass
 class DetectedFramework:
     """A detected framework with confidence."""
+
     framework: Framework
     confidence: float  # 0.0 to 1.0
-    version: Optional[str] = None
-    evidence: List[str] = field(default_factory=list)
+    version: str | None = None
+    evidence: list[str] = field(default_factory=list)
 
 
 @dataclass
 class DetectedLanguage:
     """A detected language with confidence."""
+
     language: Language
     confidence: float
     file_count: int = 0
-    evidence: List[str] = field(default_factory=list)
+    evidence: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -151,6 +157,7 @@ class ProjectInfo:
     Contains detected languages, project type, frameworks, package managers,
     and build tools with confidence scores.
     """
+
     path: Path
 
     # Primary detection
@@ -158,25 +165,25 @@ class ProjectInfo:
     primary_type: ProjectType
 
     # All detected items with confidence
-    languages: List[DetectedLanguage] = field(default_factory=list)
-    frameworks: List[DetectedFramework] = field(default_factory=list)
-    package_managers: List[PackageManager] = field(default_factory=list)
-    build_tools: List[BuildTool] = field(default_factory=list)
+    languages: list[DetectedLanguage] = field(default_factory=list)
+    frameworks: list[DetectedFramework] = field(default_factory=list)
+    package_managers: list[PackageManager] = field(default_factory=list)
+    build_tools: list[BuildTool] = field(default_factory=list)
 
     # Confidence for primary detection
     language_confidence: float = 0.0
     type_confidence: float = 0.0
 
     # Project metadata
-    name: Optional[str] = None
-    version: Optional[str] = None
-    description: Optional[str] = None
+    name: str | None = None
+    version: str | None = None
+    description: str | None = None
 
     # Monorepo detection
     is_monorepo: bool = False
-    subprojects: List[str] = field(default_factory=list)
+    subprojects: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
             "path": str(self.path),
@@ -211,7 +218,7 @@ class ProjectInfo:
 
 
 # Detection patterns
-LANGUAGE_PATTERNS: Dict[Language, Dict] = {
+LANGUAGE_PATTERNS: dict[Language, dict] = {
     Language.PYTHON: {
         "extensions": [".py", ".pyi", ".pyx"],
         "files": ["pyproject.toml", "setup.py", "setup.cfg", "requirements.txt", "Pipfile"],
@@ -266,7 +273,7 @@ LANGUAGE_PATTERNS: Dict[Language, Dict] = {
     },
 }
 
-FRAMEWORK_PATTERNS: Dict[Framework, Dict] = {
+FRAMEWORK_PATTERNS: dict[Framework, dict] = {
     # Python frameworks
     Framework.FLASK: {
         "dependencies": ["flask"],
@@ -282,7 +289,6 @@ FRAMEWORK_PATTERNS: Dict[Framework, Dict] = {
         "dependencies": ["fastapi"],
         "imports": ["from fastapi", "import fastapi"],
     },
-
     # JavaScript frameworks
     Framework.REACT: {
         "dependencies": ["react", "react-dom"],
@@ -312,7 +318,6 @@ FRAMEWORK_PATTERNS: Dict[Framework, Dict] = {
         "dependencies": ["@nestjs/core"],
         "files": ["nest-cli.json"],
     },
-
     # Mobile frameworks
     Framework.REACT_NATIVE: {
         "dependencies": ["react-native"],
@@ -323,7 +328,6 @@ FRAMEWORK_PATTERNS: Dict[Framework, Dict] = {
         "files": ["pubspec.yaml"],
         "dirs": ["lib", "android", "ios"],
     },
-
     # Desktop frameworks
     Framework.ELECTRON: {
         "dependencies": ["electron"],
@@ -336,7 +340,7 @@ FRAMEWORK_PATTERNS: Dict[Framework, Dict] = {
     },
 }
 
-PACKAGE_MANAGER_FILES: Dict[str, PackageManager] = {
+PACKAGE_MANAGER_FILES: dict[str, PackageManager] = {
     "pyproject.toml": PackageManager.POETRY,  # Could also be pip
     "Pipfile": PackageManager.PIPENV,
     "requirements.txt": PackageManager.PIP,
@@ -358,7 +362,7 @@ PACKAGE_MANAGER_FILES: Dict[str, PackageManager] = {
     "Gemfile": PackageManager.BUNDLER,
 }
 
-BUILD_TOOL_FILES: Dict[str, BuildTool] = {
+BUILD_TOOL_FILES: dict[str, BuildTool] = {
     "webpack.config.js": BuildTool.WEBPACK,
     "vite.config.js": BuildTool.VITE,
     "vite.config.ts": BuildTool.VITE,
@@ -399,7 +403,7 @@ class ProjectDetector:
         self.max_depth = max_depth
         self.max_files = max_files
 
-    def detect(self, path: Optional[Path] = None) -> ProjectInfo:
+    def detect(self, path: Path | None = None) -> ProjectInfo:
         """
         Detect project information.
 
@@ -459,7 +463,7 @@ class ProjectDetector:
             subprojects=subprojects,
         )
 
-    def _collect_files(self, path: Path) -> List[Path]:
+    def _collect_files(self, path: Path) -> list[Path]:
         """Collect files up to max_depth and max_files."""
         files = []
         count = 0
@@ -476,8 +480,16 @@ class ProjectDetector:
 
                     # Skip hidden and common ignore patterns
                     if item.name.startswith(".") or item.name in {
-                        "node_modules", "__pycache__", "venv", ".venv",
-                        "env", ".env", "dist", "build", "target", ".git"
+                        "node_modules",
+                        "__pycache__",
+                        "venv",
+                        ".venv",
+                        "env",
+                        ".env",
+                        "dist",
+                        "build",
+                        "target",
+                        ".git",
                     }:
                         continue
 
@@ -492,11 +504,9 @@ class ProjectDetector:
         walk(path, 0)
         return files
 
-    def _detect_languages(
-        self, path: Path, files: List[Path]
-    ) -> List[DetectedLanguage]:
+    def _detect_languages(self, path: Path, files: list[Path]) -> list[DetectedLanguage]:
         """Detect programming languages."""
-        language_files: Dict[Language, List[Path]] = {lang: [] for lang in Language}
+        language_files: dict[Language, list[Path]] = {lang: [] for lang in Language}
 
         for file in files:
             ext = file.suffix.lower()
@@ -523,18 +533,20 @@ class ProjectDetector:
             if lang_files:
                 count = len(lang_files)
                 confidence = min(count / total_files + 0.1, 1.0)
-                results.append(DetectedLanguage(
-                    language=lang,
-                    confidence=confidence,
-                    file_count=count,
-                    evidence=[str(f.relative_to(path)) for f in lang_files[:5]],
-                ))
+                results.append(
+                    DetectedLanguage(
+                        language=lang,
+                        confidence=confidence,
+                        file_count=count,
+                        evidence=[str(f.relative_to(path)) for f in lang_files[:5]],
+                    )
+                )
 
         # Sort by confidence
         results.sort(key=lambda x: x.confidence, reverse=True)
         return results
 
-    def _detect_package_managers(self, path: Path) -> List[PackageManager]:
+    def _detect_package_managers(self, path: Path) -> list[PackageManager]:
         """Detect package managers."""
         managers = []
 
@@ -559,7 +571,7 @@ class ProjectDetector:
 
         return managers
 
-    def _detect_build_tools(self, path: Path) -> List[BuildTool]:
+    def _detect_build_tools(self, path: Path) -> list[BuildTool]:
         """Detect build tools."""
         tools = []
 
@@ -573,9 +585,9 @@ class ProjectDetector:
     def _detect_frameworks(
         self,
         path: Path,
-        files: List[Path],
-        package_managers: List[PackageManager],
-    ) -> List[DetectedFramework]:
+        files: list[Path],
+        package_managers: list[PackageManager],
+    ) -> list[DetectedFramework]:
         """Detect frameworks."""
         frameworks = []
         dependencies = self._get_dependencies(path, package_managers)
@@ -613,22 +625,24 @@ class ProjectDetector:
                     evidence.append(f"directory: {dir_name}")
 
             if confidence > 0:
-                frameworks.append(DetectedFramework(
-                    framework=framework,
-                    confidence=min(confidence, 1.0),
-                    version=version,
-                    evidence=evidence,
-                ))
+                frameworks.append(
+                    DetectedFramework(
+                        framework=framework,
+                        confidence=min(confidence, 1.0),
+                        version=version,
+                        evidence=evidence,
+                    )
+                )
 
         # Sort by confidence
         frameworks.sort(key=lambda x: x.confidence, reverse=True)
         return frameworks
 
     def _get_dependencies(
-        self, path: Path, package_managers: List[PackageManager]
-    ) -> Dict[str, Optional[str]]:
+        self, path: Path, package_managers: list[PackageManager]
+    ) -> dict[str, str | None]:
         """Get project dependencies."""
-        deps: Dict[str, Optional[str]] = {}
+        deps: dict[str, str | None] = {}
 
         # package.json
         pkg_json = path / "package.json"
@@ -686,9 +700,7 @@ class ProjectDetector:
 
         return deps
 
-    def _get_primary_language(
-        self, languages: List[DetectedLanguage]
-    ) -> Tuple[Language, float]:
+    def _get_primary_language(self, languages: list[DetectedLanguage]) -> tuple[Language, float]:
         """Get primary language."""
         if not languages:
             return Language.UNKNOWN, 0.0
@@ -700,11 +712,10 @@ class ProjectDetector:
         self,
         path: Path,
         language: Language,
-        frameworks: List[DetectedFramework],
-        files: List[Path],
-    ) -> Tuple[ProjectType, float]:
+        frameworks: list[DetectedFramework],
+        files: list[Path],
+    ) -> tuple[ProjectType, float]:
         """Detect project type."""
-        confidence = 0.5
 
         framework_names = {f.framework for f in frameworks}
 
@@ -726,16 +737,23 @@ class ProjectDetector:
 
         # Check for web app
         web_frameworks = {
-            Framework.REACT, Framework.VUE, Framework.ANGULAR,
-            Framework.SVELTE, Framework.NEXTJS, Framework.NUXT,
+            Framework.REACT,
+            Framework.VUE,
+            Framework.ANGULAR,
+            Framework.SVELTE,
+            Framework.NEXTJS,
+            Framework.NUXT,
         }
         if framework_names & web_frameworks:
             return ProjectType.WEB_APP, 0.8
 
         # Check for API service
         api_frameworks = {
-            Framework.FLASK, Framework.DJANGO, Framework.FASTAPI,
-            Framework.EXPRESS, Framework.NESTJS,
+            Framework.FLASK,
+            Framework.DJANGO,
+            Framework.FASTAPI,
+            Framework.EXPRESS,
+            Framework.NESTJS,
         }
         if framework_names & api_frameworks:
             # Could be web app or API
@@ -755,8 +773,8 @@ class ProjectDetector:
         return ProjectType.UNKNOWN, 0.3
 
     def _get_project_metadata(
-        self, path: Path, package_managers: List[PackageManager]
-    ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+        self, path: Path, package_managers: list[PackageManager]
+    ) -> tuple[str | None, str | None, str | None]:
         """Get project name, version, description."""
         name = None
         version = None
@@ -781,11 +799,11 @@ class ProjectDetector:
                     content = pyproject.read_text()
                     for line in content.split("\n"):
                         if line.startswith("name ="):
-                            name = line.split("=")[1].strip().strip('"\'')
+                            name = line.split("=")[1].strip().strip("\"'")
                         elif line.startswith("version ="):
-                            version = line.split("=")[1].strip().strip('"\'')
+                            version = line.split("=")[1].strip().strip("\"'")
                         elif line.startswith("description ="):
-                            description = line.split("=")[1].strip().strip('"\'')
+                            description = line.split("=")[1].strip().strip("\"'")
                 except Exception:
                     pass
 
@@ -804,11 +822,11 @@ class ProjectDetector:
                             if line.startswith("["):
                                 break
                             if line.startswith("name ="):
-                                name = line.split("=")[1].strip().strip('"\'')
+                                name = line.split("=")[1].strip().strip("\"'")
                             elif line.startswith("version ="):
-                                version = line.split("=")[1].strip().strip('"\'')
+                                version = line.split("=")[1].strip().strip("\"'")
                             elif line.startswith("description ="):
-                                description = line.split("=")[1].strip().strip('"\'')
+                                description = line.split("=")[1].strip().strip("\"'")
                 except Exception:
                     pass
 
@@ -818,7 +836,7 @@ class ProjectDetector:
 
         return name, version, description
 
-    def _detect_monorepo(self, path: Path) -> Tuple[bool, List[str]]:
+    def _detect_monorepo(self, path: Path) -> tuple[bool, list[str]]:
         """Detect if project is a monorepo."""
         subprojects = []
 
@@ -831,10 +849,16 @@ class ProjectDetector:
                 for item in packages_dir.iterdir():
                     if item.is_dir():
                         # Check if it looks like a package
-                        if any((item / f).exists() for f in [
-                            "package.json", "pyproject.toml", "Cargo.toml",
-                            "setup.py", "go.mod"
-                        ]):
+                        if any(
+                            (item / f).exists()
+                            for f in [
+                                "package.json",
+                                "pyproject.toml",
+                                "Cargo.toml",
+                                "setup.py",
+                                "go.mod",
+                            ]
+                        ):
                             subprojects.append(f"{dir_name}/{item.name}")
 
         # Check for workspace files
@@ -856,7 +880,7 @@ class ProjectDetector:
 
 
 # Convenience function
-def detect_project(path: Optional[Path] = None) -> ProjectInfo:
+def detect_project(path: Path | None = None) -> ProjectInfo:
     """
     Detect project information.
 

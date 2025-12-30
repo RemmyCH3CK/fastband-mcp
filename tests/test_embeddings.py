@@ -8,30 +8,28 @@ Tests cover:
 - SemanticIndex orchestration
 """
 
-import pytest
 import tempfile
 from pathlib import Path
-from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from fastband.embeddings.base import (
-    EmbeddingProvider,
-    EmbeddingConfig,
-    EmbeddingResult,
     ChunkMetadata,
     ChunkType,
     CodeChunk,
+    EmbeddingConfig,
+    EmbeddingProvider,
+    EmbeddingResult,
 )
-from fastband.embeddings.chunkers.base import Chunker, ChunkerConfig
-from fastband.embeddings.chunkers.semantic import SemanticChunker
+from fastband.embeddings.chunkers.base import ChunkerConfig
 from fastband.embeddings.chunkers.fixed import FixedChunker
+from fastband.embeddings.chunkers.semantic import SemanticChunker
 from fastband.embeddings.storage.sqlite import SQLiteVectorStore
-from fastband.embeddings.storage.base import SearchResult
-
 
 # =============================================================================
 # FIXTURES
 # =============================================================================
+
 
 @pytest.fixture
 def temp_dir():
@@ -78,7 +76,7 @@ def another_function():
 @pytest.fixture
 def sample_js_file(temp_dir):
     """Create a sample JavaScript file for testing."""
-    content = '''import { useState } from 'react';
+    content = """import { useState } from 'react';
 
 export function MyComponent({ name }) {
     const [count, setCount] = useState(0);
@@ -97,7 +95,7 @@ class UserService {
 }
 
 const helperFunction = (a, b) => a + b;
-'''
+"""
     file_path = temp_dir / "sample.js"
     file_path.write_text(content)
     return file_path
@@ -106,6 +104,7 @@ const helperFunction = (a, b) => a + b;
 @pytest.fixture
 def mock_embedding_provider():
     """Create a mock embedding provider."""
+
     class MockProvider(EmbeddingProvider):
         def __init__(self):
             config = EmbeddingConfig()
@@ -157,6 +156,7 @@ def vector_store(temp_dir):
 # =============================================================================
 # CHUNK METADATA TESTS
 # =============================================================================
+
 
 class TestChunkMetadata:
     """Tests for ChunkMetadata."""
@@ -238,6 +238,7 @@ class TestCodeChunk:
 # SEMANTIC CHUNKER TESTS
 # =============================================================================
 
+
 class TestSemanticChunker:
     """Tests for SemanticChunker."""
 
@@ -279,7 +280,7 @@ class TestSemanticChunker:
         assert len(chunks) >= 2
 
         # Check file paths are different
-        file_paths = set(c.metadata.file_path for c in chunks)
+        file_paths = {c.metadata.file_path for c in chunks}
         assert len(file_paths) >= 2
 
     def test_extract_imports(self, sample_python_file):
@@ -314,6 +315,7 @@ class TestSemanticChunker:
 # =============================================================================
 # FIXED CHUNKER TESTS
 # =============================================================================
+
 
 class TestFixedChunker:
     """Tests for FixedChunker."""
@@ -353,6 +355,7 @@ class TestFixedChunker:
 # =============================================================================
 # SQLITE VECTOR STORE TESTS
 # =============================================================================
+
 
 class TestSQLiteVectorStore:
     """Tests for SQLiteVectorStore."""
@@ -433,7 +436,7 @@ class TestSQLiteVectorStore:
                     end_line=10,
                     file_type=file_type,
                 )
-                vector_store.store(f"chunk_{file_type}_{i}", [0.5] * 384, f"content", metadata)
+                vector_store.store(f"chunk_{file_type}_{i}", [0.5] * 384, "content", metadata)
 
         # Search only Python files
         results = vector_store.search([0.5] * 384, limit=10, filter_file_type="python")
@@ -520,6 +523,7 @@ class TestSQLiteVectorStore:
 # SEMANTIC INDEX TESTS
 # =============================================================================
 
+
 class TestSemanticIndex:
     """Tests for SemanticIndex."""
 
@@ -588,7 +592,7 @@ class TestSemanticIndex:
             results = await index.search("greeting function", limit=5)
 
             assert len(results) > 0
-            assert all(hasattr(r, 'score') for r in results)
+            assert all(hasattr(r, "score") for r in results)
 
         finally:
             index.close()
@@ -624,6 +628,7 @@ class TestSemanticIndex:
 # =============================================================================
 # CONTEXT TOOLS TESTS
 # =============================================================================
+
 
 class TestContextTools:
     """Tests for context MCP tools."""

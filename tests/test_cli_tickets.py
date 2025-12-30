@@ -1,21 +1,21 @@
 """Tests for Fastband CLI tickets subcommand."""
 
 import json
-import pytest
 import tempfile
 from pathlib import Path
+
+import pytest
 from typer.testing import CliRunner
 
 from fastband.cli.main import app
 from fastband.tickets import (
+    StorageFactory,
     Ticket,
-    TicketStatus,
     TicketPriority,
+    TicketStatus,
     TicketType,
     get_store,
-    StorageFactory,
 )
-
 
 runner = CliRunner()
 
@@ -225,7 +225,9 @@ class TestTicketsListCommand:
 
     def test_list_filter_by_status(self, populated_store, store_path):
         """Test filtering tickets by status."""
-        result = runner.invoke(app, ["tickets", "list", "--status", "open", "--path", str(store_path)])
+        result = runner.invoke(
+            app, ["tickets", "list", "--status", "open", "--path", str(store_path)]
+        )
         assert result.exit_code == 0
         assert "login" in result.stdout.lower() or "Fix" in result.stdout
         # Verify we got 2 open tickets
@@ -233,7 +235,9 @@ class TestTicketsListCommand:
 
     def test_list_filter_by_priority(self, populated_store, store_path):
         """Test filtering tickets by priority."""
-        result = runner.invoke(app, ["tickets", "list", "--priority", "high", "--path", str(store_path)])
+        result = runner.invoke(
+            app, ["tickets", "list", "--priority", "high", "--path", str(store_path)]
+        )
         assert result.exit_code == 0
         # Should have 2 high priority tickets
         assert "Showing 2 ticket" in result.stdout
@@ -248,26 +252,34 @@ class TestTicketsListCommand:
 
     def test_list_filter_by_assigned_to(self, populated_store, store_path):
         """Test filtering tickets by assignee."""
-        result = runner.invoke(app, ["tickets", "list", "--assigned-to", "Agent1", "--path", str(store_path)])
+        result = runner.invoke(
+            app, ["tickets", "list", "--assigned-to", "Agent1", "--path", str(store_path)]
+        )
         assert result.exit_code == 0
         assert "Showing 1 ticket" in result.stdout
         assert "Agent1" in result.stdout
 
     def test_list_invalid_status(self, store_path):
         """Test list with invalid status."""
-        result = runner.invoke(app, ["tickets", "list", "--status", "invalid", "--path", str(store_path)])
+        result = runner.invoke(
+            app, ["tickets", "list", "--status", "invalid", "--path", str(store_path)]
+        )
         assert result.exit_code == 1
         assert "invalid status" in result.stdout.lower()
 
     def test_list_invalid_priority(self, store_path):
         """Test list with invalid priority."""
-        result = runner.invoke(app, ["tickets", "list", "--priority", "invalid", "--path", str(store_path)])
+        result = runner.invoke(
+            app, ["tickets", "list", "--priority", "invalid", "--path", str(store_path)]
+        )
         assert result.exit_code == 1
         assert "invalid priority" in result.stdout.lower()
 
     def test_list_invalid_type(self, store_path):
         """Test list with invalid type."""
-        result = runner.invoke(app, ["tickets", "list", "--type", "invalid", "--path", str(store_path)])
+        result = runner.invoke(
+            app, ["tickets", "list", "--type", "invalid", "--path", str(store_path)]
+        )
         assert result.exit_code == 1
         assert "invalid type" in result.stdout.lower()
 
@@ -296,12 +308,19 @@ class TestTicketsListCommand:
 
     def test_list_combined_filters(self, populated_store, store_path):
         """Test list with multiple filters."""
-        result = runner.invoke(app, [
-            "tickets", "list",
-            "--status", "open",
-            "--priority", "high",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "list",
+                "--status",
+                "open",
+                "--priority",
+                "high",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 0
         # Only 1 ticket is both open AND high priority (Fix login bug)
         assert "Showing 1 ticket" in result.stdout
@@ -317,26 +336,35 @@ class TestTicketsCreateCommand:
 
     def test_create_ticket_minimal(self, store_path):
         """Test creating a ticket with minimal options."""
-        result = runner.invoke(app, [
-            "tickets", "create",
-            "--title", "Test ticket",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app, ["tickets", "create", "--title", "Test ticket", "--path", str(store_path)]
+        )
         assert result.exit_code == 0
         assert "Created ticket" in result.stdout
 
     def test_create_ticket_full(self, store_path):
         """Test creating a ticket with all options."""
-        result = runner.invoke(app, [
-            "tickets", "create",
-            "--title", "Full ticket",
-            "--description", "A complete ticket",
-            "--type", "bug",
-            "--priority", "high",
-            "--assigned-to", "TestAgent",
-            "--labels", "test,important",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "create",
+                "--title",
+                "Full ticket",
+                "--description",
+                "A complete ticket",
+                "--type",
+                "bug",
+                "--priority",
+                "high",
+                "--assigned-to",
+                "TestAgent",
+                "--labels",
+                "test,important",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 0
         assert "Created ticket" in result.stdout
         assert "Full ticket" in result.stdout
@@ -344,44 +372,54 @@ class TestTicketsCreateCommand:
 
     def test_create_without_title(self, store_path):
         """Test create fails without title."""
-        result = runner.invoke(app, [
-            "tickets", "create",
-            "--description", "No title",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app, ["tickets", "create", "--description", "No title", "--path", str(store_path)]
+        )
         assert result.exit_code == 1
         assert "title is required" in result.stdout.lower()
 
     def test_create_invalid_type(self, store_path):
         """Test create with invalid type."""
-        result = runner.invoke(app, [
-            "tickets", "create",
-            "--title", "Test",
-            "--type", "invalid",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "create",
+                "--title",
+                "Test",
+                "--type",
+                "invalid",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 1
         assert "invalid type" in result.stdout.lower()
 
     def test_create_invalid_priority(self, store_path):
         """Test create with invalid priority."""
-        result = runner.invoke(app, [
-            "tickets", "create",
-            "--title", "Test",
-            "--priority", "invalid",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "create",
+                "--title",
+                "Test",
+                "--priority",
+                "invalid",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 1
         assert "invalid priority" in result.stdout.lower()
 
     def test_create_json_output(self, store_path):
         """Test create with JSON output."""
-        result = runner.invoke(app, [
-            "tickets", "create",
-            "--title", "JSON ticket",
-            "--json",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            ["tickets", "create", "--title", "JSON ticket", "--json", "--path", str(store_path)],
+        )
         assert result.exit_code == 0
         data = json.loads(result.stdout)
         assert data["title"] == "JSON ticket"
@@ -389,22 +427,29 @@ class TestTicketsCreateCommand:
 
     def test_create_interactive(self, store_path):
         """Test interactive ticket creation."""
-        result = runner.invoke(app, [
-            "tickets", "create",
-            "--interactive",
-            "--path", str(store_path)
-        ], input="Interactive Ticket\nDescription here\ntask\nmedium\n\n\n")
+        result = runner.invoke(
+            app,
+            ["tickets", "create", "--interactive", "--path", str(store_path)],
+            input="Interactive Ticket\nDescription here\ntask\nmedium\n\n\n",
+        )
         assert result.exit_code == 0
         assert "Created ticket" in result.stdout
 
     def test_create_with_labels(self, store_path):
         """Test creating ticket with labels."""
-        result = runner.invoke(app, [
-            "tickets", "create",
-            "--title", "Labeled ticket",
-            "--labels", "label1, label2, label3",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "create",
+                "--title",
+                "Labeled ticket",
+                "--labels",
+                "label1, label2, label3",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 0
         assert "label1" in result.stdout or "Created ticket" in result.stdout
 
@@ -469,11 +514,9 @@ class TestTicketsClaimCommand:
     def test_claim_open_ticket(self, populated_store, store_path):
         """Test claiming an open ticket."""
         _ = populated_store
-        result = runner.invoke(app, [
-            "tickets", "claim", "1",
-            "--agent", "TestAgent",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app, ["tickets", "claim", "1", "--agent", "TestAgent", "--path", str(store_path)]
+        )
         assert result.exit_code == 0
         assert "Claimed ticket" in result.stdout
         assert "TestAgent" in result.stdout
@@ -481,44 +524,54 @@ class TestTicketsClaimCommand:
     def test_claim_blocked_ticket(self, populated_store, store_path):
         """Test claiming a blocked ticket."""
         _ = populated_store
-        result = runner.invoke(app, [
-            "tickets", "claim", "5",  # Security audit is blocked
-            "--agent", "TestAgent",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "claim",
+                "5",  # Security audit is blocked
+                "--agent",
+                "TestAgent",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 0
         assert "Claimed ticket" in result.stdout
 
     def test_claim_in_progress_ticket(self, populated_store, store_path):
         """Test cannot claim in-progress ticket."""
         _ = populated_store
-        result = runner.invoke(app, [
-            "tickets", "claim", "2",  # Add dark mode is in progress
-            "--agent", "TestAgent",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "claim",
+                "2",  # Add dark mode is in progress
+                "--agent",
+                "TestAgent",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 1
         assert "cannot claim" in result.stdout.lower()
 
     def test_claim_nonexistent_ticket(self, store_path):
         """Test claiming nonexistent ticket."""
-        result = runner.invoke(app, [
-            "tickets", "claim", "999",
-            "--agent", "TestAgent",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app, ["tickets", "claim", "999", "--agent", "TestAgent", "--path", str(store_path)]
+        )
         assert result.exit_code == 1
         assert "not found" in result.stdout.lower()
 
     def test_claim_json_output(self, populated_store, store_path):
         """Test claim with JSON output."""
         _ = populated_store
-        result = runner.invoke(app, [
-            "tickets", "claim", "1",
-            "--agent", "TestAgent",
-            "--json",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            ["tickets", "claim", "1", "--agent", "TestAgent", "--json", "--path", str(store_path)],
+        )
         assert result.exit_code == 0
         data = json.loads(result.stdout)
         assert data["success"] is True
@@ -529,12 +582,10 @@ class TestTicketsClaimCommand:
         """Test claiming updates ticket status."""
         _ = populated_store
         # Claim the ticket (use JSON to also verify status)
-        result = runner.invoke(app, [
-            "tickets", "claim", "1",
-            "--agent", "TestAgent",
-            "--json",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            ["tickets", "claim", "1", "--agent", "TestAgent", "--json", "--path", str(store_path)],
+        )
         assert result.exit_code == 0
         data = json.loads(result.stdout)
         assert data["status"] == "in_progress"
@@ -552,74 +603,124 @@ class TestTicketsCompleteCommand:
     def test_complete_in_progress_ticket(self, populated_store, store_path):
         """Test completing an in-progress ticket."""
         _ = populated_store
-        result = runner.invoke(app, [
-            "tickets", "complete", "2",  # Add dark mode is in progress
-            "--problem", "Missing dark mode feature",
-            "--solution", "Implemented theme toggle",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "complete",
+                "2",  # Add dark mode is in progress
+                "--problem",
+                "Missing dark mode feature",
+                "--solution",
+                "Implemented theme toggle",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 0
         assert "Completed ticket" in result.stdout
 
     def test_complete_with_files(self, populated_store, store_path):
         """Test completing with files modified."""
         _ = populated_store
-        result = runner.invoke(app, [
-            "tickets", "complete", "2",
-            "--problem", "Missing feature",
-            "--solution", "Added feature",
-            "--files", "app.py, styles.css, config.json",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "complete",
+                "2",
+                "--problem",
+                "Missing feature",
+                "--solution",
+                "Added feature",
+                "--files",
+                "app.py, styles.css, config.json",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 0
         assert "Completed ticket" in result.stdout
 
     def test_complete_with_testing_notes(self, populated_store, store_path):
         """Test completing with testing notes."""
         _ = populated_store
-        result = runner.invoke(app, [
-            "tickets", "complete", "2",
-            "--problem", "Bug found",
-            "--solution", "Fixed bug",
-            "--testing", "Ran unit tests and manual testing",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "complete",
+                "2",
+                "--problem",
+                "Bug found",
+                "--solution",
+                "Fixed bug",
+                "--testing",
+                "Ran unit tests and manual testing",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 0
         assert "Completed ticket" in result.stdout
 
     def test_complete_open_ticket(self, populated_store, store_path):
         """Test cannot complete open ticket."""
         _ = populated_store
-        result = runner.invoke(app, [
-            "tickets", "complete", "1",  # Fix login bug is open
-            "--problem", "Problem",
-            "--solution", "Solution",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "complete",
+                "1",  # Fix login bug is open
+                "--problem",
+                "Problem",
+                "--solution",
+                "Solution",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 1
         assert "cannot complete" in result.stdout.lower()
 
     def test_complete_nonexistent_ticket(self, store_path):
         """Test completing nonexistent ticket."""
-        result = runner.invoke(app, [
-            "tickets", "complete", "999",
-            "--problem", "Problem",
-            "--solution", "Solution",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "complete",
+                "999",
+                "--problem",
+                "Problem",
+                "--solution",
+                "Solution",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 1
         assert "not found" in result.stdout.lower()
 
     def test_complete_json_output(self, populated_store, store_path):
         """Test complete with JSON output."""
         _ = populated_store
-        result = runner.invoke(app, [
-            "tickets", "complete", "2",
-            "--problem", "Problem summary",
-            "--solution", "Solution summary",
-            "--json",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "complete",
+                "2",
+                "--problem",
+                "Problem summary",
+                "--solution",
+                "Solution summary",
+                "--json",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 0
         data = json.loads(result.stdout)
         assert data["success"] is True
@@ -629,12 +730,20 @@ class TestTicketsCompleteCommand:
     def test_complete_updates_status(self, populated_store, store_path):
         """Test completing updates ticket status to under_review."""
         _ = populated_store
-        runner.invoke(app, [
-            "tickets", "complete", "2",
-            "--problem", "Problem",
-            "--solution", "Solution",
-            "--path", str(store_path)
-        ])
+        runner.invoke(
+            app,
+            [
+                "tickets",
+                "complete",
+                "2",
+                "--problem",
+                "Problem",
+                "--solution",
+                "Solution",
+                "--path",
+                str(store_path),
+            ],
+        )
         result = runner.invoke(app, ["tickets", "show", "2", "--json", "--path", str(store_path)])
         data = json.loads(result.stdout)
         assert data["status"] == "under_review"
@@ -656,19 +765,25 @@ class TestTicketsSearchCommand:
 
     def test_search_by_description(self, populated_store, store_path):
         """Test searching by description."""
-        result = runner.invoke(app, ["tickets", "search", "special characters", "--path", str(store_path)])
+        result = runner.invoke(
+            app, ["tickets", "search", "special characters", "--path", str(store_path)]
+        )
         assert result.exit_code == 0
         assert "Fix login bug" in result.stdout
 
     def test_search_no_results(self, populated_store, store_path):
         """Test search with no matching results."""
-        result = runner.invoke(app, ["tickets", "search", "nonexistent query xyz", "--path", str(store_path)])
+        result = runner.invoke(
+            app, ["tickets", "search", "nonexistent query xyz", "--path", str(store_path)]
+        )
         assert result.exit_code == 0
         assert "no tickets found" in result.stdout.lower()
 
     def test_search_json_output(self, populated_store, store_path):
         """Test search with JSON output."""
-        result = runner.invoke(app, ["tickets", "search", "login", "--json", "--path", str(store_path)])
+        result = runner.invoke(
+            app, ["tickets", "search", "login", "--json", "--path", str(store_path)]
+        )
         assert result.exit_code == 0
         data = json.loads(result.stdout)
         assert isinstance(data, list)
@@ -677,28 +792,35 @@ class TestTicketsSearchCommand:
 
     def test_search_empty_json(self, populated_store, store_path):
         """Test search JSON output when empty."""
-        result = runner.invoke(app, ["tickets", "search", "xyz123nonexistent", "--json", "--path", str(store_path)])
+        result = runner.invoke(
+            app, ["tickets", "search", "xyz123nonexistent", "--json", "--path", str(store_path)]
+        )
         assert result.exit_code == 0
         data = json.loads(result.stdout)
         assert data == []
 
     def test_search_with_limit(self, populated_store, store_path):
         """Test search with limit."""
-        result = runner.invoke(app, [
-            "tickets", "search", "a",  # Broad search
-            "--limit", "2",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "search",
+                "a",  # Broad search
+                "--limit",
+                "2",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 0
         # Should find some results but limited
 
     def test_search_specific_fields(self, populated_store, store_path):
         """Test search in specific fields."""
-        result = runner.invoke(app, [
-            "tickets", "search", "dark",
-            "--fields", "title",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app, ["tickets", "search", "dark", "--fields", "title", "--path", str(store_path)]
+        )
         assert result.exit_code == 0
         assert "Add dark mode" in result.stdout
 
@@ -720,11 +842,9 @@ class TestTicketsUpdateCommand:
     def test_update_title(self, populated_store, store_path):
         """Test updating ticket title."""
         _ = populated_store
-        result = runner.invoke(app, [
-            "tickets", "update", "1",
-            "--title", "New title",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app, ["tickets", "update", "1", "--title", "New title", "--path", str(store_path)]
+        )
         assert result.exit_code == 0
         assert "Updated ticket" in result.stdout
         assert "title" in result.stdout.lower()
@@ -732,22 +852,36 @@ class TestTicketsUpdateCommand:
     def test_update_description(self, populated_store, store_path):
         """Test updating ticket description."""
         _ = populated_store
-        result = runner.invoke(app, [
-            "tickets", "update", "1",
-            "--description", "New description",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "update",
+                "1",
+                "--description",
+                "New description",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 0
         assert "Updated ticket" in result.stdout
 
     def test_update_priority(self, populated_store, store_path):
         """Test updating ticket priority."""
         _ = populated_store
-        result = runner.invoke(app, [
-            "tickets", "update", "3",  # Update documentation - low priority
-            "--priority", "high",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "update",
+                "3",  # Update documentation - low priority
+                "--priority",
+                "high",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 0
         assert "Updated ticket" in result.stdout
         assert "priority" in result.stdout.lower()
@@ -755,44 +889,54 @@ class TestTicketsUpdateCommand:
     def test_update_invalid_priority(self, populated_store, store_path):
         """Test update with invalid priority."""
         _ = populated_store
-        result = runner.invoke(app, [
-            "tickets", "update", "1",
-            "--priority", "invalid",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app, ["tickets", "update", "1", "--priority", "invalid", "--path", str(store_path)]
+        )
         assert result.exit_code == 1
         assert "invalid priority" in result.stdout.lower()
 
     def test_update_status_valid_transition(self, populated_store, store_path):
         """Test updating status with valid transition."""
         _ = populated_store
-        result = runner.invoke(app, [
-            "tickets", "update", "1",  # Open ticket
-            "--status", "in_progress",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "update",
+                "1",  # Open ticket
+                "--status",
+                "in_progress",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 0
         assert "Updated ticket" in result.stdout
 
     def test_update_status_invalid_transition(self, populated_store, store_path):
         """Test update with invalid status transition."""
         _ = populated_store
-        result = runner.invoke(app, [
-            "tickets", "update", "1",  # Open ticket
-            "--status", "resolved",  # Can't go directly from open to resolved
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "update",
+                "1",  # Open ticket
+                "--status",
+                "resolved",  # Can't go directly from open to resolved
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 1
         assert "invalid" in result.stdout.lower()
 
     def test_update_assign(self, populated_store, store_path):
         """Test assigning ticket."""
         _ = populated_store
-        result = runner.invoke(app, [
-            "tickets", "update", "1",
-            "--assigned-to", "NewAgent",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app, ["tickets", "update", "1", "--assigned-to", "NewAgent", "--path", str(store_path)]
+        )
         assert result.exit_code == 0
         assert "Updated ticket" in result.stdout
         assert "NewAgent" in result.stdout or "assigned" in result.stdout.lower()
@@ -800,11 +944,18 @@ class TestTicketsUpdateCommand:
     def test_update_unassign(self, populated_store, store_path):
         """Test unassigning ticket."""
         _ = populated_store
-        result = runner.invoke(app, [
-            "tickets", "update", "2",  # Already assigned
-            "--assigned-to", "",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "update",
+                "2",  # Already assigned
+                "--assigned-to",
+                "",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 0
         assert "Updated ticket" in result.stdout
         assert "unassigned" in result.stdout.lower()
@@ -812,11 +963,18 @@ class TestTicketsUpdateCommand:
     def test_update_labels(self, populated_store, store_path):
         """Test updating labels."""
         _ = populated_store
-        result = runner.invoke(app, [
-            "tickets", "update", "1",
-            "--labels", "new-label, another-label",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "update",
+                "1",
+                "--labels",
+                "new-label, another-label",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 0
         assert "Updated ticket" in result.stdout
         assert "labels" in result.stdout.lower()
@@ -824,57 +982,75 @@ class TestTicketsUpdateCommand:
     def test_update_notes(self, populated_store, store_path):
         """Test adding notes."""
         _ = populated_store
-        result = runner.invoke(app, [
-            "tickets", "update", "1",
-            "--notes", "Additional notes here",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "update",
+                "1",
+                "--notes",
+                "Additional notes here",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 0
         assert "Updated ticket" in result.stdout
         assert "notes" in result.stdout.lower()
 
     def test_update_nonexistent_ticket(self, store_path):
         """Test updating nonexistent ticket."""
-        result = runner.invoke(app, [
-            "tickets", "update", "999",
-            "--title", "New title",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app, ["tickets", "update", "999", "--title", "New title", "--path", str(store_path)]
+        )
         assert result.exit_code == 1
         assert "not found" in result.stdout.lower()
 
     def test_update_no_changes(self, populated_store, store_path):
         """Test update with no changes specified."""
         _ = populated_store
-        result = runner.invoke(app, [
-            "tickets", "update", "1",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(app, ["tickets", "update", "1", "--path", str(store_path)])
         assert result.exit_code == 0
         assert "no changes" in result.stdout.lower()
 
     def test_update_multiple_fields(self, populated_store, store_path):
         """Test updating multiple fields at once."""
         _ = populated_store
-        result = runner.invoke(app, [
-            "tickets", "update", "1",
-            "--title", "Updated title",
-            "--priority", "critical",
-            "--notes", "Important update",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "update",
+                "1",
+                "--title",
+                "Updated title",
+                "--priority",
+                "critical",
+                "--notes",
+                "Important update",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 0
         assert "Updated ticket" in result.stdout
 
     def test_update_json_output(self, populated_store, store_path):
         """Test update with JSON output."""
         _ = populated_store
-        result = runner.invoke(app, [
-            "tickets", "update", "1",
-            "--title", "JSON update",
-            "--json",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "update",
+                "1",
+                "--title",
+                "JSON update",
+                "--json",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 0
         data = json.loads(result.stdout)
         assert data["success"] is True
@@ -892,14 +1068,23 @@ class TestTicketsIntegration:
     def test_full_ticket_workflow(self, store_path):
         """Test complete ticket lifecycle."""
         # 1. Create ticket
-        result = runner.invoke(app, [
-            "tickets", "create",
-            "--title", "Workflow test ticket",
-            "--description", "Testing full workflow",
-            "--type", "task",
-            "--priority", "medium",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "create",
+                "--title",
+                "Workflow test ticket",
+                "--description",
+                "Testing full workflow",
+                "--type",
+                "task",
+                "--priority",
+                "medium",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 0
         assert "Created ticket" in result.stdout
 
@@ -912,21 +1097,28 @@ class TestTicketsIntegration:
         assert "Workflow" in result.stdout or result.exit_code == 0
 
         # 4. Claim ticket
-        result = runner.invoke(app, [
-            "tickets", "claim", "1",
-            "--agent", "WorkflowAgent",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app, ["tickets", "claim", "1", "--agent", "WorkflowAgent", "--path", str(store_path)]
+        )
         assert result.exit_code == 0
 
         # 5. Complete ticket
-        result = runner.invoke(app, [
-            "tickets", "complete", "1",
-            "--problem", "Task needed to be done",
-            "--solution", "Completed the task",
-            "--files", "file1.py, file2.py",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "complete",
+                "1",
+                "--problem",
+                "Task needed to be done",
+                "--solution",
+                "Completed the task",
+                "--files",
+                "file1.py, file2.py",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 0
 
         # 6. Verify final status
@@ -938,58 +1130,60 @@ class TestTicketsIntegration:
     def test_search_after_create(self, store_path):
         """Test search finds newly created tickets."""
         # Create ticket with unique content
-        runner.invoke(app, [
-            "tickets", "create",
-            "--title", "Unique searchable ticket xyz123",
-            "--path", str(store_path)
-        ])
+        runner.invoke(
+            app,
+            [
+                "tickets",
+                "create",
+                "--title",
+                "Unique searchable ticket xyz123",
+                "--path",
+                str(store_path),
+            ],
+        )
 
         # Search for it
-        result = runner.invoke(app, [
-            "tickets", "search", "xyz123",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(app, ["tickets", "search", "xyz123", "--path", str(store_path)])
         assert "searchable" in result.stdout.lower() or "xyz123" in result.stdout
 
     def test_filter_after_update(self, store_path):
         """Test filters work correctly after updates."""
         # Create ticket
-        runner.invoke(app, [
-            "tickets", "create",
-            "--title", "Filter test ticket",
-            "--priority", "low",
-            "--path", str(store_path)
-        ])
+        runner.invoke(
+            app,
+            [
+                "tickets",
+                "create",
+                "--title",
+                "Filter test ticket",
+                "--priority",
+                "low",
+                "--path",
+                str(store_path),
+            ],
+        )
 
         # Verify low priority filter finds the ticket
-        result = runner.invoke(app, [
-            "tickets", "list",
-            "--priority", "low",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app, ["tickets", "list", "--priority", "low", "--path", str(store_path)]
+        )
         assert "Showing 1 ticket" in result.stdout
 
         # Update priority
-        runner.invoke(app, [
-            "tickets", "update", "1",
-            "--priority", "high",
-            "--path", str(store_path)
-        ])
+        runner.invoke(
+            app, ["tickets", "update", "1", "--priority", "high", "--path", str(store_path)]
+        )
 
         # Verify high priority filter now includes it
-        result = runner.invoke(app, [
-            "tickets", "list",
-            "--priority", "high",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app, ["tickets", "list", "--priority", "high", "--path", str(store_path)]
+        )
         assert "Showing 1 ticket" in result.stdout
 
         # Low priority filter should not include it anymore
-        result = runner.invoke(app, [
-            "tickets", "list",
-            "--priority", "low",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app, ["tickets", "list", "--priority", "low", "--path", str(store_path)]
+        )
         assert "no tickets found" in result.stdout.lower()
 
     def test_main_help_includes_tickets(self):
@@ -1009,32 +1203,41 @@ class TestTicketsEdgeCases:
 
     def test_special_characters_in_title(self, store_path):
         """Test ticket with special characters in title."""
-        result = runner.invoke(app, [
-            "tickets", "create",
-            "--title", "Test <script>alert('xss')</script>",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "create",
+                "--title",
+                "Test <script>alert('xss')</script>",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 0
         assert "Created ticket" in result.stdout
 
     def test_unicode_in_description(self, store_path):
         """Test ticket with unicode in description."""
-        result = runner.invoke(app, [
-            "tickets", "create",
-            "--title", "Unicode test",
-            "--description", "Test with unicode: \u00e9\u00e8\u00e0\u00f1",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "create",
+                "--title",
+                "Unicode test",
+                "--description",
+                "Test with unicode: \u00e9\u00e8\u00e0\u00f1",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 0
 
     def test_long_title_truncation(self, store_path):
         """Test long titles are handled in list view."""
         long_title = "A" * 100
-        runner.invoke(app, [
-            "tickets", "create",
-            "--title", long_title,
-            "--path", str(store_path)
-        ])
+        runner.invoke(app, ["tickets", "create", "--title", long_title, "--path", str(store_path)])
 
         result = runner.invoke(app, ["tickets", "list", "--path", str(store_path)])
         assert result.exit_code == 0
@@ -1045,20 +1248,34 @@ class TestTicketsEdgeCases:
 
     def test_empty_labels(self, store_path):
         """Test creating ticket with empty labels."""
-        result = runner.invoke(app, [
-            "tickets", "create",
-            "--title", "No labels",
-            "--labels", "",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "create",
+                "--title",
+                "No labels",
+                "--labels",
+                "",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 0
 
     def test_whitespace_labels(self, store_path):
         """Test labels with whitespace are trimmed."""
-        result = runner.invoke(app, [
-            "tickets", "create",
-            "--title", "Whitespace labels",
-            "--labels", "  label1  ,  label2  ",
-            "--path", str(store_path)
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "tickets",
+                "create",
+                "--title",
+                "Whitespace labels",
+                "--labels",
+                "  label1  ,  label2  ",
+                "--path",
+                str(store_path),
+            ],
+        )
         assert result.exit_code == 0

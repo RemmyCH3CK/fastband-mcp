@@ -11,27 +11,27 @@ Provides an adaptive ticket management system for development workflows:
 """
 
 from fastband.tickets.models import (
-    Ticket,
-    TicketStatus,
-    TicketPriority,
-    TicketType,
     Agent,
-    TicketHistory,
+    Ticket,
     TicketComment,
-)
-from fastband.tickets.storage import (
-    TicketStore,
-    JSONTicketStore,
-    SQLiteTicketStore,
-    StorageFactory,
-    get_store,
+    TicketHistory,
+    TicketPriority,
+    TicketStatus,
+    TicketType,
 )
 from fastband.tickets.review import (
     ReviewManager,
     ReviewResult,
-    ReviewType,
-    ReviewStatus,
     ReviewStatistics,
+    ReviewStatus,
+    ReviewType,
+)
+from fastband.tickets.storage import (
+    JSONTicketStore,
+    SQLiteTicketStore,
+    StorageFactory,
+    TicketStore,
+    get_store,
 )
 
 __all__ = [

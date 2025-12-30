@@ -1,25 +1,23 @@
 """Tests for ticket storage backends."""
 
-import pytest
 import tempfile
 from pathlib import Path
-from datetime import datetime
+
+import pytest
 
 from fastband.tickets.models import (
-    Ticket,
-    TicketStatus,
-    TicketPriority,
-    TicketType,
     Agent,
+    Ticket,
+    TicketPriority,
+    TicketStatus,
+    TicketType,
 )
 from fastband.tickets.storage import (
-    TicketStore,
     JSONTicketStore,
     SQLiteTicketStore,
     StorageFactory,
     get_store,
 )
-
 
 # =============================================================================
 # FIXTURES
@@ -633,10 +631,7 @@ class TestEdgeCases:
             created = store.create(ticket)
             results.append(created.id)
 
-        threads = [
-            threading.Thread(target=create_ticket, args=(json_store, i))
-            for i in range(10)
-        ]
+        threads = [threading.Thread(target=create_ticket, args=(json_store, i)) for i in range(10)]
 
         for t in threads:
             t.start()

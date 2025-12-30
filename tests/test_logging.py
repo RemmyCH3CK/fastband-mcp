@@ -10,22 +10,22 @@ from unittest.mock import patch
 import pytest
 
 from fastband.core.logging import (
-    LoggingConfig,
+    LOG_LEVELS,
+    ColoredFormatter,
     FastbandLogger,
     JsonFormatter,
-    ColoredFormatter,
-    setup_logging,
-    get_logger,
-    set_log_level,
-    enable_debug_mode,
-    disable_debug_mode,
-    reset_logging,
-    debug,
-    info,
-    warning,
-    error,
+    LoggingConfig,
     critical,
-    LOG_LEVELS,
+    debug,
+    disable_debug_mode,
+    enable_debug_mode,
+    error,
+    get_logger,
+    info,
+    reset_logging,
+    set_log_level,
+    setup_logging,
+    warning,
 )
 
 
@@ -458,7 +458,7 @@ class TestLoggingFunctions:
         disable_debug_mode()
 
         # Should revert to configured level
-        logger = get_logger()
+        get_logger()
         # Note: level may not exactly match since we're testing the function works
 
 
@@ -478,6 +478,7 @@ class TestLogRotation:
 
         # Find the rotating file handler
         from logging.handlers import RotatingFileHandler
+
         file_handler = None
         for handler in fb_logger._logger.handlers:
             if isinstance(handler, RotatingFileHandler):

@@ -19,31 +19,31 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from fastband.backup import trigger_backup_hook
+from fastband.tickets.models import (
+    Agent,
+    Ticket,
+    TicketComment,
+    TicketPriority,
+    TicketStatus,
+    TicketType,
+)
+from fastband.tickets.storage import TicketStore, get_store
 from fastband.tools.base import (
     Tool,
+    ToolCategory,
     ToolDefinition,
     ToolMetadata,
     ToolParameter,
-    ToolCategory,
     ToolResult,
 )
-from fastband.tickets.models import (
-    Ticket,
-    TicketStatus,
-    TicketPriority,
-    TicketType,
-    Agent,
-    TicketComment,
-)
-from fastband.tickets.storage import TicketStore, get_store
-from fastband.backup import trigger_backup_hook
-
 
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
 
-def _ticket_to_summary(ticket: Ticket) -> Dict[str, Any]:
+
+def _ticket_to_summary(ticket: Ticket) -> dict[str, Any]:
     """Convert ticket to summary dict for listing."""
     return {
         "id": ticket.id,
@@ -58,7 +58,7 @@ def _ticket_to_summary(ticket: Ticket) -> Dict[str, Any]:
     }
 
 
-def _ticket_to_full_dict(ticket: Ticket) -> Dict[str, Any]:
+def _ticket_to_full_dict(ticket: Ticket) -> dict[str, Any]:
     """Convert ticket to full dict with all details."""
     data = ticket.to_dict()
     # Add display names for enums
@@ -68,7 +68,7 @@ def _ticket_to_full_dict(ticket: Ticket) -> Dict[str, Any]:
     return data
 
 
-def _validate_agent_name(agent_name: str) -> tuple[bool, Optional[str]]:
+def _validate_agent_name(agent_name: str) -> tuple[bool, str | None]:
     """Validate agent name format."""
     if not agent_name:
         return False, "Agent name is required"
@@ -96,6 +96,7 @@ def _get_or_create_agent(store: TicketStore, agent_name: str, agent_type: str = 
 # LIST TICKETS TOOL
 # =============================================================================
 
+
 class ListTicketsTool(Tool):
     """
     List tickets with optional filters.
@@ -104,7 +105,7 @@ class ListTicketsTool(Tool):
     Useful for finding available work or checking ticket status.
     """
 
-    def __init__(self, store: Optional[TicketStore] = None):
+    def __init__(self, store: TicketStore | None = None):
         self._store = store
 
     @property
@@ -129,7 +130,15 @@ class ListTicketsTool(Tool):
                     type="string",
                     description="Filter by status: open, in_progress, under_review, awaiting_approval, resolved, closed, blocked",
                     required=False,
-                    enum=["open", "in_progress", "under_review", "awaiting_approval", "resolved", "closed", "blocked"],
+                    enum=[
+                        "open",
+                        "in_progress",
+                        "under_review",
+                        "awaiting_approval",
+                        "resolved",
+                        "closed",
+                        "blocked",
+                    ],
                 ),
                 ToolParameter(
                     name="priority",
@@ -143,7 +152,16 @@ class ListTicketsTool(Tool):
                     type="string",
                     description="Filter by type: bug, feature, enhancement, task, documentation, maintenance, security, performance",
                     required=False,
-                    enum=["bug", "feature", "enhancement", "task", "documentation", "maintenance", "security", "performance"],
+                    enum=[
+                        "bug",
+                        "feature",
+                        "enhancement",
+                        "task",
+                        "documentation",
+                        "maintenance",
+                        "security",
+                        "performance",
+                    ],
                 ),
                 ToolParameter(
                     name="assigned_to",
@@ -170,10 +188,10 @@ class ListTicketsTool(Tool):
 
     async def execute(
         self,
-        status: Optional[str] = None,
-        priority: Optional[str] = None,
-        ticket_type: Optional[str] = None,
-        assigned_to: Optional[str] = None,
+        status: str | None = None,
+        priority: str | None = None,
+        ticket_type: str | None = None,
+        assigned_to: str | None = None,
         limit: int = 50,
         offset: int = 0,
         **kwargs,
@@ -223,6 +241,7 @@ class ListTicketsTool(Tool):
 # GET TICKET DETAILS TOOL
 # =============================================================================
 
+
 class GetTicketDetailsTool(Tool):
     """
     Get full details for a specific ticket.
@@ -230,7 +249,7 @@ class GetTicketDetailsTool(Tool):
     Returns complete ticket information including history and comments.
     """
 
-    def __init__(self, store: Optional[TicketStore] = None):
+    def __init__(self, store: TicketStore | None = None):
         self._store = store
 
     @property
@@ -287,6 +306,7 @@ class GetTicketDetailsTool(Tool):
 # CREATE TICKET TOOL
 # =============================================================================
 
+
 class CreateTicketTool(Tool):
     """
     Create a new ticket.
@@ -295,7 +315,7 @@ class CreateTicketTool(Tool):
     in OPEN status and is assigned an auto-generated ID.
     """
 
-    def __init__(self, store: Optional[TicketStore] = None):
+    def __init__(self, store: TicketStore | None = None):
         self._store = store
 
     @property
@@ -332,7 +352,16 @@ class CreateTicketTool(Tool):
                     description="Ticket type (default: task)",
                     required=False,
                     default="task",
-                    enum=["bug", "feature", "enhancement", "task", "documentation", "maintenance", "security", "performance"],
+                    enum=[
+                        "bug",
+                        "feature",
+                        "enhancement",
+                        "task",
+                        "documentation",
+                        "maintenance",
+                        "security",
+                        "performance",
+                    ],
                 ),
                 ToolParameter(
                     name="priority",
@@ -382,10 +411,10 @@ class CreateTicketTool(Tool):
         description: str,
         ticket_type: str = "task",
         priority: str = "medium",
-        requirements: Optional[List[str]] = None,
-        files_to_modify: Optional[List[str]] = None,
-        labels: Optional[List[str]] = None,
-        app: Optional[str] = None,
+        requirements: list[str] | None = None,
+        files_to_modify: list[str] | None = None,
+        labels: list[str] | None = None,
+        app: str | None = None,
         created_by: str = "system",
         **kwargs,
     ) -> ToolResult:
@@ -420,7 +449,7 @@ class CreateTicketTool(Tool):
                 action="created",
                 actor=created_by,
                 actor_type="system" if created_by == "system" else "human",
-                message=f"Ticket created",
+                message="Ticket created",
             )
 
             # Save to store
@@ -445,6 +474,7 @@ class CreateTicketTool(Tool):
 # CLAIM TICKET TOOL
 # =============================================================================
 
+
 class ClaimTicketTool(Tool):
     """
     Claim a ticket to start working on it.
@@ -457,7 +487,7 @@ class ClaimTicketTool(Tool):
     - Records the action in history
     """
 
-    def __init__(self, store: Optional[TicketStore] = None):
+    def __init__(self, store: TicketStore | None = None):
         self._store = store
 
     @property
@@ -517,7 +547,7 @@ class ClaimTicketTool(Tool):
                 return ToolResult(
                     success=False,
                     error=f"Cannot claim ticket in {ticket.status.display_name} status. "
-                          f"Only OPEN or BLOCKED tickets can be claimed.",
+                    f"Only OPEN or BLOCKED tickets can be claimed.",
                 )
 
             # Check if already assigned to someone else
@@ -565,6 +595,7 @@ class ClaimTicketTool(Tool):
 # COMPLETE TICKET SAFELY TOOL
 # =============================================================================
 
+
 class CompleteTicketSafelyTool(Tool):
     """
     Complete ticket work and submit for review.
@@ -576,7 +607,7 @@ class CompleteTicketSafelyTool(Tool):
     - Does NOT resolve the ticket (requires human approval)
     """
 
-    def __init__(self, store: Optional[TicketStore] = None):
+    def __init__(self, store: TicketStore | None = None):
         self._store = store
 
     @property
@@ -653,7 +684,7 @@ class CompleteTicketSafelyTool(Tool):
         agent_name: str,
         problem_summary: str,
         solution_summary: str,
-        files_modified: List[str],
+        files_modified: list[str],
         before_screenshot: str,
         after_screenshot: str,
         testing_notes: str = "",
@@ -703,7 +734,7 @@ class CompleteTicketSafelyTool(Tool):
                 return ToolResult(
                     success=False,
                     error=f"Cannot complete ticket in {ticket.status.display_name} status. "
-                          f"Ticket must be IN_PROGRESS.",
+                    f"Ticket must be IN_PROGRESS.",
                 )
 
             # Check agent is assigned
@@ -711,7 +742,7 @@ class CompleteTicketSafelyTool(Tool):
                 return ToolResult(
                     success=False,
                     error=f"Ticket is assigned to {ticket.assigned_to}, not {agent_name}. "
-                          f"Only the assigned agent can complete a ticket.",
+                    f"Only the assigned agent can complete a ticket.",
                 )
 
             # Complete the ticket
@@ -776,6 +807,7 @@ class CompleteTicketSafelyTool(Tool):
 # UPDATE TICKET TOOL
 # =============================================================================
 
+
 class UpdateTicketTool(Tool):
     """
     Update ticket fields.
@@ -784,7 +816,7 @@ class UpdateTicketTool(Tool):
     and history tracking.
     """
 
-    def __init__(self, store: Optional[TicketStore] = None):
+    def __init__(self, store: TicketStore | None = None):
         self._store = store
 
     @property
@@ -853,11 +885,11 @@ class UpdateTicketTool(Tool):
         self,
         ticket_id: str,
         agent_name: str,
-        priority: Optional[str] = None,
-        notes: Optional[str] = None,
-        labels: Optional[List[str]] = None,
-        requirements: Optional[List[str]] = None,
-        files_to_modify: Optional[List[str]] = None,
+        priority: str | None = None,
+        notes: str | None = None,
+        labels: list[str] | None = None,
+        requirements: list[str] | None = None,
+        files_to_modify: list[str] | None = None,
         **kwargs,
     ) -> ToolResult:
         """Update ticket fields."""
@@ -894,8 +926,11 @@ class UpdateTicketTool(Tool):
 
             # Append notes
             if notes:
-                old_notes = ticket.notes
-                ticket.notes = f"{ticket.notes}\n\n[{agent_name} - {datetime.now().isoformat()}]\n{notes}" if ticket.notes else notes
+                ticket.notes = (
+                    f"{ticket.notes}\n\n[{agent_name} - {datetime.now().isoformat()}]\n{notes}"
+                    if ticket.notes
+                    else notes
+                )
                 ticket.add_history(
                     action="notes_updated",
                     actor=agent_name,
@@ -916,7 +951,7 @@ class UpdateTicketTool(Tool):
                     field_changed="labels",
                     old_value=str(old_labels),
                     new_value=str(labels),
-                    message=f"Labels updated",
+                    message="Labels updated",
                 )
                 changes_made.append("labels updated")
 
@@ -983,6 +1018,7 @@ class UpdateTicketTool(Tool):
 # SEARCH TICKETS TOOL
 # =============================================================================
 
+
 class SearchTicketsTool(Tool):
     """
     Search tickets by text query.
@@ -990,7 +1026,7 @@ class SearchTicketsTool(Tool):
     Searches across title, description, requirements, and notes fields.
     """
 
-    def __init__(self, store: Optional[TicketStore] = None):
+    def __init__(self, store: TicketStore | None = None):
         self._store = store
 
     @property
@@ -1027,7 +1063,7 @@ class SearchTicketsTool(Tool):
     async def execute(
         self,
         query: str,
-        fields: Optional[List[str]] = None,
+        fields: list[str] | None = None,
         **kwargs,
     ) -> ToolResult:
         """Search tickets by query."""
@@ -1058,6 +1094,7 @@ class SearchTicketsTool(Tool):
 # ADD TICKET COMMENT TOOL
 # =============================================================================
 
+
 class AddTicketCommentTool(Tool):
     """
     Add a comment to a ticket.
@@ -1065,7 +1102,7 @@ class AddTicketCommentTool(Tool):
     Supports regular comments, review feedback, and system messages.
     """
 
-    def __init__(self, store: Optional[TicketStore] = None):
+    def __init__(self, store: TicketStore | None = None):
         self._store = store
 
     @property

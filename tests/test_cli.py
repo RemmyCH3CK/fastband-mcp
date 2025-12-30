@@ -1,13 +1,13 @@
 """Tests for Fastband CLI."""
 
-import pytest
-from pathlib import Path
 import tempfile
+from pathlib import Path
+
+import pytest
 from typer.testing import CliRunner
 
-from fastband.cli.main import app
 from fastband import __version__
-
+from fastband.cli.main import app
 
 runner = CliRunner()
 
@@ -137,15 +137,16 @@ class TestConfigCommands:
 
     def test_config_show_json(self, initialized_project):
         """Test config show --json outputs JSON."""
-        result = runner.invoke(app, ["config", "show", "--path", str(initialized_project), "--json"])
+        result = runner.invoke(
+            app, ["config", "show", "--path", str(initialized_project), "--json"]
+        )
         assert result.exit_code == 0
         assert "{" in result.stdout  # JSON format
 
     def test_config_set(self, initialized_project):
         """Test config set updates value."""
         result = runner.invoke(
-            app,
-            ["config", "set", "tools.max_active", "100", "--path", str(initialized_project)]
+            app, ["config", "set", "tools.max_active", "100", "--path", str(initialized_project)]
         )
         assert result.exit_code == 0
         assert "Set" in result.stdout
@@ -153,16 +154,14 @@ class TestConfigCommands:
     def test_config_get(self, initialized_project):
         """Test config get retrieves value."""
         result = runner.invoke(
-            app,
-            ["config", "get", "version", "--path", str(initialized_project)]
+            app, ["config", "get", "version", "--path", str(initialized_project)]
         )
         assert result.exit_code == 0
 
     def test_config_get_missing_key(self, initialized_project):
         """Test config get with missing key."""
         result = runner.invoke(
-            app,
-            ["config", "get", "nonexistent.key", "--path", str(initialized_project)]
+            app, ["config", "get", "nonexistent.key", "--path", str(initialized_project)]
         )
         assert result.exit_code == 1
         assert "not found" in result.stdout.lower()
@@ -170,9 +169,7 @@ class TestConfigCommands:
     def test_config_reset_cancelled(self, initialized_project):
         """Test config reset without confirmation."""
         result = runner.invoke(
-            app,
-            ["config", "reset", "--path", str(initialized_project)],
-            input="n\n"
+            app, ["config", "reset", "--path", str(initialized_project)], input="n\n"
         )
         assert result.exit_code == 0
         assert "Cancelled" in result.stdout
@@ -180,8 +177,7 @@ class TestConfigCommands:
     def test_config_reset_confirmed(self, initialized_project):
         """Test config reset with confirmation."""
         result = runner.invoke(
-            app,
-            ["config", "reset", "--path", str(initialized_project), "--yes"]
+            app, ["config", "reset", "--path", str(initialized_project), "--yes"]
         )
         assert result.exit_code == 0
         assert "reset" in result.stdout.lower()

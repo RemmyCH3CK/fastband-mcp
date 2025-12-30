@@ -7,20 +7,18 @@ Provides:
 
 import asyncio
 import shutil
-import subprocess
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
+from fastband.backup import trigger_backup_hook
 from fastband.tools.base import (
     Tool,
+    ToolCategory,
     ToolDefinition,
     ToolMetadata,
     ToolParameter,
-    ToolCategory,
     ToolResult,
 )
-from fastband.backup import trigger_backup_hook
-from fastband.core.detection import detect_project, BuildTool
 
 
 class BuildProjectTool(Tool):
@@ -39,7 +37,7 @@ class BuildProjectTool(Tool):
     - gradle/maven (Java)
     """
 
-    def __init__(self, project_path: Optional[Path] = None):
+    def __init__(self, project_path: Path | None = None):
         self.project_path = project_path or Path.cwd()
 
     @property
@@ -76,9 +74,9 @@ class BuildProjectTool(Tool):
 
     async def execute(
         self,
-        command: Optional[str] = None,
+        command: str | None = None,
         skip_backup: bool = False,
-        args: Optional[List[str]] = None,
+        args: list[str] | None = None,
         **kwargs,
     ) -> ToolResult:
         """Execute project build with pre-build backup."""
@@ -91,7 +89,7 @@ class BuildProjectTool(Tool):
                         "before_build",
                         project_path=self.project_path,
                     )
-                except Exception as e:
+                except Exception:
                     # Log but don't fail build if backup fails
                     pass
 
@@ -114,7 +112,7 @@ class BuildProjectTool(Tool):
             # Run build
             result = await self._run_build(full_cmd)
 
-            response_data: Dict[str, Any] = {
+            response_data: dict[str, Any] = {
                 "command": " ".join(full_cmd),
                 "success": result["success"],
                 "output": result.get("stdout", ""),
@@ -138,7 +136,7 @@ class BuildProjectTool(Tool):
         except Exception as e:
             return ToolResult(success=False, error=f"Build failed: {e}")
 
-    def _detect_build_command(self) -> Optional[str]:
+    def _detect_build_command(self) -> str | None:
         """Detect the appropriate build command for this project."""
         # Check for common build files
         checks = [
@@ -174,7 +172,7 @@ class BuildProjectTool(Tool):
 
         return None
 
-    async def _run_build(self, cmd: List[str]) -> Dict[str, Any]:
+    async def _run_build(self, cmd: list[str]) -> dict[str, Any]:
         """Run the build command asynchronously."""
         try:
             process = await asyncio.create_subprocess_exec(
@@ -218,7 +216,7 @@ class RunScriptTool(Tool):
     - poetry/pdm scripts
     """
 
-    def __init__(self, project_path: Optional[Path] = None):
+    def __init__(self, project_path: Path | None = None):
         self.project_path = project_path or Path.cwd()
 
     @property
@@ -257,7 +255,7 @@ class RunScriptTool(Tool):
         self,
         script: str,
         skip_backup: bool = True,
-        args: Optional[List[str]] = None,
+        args: list[str] | None = None,
         **kwargs,
     ) -> ToolResult:
         """Run a project script."""
@@ -298,7 +296,7 @@ class RunScriptTool(Tool):
 
             stdout, stderr = await process.communicate()
 
-            response_data: Dict[str, Any] = {
+            response_data: dict[str, Any] = {
                 "script": script,
                 "command": " ".join(cmd),
                 "success": process.returncode == 0,
@@ -322,7 +320,7 @@ class RunScriptTool(Tool):
         except Exception as e:
             return ToolResult(success=False, error=f"Failed to run script: {e}")
 
-    def _detect_runner(self) -> Optional[List[str]]:
+    def _detect_runner(self) -> list[str] | None:
         """Detect the appropriate script runner."""
         # Node.js runners
         if (self.project_path / "package.json").exists():

@@ -1,17 +1,18 @@
 """Tests for ticket data models."""
 
-import pytest
 from datetime import datetime, timedelta
-from fastband.tickets.models import (
-    Ticket,
-    TicketStatus,
-    TicketPriority,
-    TicketType,
-    Agent,
-    TicketHistory,
-    TicketComment,
-)
 
+import pytest
+
+from fastband.tickets.models import (
+    Agent,
+    Ticket,
+    TicketComment,
+    TicketHistory,
+    TicketPriority,
+    TicketStatus,
+    TicketType,
+)
 
 # =============================================================================
 # TICKET STATUS TESTS

@@ -5,13 +5,13 @@ Uses Google's embedding models for generating embeddings.
 Supports embedding-001 and text-embedding-004.
 """
 
-import os
 import logging
-from typing import Optional, Sequence
+import os
+from collections.abc import Sequence
 
 from fastband.embeddings.base import (
-    EmbeddingProvider,
     EmbeddingConfig,
+    EmbeddingProvider,
     EmbeddingResult,
 )
 
@@ -40,7 +40,7 @@ class GeminiEmbeddings(EmbeddingProvider):
         result = await provider.embed(["Hello, world!"])
     """
 
-    def __init__(self, config: Optional[EmbeddingConfig] = None):
+    def __init__(self, config: EmbeddingConfig | None = None):
         if config is None:
             config = EmbeddingConfig()
         super().__init__(config)
@@ -62,8 +62,7 @@ class GeminiEmbeddings(EmbeddingProvider):
 
         if self.config.model not in GEMINI_MODELS:
             raise ValueError(
-                f"Unknown model: {self.config.model}. "
-                f"Supported: {list(GEMINI_MODELS.keys())}"
+                f"Unknown model: {self.config.model}. Supported: {list(GEMINI_MODELS.keys())}"
             )
 
     @property
@@ -84,6 +83,7 @@ class GeminiEmbeddings(EmbeddingProvider):
         if self._client is None:
             try:
                 import google.generativeai as genai
+
                 genai.configure(api_key=self.config.api_key)
                 self._client = genai
             except ImportError:
@@ -113,7 +113,7 @@ class GeminiEmbeddings(EmbeddingProvider):
         # Process in batches
         batch_size = self.config.batch_size
         for i in range(0, len(texts_list), batch_size):
-            batch = texts_list[i:i + batch_size]
+            batch = texts_list[i : i + batch_size]
 
             # Gemini embed_content supports batch embedding
             result = genai.embed_content(
@@ -123,13 +123,13 @@ class GeminiEmbeddings(EmbeddingProvider):
             )
 
             # Extract embeddings
-            if isinstance(result['embedding'], list) and len(result['embedding']) > 0:
-                if isinstance(result['embedding'][0], list):
+            if isinstance(result["embedding"], list) and len(result["embedding"]) > 0:
+                if isinstance(result["embedding"][0], list):
                     # Batch result
-                    all_embeddings.extend(result['embedding'])
+                    all_embeddings.extend(result["embedding"])
                 else:
                     # Single result wrapped in list
-                    all_embeddings.append(result['embedding'])
+                    all_embeddings.append(result["embedding"])
 
         estimated_tokens = self._estimate_tokens(texts_list)
         return EmbeddingResult(

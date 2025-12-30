@@ -1,22 +1,22 @@
 """Tests for ticket web dashboard."""
 
 import json
-import pytest
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from fastband.tickets.models import (
-    Ticket,
-    TicketStatus,
-    TicketPriority,
-    TicketType,
     Agent,
+    Ticket,
+    TicketPriority,
+    TicketStatus,
+    TicketType,
 )
 from fastband.tickets.storage import JSONTicketStore
 from fastband.tickets.web.app import create_app, serve
-
 
 # =============================================================================
 # FIXTURES
@@ -171,10 +171,7 @@ class TestAppCreation:
 
     def test_create_app_with_custom_config(self, ticket_store):
         """Test creating app with custom config."""
-        app = create_app(
-            store=ticket_store,
-            config={"DEBUG": True, "CUSTOM_KEY": "value"}
-        )
+        app = create_app(store=ticket_store, config={"DEBUG": True, "CUSTOM_KEY": "value"})
         assert app.config["DEBUG"] is True
         assert app.config["CUSTOM_KEY"] == "value"
 
@@ -720,7 +717,7 @@ class TestServeFunction:
 
     def test_serve_creates_app(self, populated_store):
         """Test serve function creates app."""
-        with patch.object(create_app(populated_store), 'run') as mock_run:
+        with patch.object(create_app(populated_store), "run"):
             # Just verify the function can be called without error
             # (we don't actually want to start the server)
             assert callable(serve)

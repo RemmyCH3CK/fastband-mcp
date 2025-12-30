@@ -19,10 +19,10 @@ from fastband.agents.onboarding import (
     reset_onboarding,
 )
 
-
 # =============================================================================
 # FIXTURES
 # =============================================================================
+
 
 @pytest.fixture
 def temp_project():
@@ -67,6 +67,7 @@ def onboarding_no_bible(temp_project):
 # ONBOARDING REQUIREMENT TESTS
 # =============================================================================
 
+
 class TestOnboardingRequirement:
     """Tests for OnboardingRequirement dataclass."""
 
@@ -105,6 +106,7 @@ class TestOnboardingRequirement:
 # =============================================================================
 # AGENT SESSION TESTS
 # =============================================================================
+
 
 class TestAgentSession:
     """Tests for AgentSession dataclass."""
@@ -156,6 +158,7 @@ class TestAgentSession:
 # =============================================================================
 # AGENT ONBOARDING TESTS
 # =============================================================================
+
 
 class TestAgentOnboarding:
     """Tests for AgentOnboarding class."""
@@ -396,6 +399,7 @@ class TestOnboardingWithNoBible:
 # GLOBAL INSTANCE TESTS
 # =============================================================================
 
+
 class TestGlobalOnboarding:
     """Tests for global onboarding instance."""
 
@@ -428,6 +432,7 @@ class TestGlobalOnboarding:
 # ADDITIONAL REQUIREMENTS TESTS
 # =============================================================================
 
+
 class TestAdditionalDocs:
     """Tests for projects with additional required docs."""
 
@@ -435,15 +440,19 @@ class TestAdditionalDocs:
         """Test loading additional required docs from config."""
         # Create config file
         config_path = temp_project_with_bible / ".fastband" / "onboarding_docs.json"
-        config_path.write_text(json.dumps({
-            "required_docs": [
+        config_path.write_text(
+            json.dumps(
                 {
-                    "path": str(temp_project_with_bible / "README.md"),
-                    "description": "Project README",
-                    "required": True,
+                    "required_docs": [
+                        {
+                            "path": str(temp_project_with_bible / "README.md"),
+                            "description": "Project README",
+                            "required": True,
+                        }
+                    ]
                 }
-            ]
-        }))
+            )
+        )
 
         # Create the README
         (temp_project_with_bible / "README.md").write_text("# Project")

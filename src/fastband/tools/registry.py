@@ -10,11 +10,10 @@ Performance Optimizations (Issue #38):
 - Memory efficiency: Unloaded tools don't consume memory
 """
 
-from typing import Dict, List, Optional, Type, Set, Tuple, Callable, Any
-from dataclasses import dataclass
-import time
-import logging
 import importlib
+import logging
+import time
+from dataclasses import dataclass
 
 from fastband.tools.base import Tool, ToolCategory, ToolResult
 
@@ -24,11 +23,12 @@ logger = logging.getLogger(__name__)
 @dataclass(slots=True)
 class ToolLoadStatus:
     """Status of a loaded tool."""
+
     name: str
     loaded: bool
     category: ToolCategory
     load_time_ms: float
-    error: Optional[str] = None
+    error: str | None = None
 
 
 @dataclass(slots=True)
@@ -41,10 +41,11 @@ class LazyToolSpec:
 
     Performance benefit: Avoids importing heavy tool modules until needed.
     """
+
     module_path: str
     class_name: str
     category: ToolCategory
-    _instance: Optional[Tool] = None
+    _instance: Tool | None = None
 
     def get_instance(self) -> Tool:
         """
@@ -68,17 +69,24 @@ class LazyToolSpec:
 @dataclass
 class PerformanceReport:
     """Performance report for the tool registry."""
+
     __slots__ = (
-        'active_tools', 'available_tools', 'max_recommended', 'status',
-        'categories', 'recommendation', 'total_executions', 'average_execution_time_ms'
+        "active_tools",
+        "available_tools",
+        "max_recommended",
+        "status",
+        "categories",
+        "recommendation",
+        "total_executions",
+        "average_execution_time_ms",
     )
 
     active_tools: int
     available_tools: int
     max_recommended: int
     status: str  # "optimal", "moderate", "heavy", "overloaded"
-    categories: Dict[str, int]
-    recommendation: Optional[str]
+    categories: dict[str, int]
+    recommendation: str | None
     total_executions: int
     average_execution_time_ms: float
 
@@ -115,18 +123,23 @@ class ToolRegistry:
     """
 
     __slots__ = (
-        '_available', '_active', '_lazy_specs', '_max_active',
-        '_load_history', '_execution_stats', '_category_cache'
+        "_available",
+        "_active",
+        "_lazy_specs",
+        "_max_active",
+        "_load_history",
+        "_execution_stats",
+        "_category_cache",
     )
 
     def __init__(self, max_active_tools: int = 60):
-        self._available: Dict[str, Tool] = {}      # All registered (instantiated) tools
-        self._active: Dict[str, Tool] = {}         # Currently loaded tools
-        self._lazy_specs: Dict[str, LazyToolSpec] = {}  # Lazy-loaded tool specs
+        self._available: dict[str, Tool] = {}  # All registered (instantiated) tools
+        self._active: dict[str, Tool] = {}  # Currently loaded tools
+        self._lazy_specs: dict[str, LazyToolSpec] = {}  # Lazy-loaded tool specs
         self._max_active = max_active_tools
-        self._load_history: List[ToolLoadStatus] = []
-        self._execution_stats: Dict[str, List[float]] = {}  # Tool -> execution times
-        self._category_cache: Optional[Dict[str, int]] = None  # Cached category counts
+        self._load_history: list[ToolLoadStatus] = []
+        self._execution_stats: dict[str, list[float]] = {}  # Tool -> execution times
+        self._category_cache: dict[str, int] | None = None  # Cached category counts
 
     # =========================================================================
     # REGISTRATION
@@ -180,7 +193,9 @@ class ToolRegistry:
             )
         """
         if name in self._available:
-            logger.warning(f"Tool {name} already registered as instance, skipping lazy registration")
+            logger.warning(
+                f"Tool {name} already registered as instance, skipping lazy registration"
+            )
             return
 
         if name in self._lazy_specs:
@@ -194,7 +209,7 @@ class ToolRegistry:
         self._invalidate_cache()
         logger.debug(f"Registered lazy tool: {name} ({category.value})")
 
-    def register_class(self, tool_class: Type[Tool]) -> None:
+    def register_class(self, tool_class: type[Tool]) -> None:
         """
         Register a tool class (instantiates it immediately).
 
@@ -242,7 +257,7 @@ class ToolRegistry:
     # LOADING / UNLOADING
     # =========================================================================
 
-    def _resolve_tool(self, name: str) -> Optional[Tool]:
+    def _resolve_tool(self, name: str) -> Tool | None:
         """
         Resolve a tool by name, handling lazy loading if needed.
 
@@ -340,7 +355,7 @@ class ToolRegistry:
         logger.info(f"Loaded tool: {name} ({elapsed:.2f}ms)")
         return status
 
-    def load_category(self, category: ToolCategory) -> List[ToolLoadStatus]:
+    def load_category(self, category: ToolCategory) -> list[ToolLoadStatus]:
         """
         Load all tools in a category.
 
@@ -366,7 +381,7 @@ class ToolRegistry:
 
         return results
 
-    def load_core(self) -> List[ToolLoadStatus]:
+    def load_core(self) -> list[ToolLoadStatus]:
         """Load all core tools."""
         return self.load_category(ToolCategory.CORE)
 
@@ -408,10 +423,7 @@ class ToolRegistry:
             logger.warning("Cannot unload core tools")
             return 0
 
-        to_unload = [
-            name for name, tool in self._active.items()
-            if tool.category == category
-        ]
+        to_unload = [name for name, tool in self._active.items() if tool.category == category]
 
         for name in to_unload:
             del self._active[name]
@@ -426,7 +438,7 @@ class ToolRegistry:
     # ACCESS
     # =========================================================================
 
-    def get(self, name: str) -> Optional[Tool]:
+    def get(self, name: str) -> Tool | None:
         """
         Get an active tool by name.
 
@@ -438,7 +450,7 @@ class ToolRegistry:
         """
         return self._active.get(name)
 
-    def get_available(self, name: str) -> Optional[Tool]:
+    def get_available(self, name: str) -> Tool | None:
         """
         Get a tool from garage (may not be loaded).
 
@@ -453,11 +465,11 @@ class ToolRegistry:
         """
         return self._resolve_tool(name)
 
-    def get_active_tools(self) -> List[Tool]:
+    def get_active_tools(self) -> list[Tool]:
         """Get all currently active tools."""
         return list(self._active.values())
 
-    def get_available_tools(self) -> List[Tool]:
+    def get_available_tools(self) -> list[Tool]:
         """
         Get all available tools in garage.
 
@@ -469,7 +481,7 @@ class ToolRegistry:
             self._resolve_tool(name)
         return list(self._available.values())
 
-    def get_available_names(self) -> List[str]:
+    def get_available_names(self) -> list[str]:
         """
         Get names of all available tools without instantiating lazy ones.
 
@@ -480,7 +492,7 @@ class ToolRegistry:
         names.update(self._lazy_specs.keys())
         return list(names)
 
-    def get_lazy_tool_names(self) -> List[str]:
+    def get_lazy_tool_names(self) -> list[str]:
         """
         Get names of all lazily registered tools.
 
@@ -489,7 +501,7 @@ class ToolRegistry:
         """
         return list(self._lazy_specs.keys())
 
-    def get_tools_by_category(self, category: ToolCategory) -> List[Tool]:
+    def get_tools_by_category(self, category: ToolCategory) -> list[Tool]:
         """
         Get all tools in a specific category.
 
@@ -527,11 +539,11 @@ class ToolRegistry:
     # MCP INTEGRATION
     # =========================================================================
 
-    def get_mcp_tools(self) -> List[Dict]:
+    def get_mcp_tools(self) -> list[dict]:
         """Get MCP tool schemas for all active tools."""
         return [tool.definition.to_mcp_schema() for tool in self._active.values()]
 
-    def get_openai_tools(self) -> List[Dict]:
+    def get_openai_tools(self) -> list[dict]:
         """Get OpenAI function schemas for all active tools."""
         return [tool.definition.to_openai_schema() for tool in self._active.values()]
 
@@ -602,7 +614,7 @@ class ToolRegistry:
             average_execution_time_ms=avg_time,
         )
 
-    def _count_by_category(self) -> Dict[str, int]:
+    def _count_by_category(self) -> dict[str, int]:
         """
         Count active tools by category.
 
@@ -612,7 +624,7 @@ class ToolRegistry:
         if self._category_cache is not None:
             return self._category_cache
 
-        counts: Dict[str, int] = {}
+        counts: dict[str, int] = {}
         for tool in self._active.values():
             cat = tool.category.value
             counts[cat] = counts.get(cat, 0) + 1
@@ -620,7 +632,7 @@ class ToolRegistry:
         self._category_cache = counts
         return counts
 
-    def _get_performance_recommendation(self) -> Optional[str]:
+    def _get_performance_recommendation(self) -> str | None:
         """Get performance optimization recommendation."""
         count = len(self._active)
         if count < 20:
@@ -631,7 +643,7 @@ class ToolRegistry:
             return "Tool count is high. Run 'fastband tools optimize' to unload unused tools"
         return "WARNING: Tool count exceeds recommended limit. Performance may be degraded."
 
-    def get_tool_stats(self, name: str) -> Optional[Dict]:
+    def get_tool_stats(self, name: str) -> dict | None:
         """Get execution statistics for a specific tool."""
         if name not in self._execution_stats:
             return None
@@ -647,7 +659,7 @@ class ToolRegistry:
 
 
 # Global registry instance
-_registry: Optional[ToolRegistry] = None
+_registry: ToolRegistry | None = None
 
 
 def get_registry() -> ToolRegistry:

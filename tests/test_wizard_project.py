@@ -1,29 +1,29 @@
 """Tests for the Project Detection wizard step."""
 
-import pytest
-from pathlib import Path
 import tempfile
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from pathlib import Path
+from unittest.mock import patch
 
-from fastband.wizard.steps.project import (
-    ProjectDetectionStep,
-    LANGUAGE_DISPLAY_NAMES,
-    PROJECT_TYPE_DISPLAY_NAMES,
-    FRAMEWORK_DISPLAY_NAMES,
-)
-from fastband.wizard.base import WizardContext, StepResult, StepStatus
+import pytest
+
 from fastband.core.config import FastbandConfig
 from fastband.core.detection import (
-    ProjectInfo,
-    Language,
-    ProjectType,
-    Framework,
-    PackageManager,
     BuildTool,
     DetectedFramework,
     DetectedLanguage,
+    Framework,
+    Language,
+    PackageManager,
+    ProjectInfo,
+    ProjectType,
 )
-
+from fastband.wizard.base import StepStatus, WizardContext
+from fastband.wizard.steps.project import (
+    FRAMEWORK_DISPLAY_NAMES,
+    LANGUAGE_DISPLAY_NAMES,
+    PROJECT_TYPE_DISPLAY_NAMES,
+    ProjectDetectionStep,
+)
 
 # =============================================================================
 # TEST FIXTURES
@@ -127,7 +127,14 @@ def mock_monorepo_info(temp_dir):
         type_confidence=0.9,
         name="my-monorepo",
         is_monorepo=True,
-        subprojects=["packages/web", "packages/api", "packages/shared", "packages/ui", "packages/utils", "packages/extra"],
+        subprojects=[
+            "packages/web",
+            "packages/api",
+            "packages/shared",
+            "packages/ui",
+            "packages/utils",
+            "packages/extra",
+        ],
     )
 
 
@@ -173,6 +180,7 @@ class TestProjectDetectionStepProperties:
     def test_custom_console(self):
         """Test that custom console can be provided."""
         from rich.console import Console
+
         custom_console = Console()
         step = ProjectDetectionStep(console=custom_console)
         assert step.console is custom_console
@@ -187,9 +195,7 @@ class TestProjectDetectionStepExecute:
     """Tests for ProjectDetectionStep.execute() with mock detection."""
 
     @pytest.mark.asyncio
-    async def test_execute_successful_detection(
-        self, non_interactive_context, mock_project_info
-    ):
+    async def test_execute_successful_detection(self, non_interactive_context, mock_project_info):
         """Test successful project detection in non-interactive mode."""
         step = ProjectDetectionStep()
 
@@ -220,9 +226,7 @@ class TestProjectDetectionStepExecute:
         assert non_interactive_context.project_info == mock_project_info
 
     @pytest.mark.asyncio
-    async def test_execute_updates_config(
-        self, non_interactive_context, mock_project_info
-    ):
+    async def test_execute_updates_config(self, non_interactive_context, mock_project_info):
         """Test that config is updated with project info."""
         step = ProjectDetectionStep()
 
@@ -237,9 +241,7 @@ class TestProjectDetectionStepExecute:
         assert non_interactive_context.config.primary_language == "python"
 
     @pytest.mark.asyncio
-    async def test_execute_returns_result_data(
-        self, non_interactive_context, mock_project_info
-    ):
+    async def test_execute_returns_result_data(self, non_interactive_context, mock_project_info):
         """Test that result contains expected data."""
         step = ProjectDetectionStep()
 
@@ -282,9 +284,7 @@ class TestProjectDetectionStepExecute:
         assert result.success is False
 
     @pytest.mark.asyncio
-    async def test_execute_with_monorepo(
-        self, non_interactive_context, mock_monorepo_info
-    ):
+    async def test_execute_with_monorepo(self, non_interactive_context, mock_monorepo_info):
         """Test detection of a monorepo project."""
         step = ProjectDetectionStep()
 
@@ -308,9 +308,7 @@ class TestUserOverrideFunctionality:
     """Tests for user override functionality in interactive mode."""
 
     @pytest.mark.asyncio
-    async def test_interactive_user_confirms_detection(
-        self, wizard_context, mock_project_info
-    ):
+    async def test_interactive_user_confirms_detection(self, wizard_context, mock_project_info):
         """Test user confirming detection in interactive mode."""
         step = ProjectDetectionStep()
 
@@ -324,9 +322,7 @@ class TestUserOverrideFunctionality:
         assert result.success is True
 
     @pytest.mark.asyncio
-    async def test_interactive_user_cancels(
-        self, wizard_context, mock_project_info
-    ):
+    async def test_interactive_user_cancels(self, wizard_context, mock_project_info):
         """Test user cancelling in interactive mode."""
         step = ProjectDetectionStep()
 
@@ -342,9 +338,7 @@ class TestUserOverrideFunctionality:
         assert result.go_back is True
 
     @pytest.mark.asyncio
-    async def test_interactive_user_overrides_language(
-        self, wizard_context, mock_project_info
-    ):
+    async def test_interactive_user_overrides_language(self, wizard_context, mock_project_info):
         """Test user overriding language detection."""
         step = ProjectDetectionStep()
 
@@ -353,9 +347,7 @@ class TestUserOverrideFunctionality:
             return_value=mock_project_info,
         ):
             # Sequence: reject detection, override language, don't override type, confirm
-            with patch.object(
-                step, "confirm", side_effect=[False, True, False, True]
-            ):
+            with patch.object(step, "confirm", side_effect=[False, True, False, True]):
                 with patch.object(step, "select_from_list", return_value=["typescript"]):
                     result = await step.execute(wizard_context)
 
@@ -365,9 +357,7 @@ class TestUserOverrideFunctionality:
         assert mock_project_info.language_confidence == 1.0
 
     @pytest.mark.asyncio
-    async def test_interactive_user_overrides_project_type(
-        self, wizard_context, mock_project_info
-    ):
+    async def test_interactive_user_overrides_project_type(self, wizard_context, mock_project_info):
         """Test user overriding project type detection."""
         step = ProjectDetectionStep()
 
@@ -376,9 +366,7 @@ class TestUserOverrideFunctionality:
             return_value=mock_project_info,
         ):
             # Sequence: reject detection, don't override language, override type, confirm
-            with patch.object(
-                step, "confirm", side_effect=[False, False, True, True]
-            ):
+            with patch.object(step, "confirm", side_effect=[False, False, True, True]):
                 with patch.object(step, "select_from_list", return_value=["library"]):
                     result = await step.execute(wizard_context)
 
@@ -398,11 +386,10 @@ class TestUserOverrideFunctionality:
             return_value=mock_project_info,
         ):
             # Sequence: reject, override lang, override type, confirm
-            with patch.object(
-                step, "confirm", side_effect=[False, True, True, True]
-            ):
+            with patch.object(step, "confirm", side_effect=[False, True, True, True]):
                 with patch.object(
-                    step, "select_from_list",
+                    step,
+                    "select_from_list",
                     side_effect=[["rust"], ["api_service"]],
                 ):
                     result = await step.execute(wizard_context)
@@ -486,9 +473,7 @@ class TestValidation:
     """Tests for validation logic."""
 
     @pytest.mark.asyncio
-    async def test_validate_with_project_info(
-        self, wizard_context, mock_project_info
-    ):
+    async def test_validate_with_project_info(self, wizard_context, mock_project_info):
         """Test validation passes when project_info is set."""
         step = ProjectDetectionStep()
         wizard_context.project_info = mock_project_info
@@ -541,9 +526,7 @@ class TestDisplayFunctionality:
             "fastband.wizard.steps.project.detect_project",
             return_value=mock_project_info,
         ):
-            with patch.object(
-                step, "_display_detection_results"
-            ) as mock_display:
+            with patch.object(step, "_display_detection_results") as mock_display:
                 await step.execute(non_interactive_context)
                 mock_display.assert_called_once_with(mock_project_info)
 
@@ -594,9 +577,7 @@ class TestEdgeCases:
         assert non_interactive_context.config.project_name is None
 
     @pytest.mark.asyncio
-    async def test_project_with_empty_frameworks(
-        self, non_interactive_context, temp_dir
-    ):
+    async def test_project_with_empty_frameworks(self, non_interactive_context, temp_dir):
         """Test handling of project with no frameworks detected."""
         info = ProjectInfo(
             path=temp_dir,
@@ -618,9 +599,7 @@ class TestEdgeCases:
         assert result.data["frameworks"] == []
 
     @pytest.mark.asyncio
-    async def test_project_with_unknown_language(
-        self, non_interactive_context, temp_dir
-    ):
+    async def test_project_with_unknown_language(self, non_interactive_context, temp_dir):
         """Test handling of project with unknown language."""
         info = ProjectInfo(
             path=temp_dir,
@@ -642,9 +621,7 @@ class TestEdgeCases:
         assert result.data["type"] == "unknown"
 
     @pytest.mark.asyncio
-    async def test_status_updated_correctly(
-        self, non_interactive_context, mock_project_info
-    ):
+    async def test_status_updated_correctly(self, non_interactive_context, mock_project_info):
         """Test that step status is managed correctly."""
         step = ProjectDetectionStep()
         assert step.status == StepStatus.PENDING

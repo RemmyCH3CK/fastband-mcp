@@ -4,15 +4,16 @@ Ollama AI Provider (Local LLMs).
 Implements the AIProvider interface for locally-running Ollama models.
 """
 
-import os
 import logging
-from typing import Optional, Dict, Any, List, AsyncIterator
+import os
+from collections.abc import AsyncIterator
+from typing import Any
 
 from fastband.providers.base import (
     AIProvider,
-    ProviderConfig,
-    CompletionResponse,
     Capability,
+    CompletionResponse,
+    ProviderConfig,
 )
 
 logger = logging.getLogger(__name__)
@@ -70,7 +71,7 @@ class OllamaProvider(AIProvider):
         return "ollama"
 
     @property
-    def capabilities(self) -> List[Capability]:
+    def capabilities(self) -> list[Capability]:
         # Base capabilities - vision depends on model
         return [
             Capability.TEXT_COMPLETION,
@@ -84,6 +85,7 @@ class OllamaProvider(AIProvider):
         if self._client is None:
             try:
                 from ollama import AsyncClient
+
                 self._client = AsyncClient(host=self.config.base_url)
             except ImportError:
                 raise ImportError(
@@ -93,10 +95,7 @@ class OllamaProvider(AIProvider):
         return self._client
 
     async def complete(
-        self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        **kwargs
+        self, prompt: str, system_prompt: str | None = None, **kwargs
     ) -> CompletionResponse:
         """
         Send a completion request to Ollama.
@@ -140,11 +139,7 @@ class OllamaProvider(AIProvider):
         )
 
     async def complete_with_tools(
-        self,
-        prompt: str,
-        tools: List[Dict[str, Any]],
-        system_prompt: Optional[str] = None,
-        **kwargs
+        self, prompt: str, tools: list[dict[str, Any]], system_prompt: str | None = None, **kwargs
     ) -> CompletionResponse:
         """
         Complete with tool/function calling support.
@@ -184,10 +179,12 @@ class OllamaProvider(AIProvider):
             message = response.get("message", {})
             if message.get("tool_calls"):
                 for tc in message["tool_calls"]:
-                    tool_calls.append({
-                        "name": tc["function"]["name"],
-                        "arguments": tc["function"]["arguments"],
-                    })
+                    tool_calls.append(
+                        {
+                            "name": tc["function"]["name"],
+                            "arguments": tc["function"]["arguments"],
+                        }
+                    )
 
             return CompletionResponse(
                 content=message.get("content", ""),
@@ -207,27 +204,26 @@ class OllamaProvider(AIProvider):
             logger.warning(f"Tool calling failed, falling back to regular completion: {e}")
             return await self.complete(prompt, system_prompt, **kwargs)
 
-    def _convert_tools(self, openai_tools: List[Dict]) -> List[Dict]:
+    def _convert_tools(self, openai_tools: list[dict]) -> list[dict]:
         """Convert OpenAI tool format to Ollama format."""
         ollama_tools = []
         for tool in openai_tools:
             if tool.get("type") == "function":
                 func = tool["function"]
-                ollama_tools.append({
-                    "type": "function",
-                    "function": {
-                        "name": func["name"],
-                        "description": func.get("description", ""),
-                        "parameters": func.get("parameters", {}),
-                    },
-                })
+                ollama_tools.append(
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": func["name"],
+                            "description": func.get("description", ""),
+                            "parameters": func.get("parameters", {}),
+                        },
+                    }
+                )
         return ollama_tools
 
     async def stream(
-        self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        **kwargs
+        self, prompt: str, system_prompt: str | None = None, **kwargs
     ) -> AsyncIterator[str]:
         """
         Stream completion response.
@@ -255,11 +251,7 @@ class OllamaProvider(AIProvider):
                 yield chunk["message"]["content"]
 
     async def analyze_image(
-        self,
-        image_data: bytes,
-        prompt: str,
-        image_type: str = "image/png",
-        **kwargs
+        self, image_data: bytes, prompt: str, image_type: str = "image/png", **kwargs
     ) -> CompletionResponse:
         """
         Analyze an image using a vision-capable model (e.g., llava).
@@ -305,7 +297,7 @@ class OllamaProvider(AIProvider):
             finish_reason="stop",
         )
 
-    async def list_models(self) -> List[str]:
+    async def list_models(self) -> list[str]:
         """
         List available models in Ollama.
 

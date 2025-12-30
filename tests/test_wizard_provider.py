@@ -1,20 +1,20 @@
 """Tests for the Provider Selection Wizard Step."""
 
-import pytest
-from pathlib import Path
-import tempfile
-from unittest.mock import patch, MagicMock
 import os
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
 
-from fastband.wizard.base import WizardContext, StepResult, StepStatus
-from fastband.wizard.steps.provider import (
-    ProviderSelectionStep,
-    ProviderInfo,
-    PROVIDERS,
-    PROVIDER_PRIORITY,
-)
+import pytest
+
 from fastband.core.config import FastbandConfig
-
+from fastband.wizard.base import StepStatus, WizardContext
+from fastband.wizard.steps.provider import (
+    PROVIDER_PRIORITY,
+    PROVIDERS,
+    ProviderInfo,
+    ProviderSelectionStep,
+)
 
 # =============================================================================
 # TEST FIXTURES
@@ -245,11 +245,14 @@ class TestProviderDetection:
 
     def test_get_available_providers_all(self, provider_step):
         """Test getting available providers when all configured."""
-        with patch.dict(os.environ, {
-            "ANTHROPIC_API_KEY": "sk-test",
-            "OPENAI_API_KEY": "sk-test",
-            "GOOGLE_API_KEY": "AIzatest",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ANTHROPIC_API_KEY": "sk-test",
+                "OPENAI_API_KEY": "sk-test",
+                "GOOGLE_API_KEY": "AIzatest",
+            },
+        ):
             available = provider_step._get_available_providers()
 
             assert len(available) == 4
@@ -257,10 +260,13 @@ class TestProviderDetection:
 
     def test_available_providers_respect_priority(self, provider_step):
         """Test that available providers are in priority order."""
-        with patch.dict(os.environ, {
-            "GOOGLE_API_KEY": "AIzatest",
-            "ANTHROPIC_API_KEY": "sk-test",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "GOOGLE_API_KEY": "AIzatest",
+                "ANTHROPIC_API_KEY": "sk-test",
+            },
+        ):
             available = provider_step._get_available_providers()
 
             # Claude should come before Gemini (priority order)
@@ -379,9 +385,7 @@ class TestNonInteractiveMode:
     """Tests for non-interactive execution."""
 
     @pytest.mark.asyncio
-    async def test_selects_first_available_provider(
-        self, provider_step, non_interactive_context
-    ):
+    async def test_selects_first_available_provider(self, provider_step, non_interactive_context):
         """Test non-interactive mode selects first available provider."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test"}):
             # Claude key not set, OpenAI is, so OpenAI should be selected
@@ -395,14 +399,15 @@ class TestNonInteractiveMode:
             assert non_interactive_context.selected_provider == "openai"
 
     @pytest.mark.asyncio
-    async def test_selects_claude_when_available(
-        self, provider_step, non_interactive_context
-    ):
+    async def test_selects_claude_when_available(self, provider_step, non_interactive_context):
         """Test non-interactive mode prefers Claude when available."""
-        with patch.dict(os.environ, {
-            "ANTHROPIC_API_KEY": "sk-test",
-            "OPENAI_API_KEY": "sk-test",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ANTHROPIC_API_KEY": "sk-test",
+                "OPENAI_API_KEY": "sk-test",
+            },
+        ):
             result = await provider_step.execute(non_interactive_context)
 
             assert result.success is True
@@ -452,9 +457,7 @@ class TestInteractiveMode:
     """Tests for interactive execution."""
 
     @pytest.mark.asyncio
-    async def test_interactive_with_valid_selection(
-        self, provider_step, wizard_context
-    ):
+    async def test_interactive_with_valid_selection(self, provider_step, wizard_context):
         """Test interactive mode with valid provider selection."""
         # Mock the prompt to return "1" (claude)
         with patch.object(provider_step, "prompt", return_value="1"):
@@ -561,10 +564,13 @@ class TestIntegration:
         self, provider_step, non_interactive_context
     ):
         """Test non-interactive flow selects highest priority available."""
-        with patch.dict(os.environ, {
-            "OPENAI_API_KEY": "sk-openai-test",
-            "GOOGLE_API_KEY": "AIza-gemini-test",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "OPENAI_API_KEY": "sk-openai-test",
+                "GOOGLE_API_KEY": "AIza-gemini-test",
+            },
+        ):
             result = await provider_step.execute(non_interactive_context)
 
             assert result.success is True
@@ -572,9 +578,7 @@ class TestIntegration:
             assert non_interactive_context.selected_provider == "openai"
 
     @pytest.mark.asyncio
-    async def test_context_preserved_after_execution(
-        self, provider_step, non_interactive_context
-    ):
+    async def test_context_preserved_after_execution(self, provider_step, non_interactive_context):
         """Test that context is properly updated after execution."""
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-test"}):
             initial_config_version = non_interactive_context.config.version
@@ -587,9 +591,7 @@ class TestIntegration:
             assert non_interactive_context.selected_provider is not None
 
     @pytest.mark.asyncio
-    async def test_step_status_not_modified(
-        self, provider_step, non_interactive_context
-    ):
+    async def test_step_status_not_modified(self, provider_step, non_interactive_context):
         """Test that step doesn't modify its own status (wizard does that)."""
         initial_status = provider_step.status
 

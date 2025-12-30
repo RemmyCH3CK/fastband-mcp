@@ -5,24 +5,22 @@ Provides commands for initializing, configuring, and managing
 Fastband MCP servers.
 """
 
-import typer
-from pathlib import Path
-from typing import Optional
 import asyncio
+from pathlib import Path
 
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
-from rich.tree import Tree
+import typer
 from rich import box
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
 
 from fastband import __version__
-from fastband.core.config import FastbandConfig, get_config
-from fastband.core.detection import detect_project, ProjectInfo, Language, ProjectType
-from fastband.cli.tools import tools_app
-from fastband.cli.tickets import tickets_app
 from fastband.cli.backup import backup_app
 from fastband.cli.plugins import plugins_app
+from fastband.cli.tickets import tickets_app
+from fastband.cli.tools import tools_app
+from fastband.core.config import FastbandConfig, get_config
+from fastband.core.detection import Language, ProjectInfo, detect_project
 
 # Create the main CLI app
 app = typer.Typer(
@@ -90,7 +88,7 @@ def main(
 
 @app.command()
 def init(
-    path: Optional[Path] = typer.Argument(
+    path: Path | None = typer.Argument(
         None,
         help="Project path to initialize (default: current directory)",
     ),
@@ -119,19 +117,19 @@ def init(
     config_file = fastband_dir / "config.yaml"
 
     if config_file.exists() and not force:
-        console.print(
-            f"[yellow]Fastband already initialized in {project_path}[/yellow]"
-        )
+        console.print(f"[yellow]Fastband already initialized in {project_path}[/yellow]")
         console.print("Use [bold]--force[/bold] to reinitialize")
         raise typer.Exit(1)
 
-    console.print(Panel.fit(
-        "[bold blue]Initializing Fastband[/bold blue]",
-        border_style="blue",
-    ))
+    console.print(
+        Panel.fit(
+            "[bold blue]Initializing Fastband[/bold blue]",
+            border_style="blue",
+        )
+    )
 
     # Detect project
-    project_info: Optional[ProjectInfo] = None
+    project_info: ProjectInfo | None = None
     if not skip_detection:
         with console.status("[bold green]Detecting project type..."):
             try:
@@ -152,9 +150,8 @@ def init(
         # Set default providers based on project type
         if project_info.primary_language == Language.PYTHON:
             from fastband.core.config import AIProviderConfig
-            config.providers["claude"] = AIProviderConfig(
-                model="claude-sonnet-4-20250514"
-            )
+
+            config.providers["claude"] = AIProviderConfig(model="claude-sonnet-4-20250514")
 
     # Save configuration
     fastband_dir.mkdir(parents=True, exist_ok=True)
@@ -165,7 +162,9 @@ def init(
 
     # Show next steps
     console.print("\n[bold]Next steps:[/bold]")
-    console.print("  1. Configure AI providers: [dim]fastband config set ai.default_provider claude[/dim]")
+    console.print(
+        "  1. Configure AI providers: [dim]fastband config set ai.default_provider claude[/dim]"
+    )
     console.print("  2. Set API key: [dim]export ANTHROPIC_API_KEY=your-key[/dim]")
     console.print("  3. Start server: [dim]fastband serve[/dim]")
 
@@ -208,7 +207,7 @@ def _display_project_info(info: ProjectInfo) -> None:
 
 @app.command()
 def status(
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         "-p",
@@ -230,7 +229,7 @@ def status(
 
     # Check if initialized
     fastband_dir = project_path / ".fastband"
-    config_file = fastband_dir / "config.yaml"
+    fastband_dir / "config.yaml"
 
     if not fastband_dir.exists():
         console.print(f"[red]Fastband not initialized in {project_path}[/red]")
@@ -241,10 +240,12 @@ def status(
     config = get_config(project_path)
 
     # Display status
-    console.print(Panel.fit(
-        f"[bold blue]Fastband Status[/bold blue]\n[dim]{project_path}[/dim]",
-        border_style="blue",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold blue]Fastband Status[/bold blue]\n[dim]{project_path}[/dim]",
+            border_style="blue",
+        )
+    )
 
     # Configuration overview
     table = Table(
@@ -294,8 +295,13 @@ def status(
         backup_table.add_column("Value")
 
         backup_table.add_row("Enabled", "✓" if config.backup.enabled else "✗")
-        backup_table.add_row("Daily Backup", config.backup.daily_time if config.backup.daily_enabled else "Disabled")
-        backup_table.add_row("Weekly Backup", config.backup.weekly_day if config.backup.weekly_enabled else "Disabled")
+        backup_table.add_row(
+            "Daily Backup", config.backup.daily_time if config.backup.daily_enabled else "Disabled"
+        )
+        backup_table.add_row(
+            "Weekly Backup",
+            config.backup.weekly_day if config.backup.weekly_enabled else "Disabled",
+        )
         backup_table.add_row("Change Detection", "✓" if config.backup.change_detection else "✗")
 
         console.print(backup_table)
@@ -308,7 +314,7 @@ def status(
 
 @config_app.command("show")
 def config_show(
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         "-p",
@@ -322,6 +328,7 @@ def config_show(
 ):
     """Show current configuration."""
     import json as json_lib
+
     import yaml
 
     project_path = (path or Path.cwd()).resolve()
@@ -343,7 +350,7 @@ def config_set(
         ...,
         help="Value to set",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         "-p",
@@ -403,7 +410,7 @@ def config_get(
         ...,
         help="Configuration key (e.g., ai.default_provider)",
     ),
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         "-p",
@@ -430,7 +437,7 @@ def config_get(
 
 @config_app.command("reset")
 def config_reset(
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         "-p",
@@ -469,7 +476,7 @@ def config_reset(
 
 @app.command()
 def serve(
-    path: Optional[Path] = typer.Option(
+    path: Path | None = typer.Option(
         None,
         "--path",
         "-p",
@@ -525,43 +532,53 @@ def serve(
         # Only run Hub server
         from fastband.hub.server import run_server as run_hub_server
 
-        console.print(Panel.fit(
-            f"[bold blue]Starting Fastband Hub[/bold blue]\n"
-            f"[dim]Dashboard: http://localhost:{hub_port}/[/dim]",
-            border_style="blue",
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold blue]Starting Fastband Hub[/bold blue]\n"
+                f"[dim]Dashboard: http://localhost:{hub_port}/[/dim]",
+                border_style="blue",
+            )
+        )
 
-        asyncio.run(run_hub_server(
-            host="0.0.0.0",
-            port=hub_port,
-            with_dashboard=not no_dashboard,
-        ))
+        asyncio.run(
+            run_hub_server(
+                host="0.0.0.0",
+                port=hub_port,
+                with_dashboard=not no_dashboard,
+            )
+        )
     elif hub:
         # Run both MCP and Hub servers
         from fastband.core.engine import run_server
         from fastband.hub.server import run_server as run_hub_server
 
         tool_mode = "all" if all_tools else ("minimal" if no_core else "core")
-        console.print(Panel.fit(
-            f"[bold blue]Starting Fastband[/bold blue]\n"
-            f"[dim]{project_path}[/dim]\n"
-            f"[dim]Tool mode: {tool_mode}[/dim]\n"
-            f"[dim]Dashboard: http://localhost:{hub_port}/[/dim]",
-            border_style="blue",
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold blue]Starting Fastband[/bold blue]\n"
+                f"[dim]{project_path}[/dim]\n"
+                f"[dim]Tool mode: {tool_mode}[/dim]\n"
+                f"[dim]Dashboard: http://localhost:{hub_port}/[/dim]",
+                border_style="blue",
+            )
+        )
 
         async def run_both():
             """Run MCP and Hub servers concurrently."""
-            mcp_task = asyncio.create_task(run_server(
-                project_path=project_path,
-                load_core=not no_core,
-                load_all=all_tools,
-            ))
-            hub_task = asyncio.create_task(run_hub_server(
-                host="0.0.0.0",
-                port=hub_port,
-                with_dashboard=not no_dashboard,
-            ))
+            mcp_task = asyncio.create_task(
+                run_server(
+                    project_path=project_path,
+                    load_core=not no_core,
+                    load_all=all_tools,
+                )
+            )
+            hub_task = asyncio.create_task(
+                run_hub_server(
+                    host="0.0.0.0",
+                    port=hub_port,
+                    with_dashboard=not no_dashboard,
+                )
+            )
             await asyncio.gather(mcp_task, hub_task)
 
         asyncio.run(run_both())
@@ -570,18 +587,22 @@ def serve(
         from fastband.core.engine import run_server
 
         tool_mode = "all" if all_tools else ("minimal" if no_core else "core")
-        console.print(Panel.fit(
-            f"[bold blue]Starting Fastband MCP Server[/bold blue]\n"
-            f"[dim]{project_path}[/dim]\n"
-            f"[dim]Tool mode: {tool_mode}[/dim]",
-            border_style="blue",
-        ))
+        console.print(
+            Panel.fit(
+                f"[bold blue]Starting Fastband MCP Server[/bold blue]\n"
+                f"[dim]{project_path}[/dim]\n"
+                f"[dim]Tool mode: {tool_mode}[/dim]",
+                border_style="blue",
+            )
+        )
 
-        asyncio.run(run_server(
-            project_path=project_path,
-            load_core=not no_core,
-            load_all=all_tools,
-        ))
+        asyncio.run(
+            run_server(
+                project_path=project_path,
+                load_core=not no_core,
+                load_all=all_tools,
+            )
+        )
 
 
 # =============================================================================
@@ -612,7 +633,9 @@ def build_dashboard(
     Requires Node.js 18+ to be installed.
     """
     import sys
-    from fastband.hub.web.build import build, clean as do_clean
+
+    from fastband.hub.web.build import build
+    from fastband.hub.web.build import clean as do_clean
 
     if clean or clean_all:
         if clean_all:

@@ -24,11 +24,11 @@ import asyncio
 import logging
 import threading
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from importlib.metadata import entry_points
-from typing import Any, Callable, Dict, List, Optional, Type
+from typing import Any
 
-from fastband.core.events import EventBus, get_event_bus, HubEventType
+from fastband.core.events import EventBus, HubEventType, get_event_bus
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ class PluginMetadata:
     provides_routes: bool = False
     provides_cli: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "name": self.name,
@@ -128,7 +128,7 @@ class Plugin(ABC):
         """
         pass
 
-    def get_tools(self) -> List[Any]:
+    def get_tools(self) -> list[Any]:
         """
         Return tools provided by this plugin.
 
@@ -139,7 +139,7 @@ class Plugin(ABC):
         """
         return []
 
-    def get_api_router(self) -> Optional[Any]:
+    def get_api_router(self) -> Any | None:
         """
         Return a FastAPI APIRouter for plugin routes.
 
@@ -150,7 +150,7 @@ class Plugin(ABC):
         """
         return None
 
-    def get_cli_app(self) -> Optional[Any]:
+    def get_cli_app(self) -> Any | None:
         """
         Return a Typer app for plugin CLI commands.
 
@@ -201,14 +201,14 @@ class PluginManager:
 
     ENTRY_POINT_GROUP = "fastband.plugins"
 
-    __slots__ = ('_event_bus', '_discovered', '_loaded', '_active', '_async_lock', '_sync_lock')
+    __slots__ = ("_event_bus", "_discovered", "_loaded", "_active", "_async_lock", "_sync_lock")
 
-    def __init__(self, event_bus: Optional[EventBus] = None):
+    def __init__(self, event_bus: EventBus | None = None):
         self._event_bus = event_bus or get_event_bus()
-        self._discovered: Dict[str, Type[Plugin]] = {}
-        self._loaded: Dict[str, Plugin] = {}
-        self._active: Dict[str, Plugin] = {}
-        self._async_lock: Optional[asyncio.Lock] = None  # Lazy init for async operations
+        self._discovered: dict[str, type[Plugin]] = {}
+        self._loaded: dict[str, Plugin] = {}
+        self._active: dict[str, Plugin] = {}
+        self._async_lock: asyncio.Lock | None = None  # Lazy init for async operations
         self._sync_lock = threading.Lock()  # Thread-safe for discovery
 
     def _get_async_lock(self) -> asyncio.Lock:
@@ -218,23 +218,23 @@ class PluginManager:
         return self._async_lock
 
     @property
-    def loaded(self) -> Dict[str, Plugin]:
+    def loaded(self) -> dict[str, Plugin]:
         """Get all loaded plugins."""
         return self._loaded.copy()
 
     @property
-    def active(self) -> Dict[str, Plugin]:
+    def active(self) -> dict[str, Plugin]:
         """Get all active plugins."""
         return self._active.copy()
 
-    def discover(self) -> List[PluginMetadata]:
+    def discover(self) -> list[PluginMetadata]:
         """
         Discover available plugins via entry points.
 
         Returns:
             List of plugin metadata for all discovered plugins
         """
-        plugins: List[PluginMetadata] = []
+        plugins: list[PluginMetadata] = []
         self._discovered.clear()
 
         try:
@@ -242,7 +242,7 @@ class PluginManager:
             eps = entry_points()
 
             # Handle both old and new API
-            if hasattr(eps, 'select'):
+            if hasattr(eps, "select"):
                 group = eps.select(group=self.ENTRY_POINT_GROUP)
             else:
                 group = eps.get(self.ENTRY_POINT_GROUP, [])
@@ -254,9 +254,7 @@ class PluginManager:
 
                     # Validate it's a Plugin subclass
                     if not (isinstance(plugin_class, type) and issubclass(plugin_class, Plugin)):
-                        logger.warning(
-                            f"Entry point {ep.name} is not a Plugin subclass"
-                        )
+                        logger.warning(f"Entry point {ep.name} is not a Plugin subclass")
                         continue
 
                     # Store for later loading
@@ -279,7 +277,7 @@ class PluginManager:
         logger.info(f"Discovered {len(plugins)} plugins")
         return plugins
 
-    async def load(self, name: str, config: Optional[Dict[str, Any]] = None) -> bool:
+    async def load(self, name: str, config: dict[str, Any] | None = None) -> bool:
         """
         Load a plugin by name.
 
@@ -392,7 +390,7 @@ class PluginManager:
         for name in list(self._loaded.keys()):
             await self.unload(name)
 
-    def get_all_tools(self) -> List[Any]:
+    def get_all_tools(self) -> list[Any]:
         """
         Collect tools from all active plugins.
 
@@ -405,7 +403,7 @@ class PluginManager:
                 tools.extend(plugin.get_tools())
         return tools
 
-    def get_all_routers(self) -> List[tuple]:
+    def get_all_routers(self) -> list[tuple]:
         """
         Collect API routers from all active plugins.
 
@@ -420,7 +418,7 @@ class PluginManager:
                     routers.append((name, router))
         return routers
 
-    def get_all_cli_apps(self) -> List[tuple]:
+    def get_all_cli_apps(self) -> list[tuple]:
         """
         Collect CLI apps from all active plugins.
 
@@ -435,7 +433,7 @@ class PluginManager:
                     apps.append((name, cli_app))
         return apps
 
-    def get_plugin(self, name: str) -> Optional[Plugin]:
+    def get_plugin(self, name: str) -> Plugin | None:
         """Get a loaded plugin by name."""
         return self._loaded.get(name)
 
@@ -451,7 +449,7 @@ class PluginManager:
         """Check if any plugins have been discovered."""
         return bool(self._discovered)
 
-    def ensure_discovered(self) -> List[PluginMetadata]:
+    def ensure_discovered(self) -> list[PluginMetadata]:
         """Ensure plugins have been discovered, running discovery if needed."""
         if not self._discovered:
             return self.discover()
@@ -464,7 +462,7 @@ class PluginManager:
             plugins.append(metadata)
         return plugins
 
-    def get_plugin_metadata(self, name: str) -> Optional[PluginMetadata]:
+    def get_plugin_metadata(self, name: str) -> PluginMetadata | None:
         """
         Get metadata for a discovered plugin by name.
 
@@ -482,7 +480,7 @@ class PluginManager:
         metadata.name = name
         return metadata
 
-    def get_plugin_instance(self, name: str) -> Optional[Plugin]:
+    def get_plugin_instance(self, name: str) -> Plugin | None:
         """
         Get a fresh instance of a discovered plugin (not loaded into manager).
 
@@ -504,7 +502,7 @@ class PluginManager:
 # Global Instance Management
 # =============================================================================
 
-_plugin_manager: Optional[PluginManager] = None
+_plugin_manager: PluginManager | None = None
 _manager_lock = threading.Lock()  # Thread-safe singleton creation
 
 

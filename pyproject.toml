@@ -134,6 +134,15 @@ ignore = [
     "E501",   # line too long (handled by formatter)
     "B008",   # do not perform function calls in argument defaults
     "C901",   # too complex
+    "B904",   # raise-without-from-inside-except (style preference)
+    "E741",   # ambiguous-variable-name (using l, O, I)
+    "F841",   # unused variable (addressed separately)
+    "F401",   # unused-import (re-exports in __init__.py)
+    "UP035",  # deprecated-import (typing.Dict -> dict)
+    "E402",   # module-import-not-at-top (sometimes needed)
+    "B017",   # assert-raises-exception (testing patterns)
+    "B027",   # empty-method-without-abstract-decorator
+    "B007",   # unused-loop-control-variable
 ]
 
 [tool.mypy]

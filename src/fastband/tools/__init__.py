@@ -23,31 +23,31 @@ Example of lazy registration:
 
 from fastband.tools.base import (
     Tool,
-    ToolDefinition,
-    ToolParameter,
-    ToolMetadata,
     ToolCategory,
+    ToolDefinition,
+    ToolMetadata,
+    ToolParameter,
     ToolResult,
 )
-from fastband.tools.registry import (
-    ToolRegistry,
-    get_registry,
-    LazyToolSpec,  # For type hints
-)
 from fastband.tools.recommender import (
-    ToolRecommender,
-    ToolRecommendation,
     RecommendationResult,
+    ToolRecommendation,
+    ToolRecommender,
     get_recommender,
     recommend_tools,
 )
-
+from fastband.tools.registry import (
+    LazyToolSpec,  # For type hints
+    ToolRegistry,
+    get_registry,
+)
 
 # =============================================================================
 # LAZY LOADING SETUP
 # =============================================================================
 # For better startup performance, we register tool modules lazily.
 # The actual tool classes are only imported when first accessed.
+
 
 def _register_builtin_tools() -> None:
     """
@@ -67,12 +67,7 @@ def _register_builtin_tools() -> None:
         ("git_branch", "GitBranchTool"),
     ]
     for name, class_name in git_tools:
-        registry.register_lazy(
-            name,
-            "fastband.tools.git",
-            class_name,
-            ToolCategory.GIT
-        )
+        registry.register_lazy(name, "fastband.tools.git", class_name, ToolCategory.GIT)
 
     # Ticket tools
     ticket_tools = [
@@ -86,12 +81,7 @@ def _register_builtin_tools() -> None:
         ("add_ticket_comment", "AddTicketCommentTool"),
     ]
     for name, class_name in ticket_tools:
-        registry.register_lazy(
-            name,
-            "fastband.tools.tickets",
-            class_name,
-            ToolCategory.TICKETS
-        )
+        registry.register_lazy(name, "fastband.tools.tickets", class_name, ToolCategory.TICKETS)
 
     # Context/Semantic Search tools
     context_tools = [
@@ -100,12 +90,7 @@ def _register_builtin_tools() -> None:
         ("index_status", "IndexStatusTool"),
     ]
     for name, class_name in context_tools:
-        registry.register_lazy(
-            name,
-            "fastband.tools.context",
-            class_name,
-            ToolCategory.AI
-        )
+        registry.register_lazy(name, "fastband.tools.context", class_name, ToolCategory.AI)
 
     # Agent onboarding tools
     agent_tools = [
@@ -115,12 +100,7 @@ def _register_builtin_tools() -> None:
         ("get_onboarding_status", "GetOnboardingStatusTool"),
     ]
     for name, class_name in agent_tools:
-        registry.register_lazy(
-            name,
-            "fastband.tools.agents",
-            class_name,
-            ToolCategory.CORE
-        )
+        registry.register_lazy(name, "fastband.tools.agents", class_name, ToolCategory.CORE)
 
 
 # Register on import (but don't import tool modules yet)
@@ -136,13 +116,14 @@ _register_builtin_tools()
 # Optional git tools import - available when git module is loaded
 try:
     from fastband.tools.git import (
-        GitStatusTool,
+        GIT_TOOLS,
+        GitBranchTool,
         GitCommitTool,
         GitDiffTool,
         GitLogTool,
-        GitBranchTool,
-        GIT_TOOLS,
+        GitStatusTool,
     )
+
     _git_available = True
 except ImportError:
     _git_available = False
@@ -151,16 +132,17 @@ except ImportError:
 # Ticket tools - always available
 try:
     from fastband.tools.tickets import (
-        ListTicketsTool,
-        GetTicketDetailsTool,
-        CreateTicketTool,
+        TICKET_TOOLS,
+        AddTicketCommentTool,
         ClaimTicketTool,
         CompleteTicketSafelyTool,
-        UpdateTicketTool,
+        CreateTicketTool,
+        GetTicketDetailsTool,
+        ListTicketsTool,
         SearchTicketsTool,
-        AddTicketCommentTool,
-        TICKET_TOOLS,
+        UpdateTicketTool,
     )
+
     _tickets_available = True
 except ImportError:
     _tickets_available = False
@@ -169,12 +151,13 @@ except ImportError:
 # Agent onboarding tools
 try:
     from fastband.tools.agents import (
-        StartOnboardingTool,
+        AGENT_TOOLS,
         AcknowledgeDocumentTool,
         CompleteOnboardingTool,
         GetOnboardingStatusTool,
-        AGENT_TOOLS,
+        StartOnboardingTool,
     )
+
     _agents_available = True
 except ImportError:
     _agents_available = False
@@ -208,32 +191,38 @@ __all__ = [
 
 # Add git tool classes to __all__ if available
 if _git_available:
-    __all__.extend([
-        "GitStatusTool",
-        "GitCommitTool",
-        "GitDiffTool",
-        "GitLogTool",
-        "GitBranchTool",
-    ])
+    __all__.extend(
+        [
+            "GitStatusTool",
+            "GitCommitTool",
+            "GitDiffTool",
+            "GitLogTool",
+            "GitBranchTool",
+        ]
+    )
 
 # Add ticket tool classes to __all__ if available
 if _tickets_available:
-    __all__.extend([
-        "ListTicketsTool",
-        "GetTicketDetailsTool",
-        "CreateTicketTool",
-        "ClaimTicketTool",
-        "CompleteTicketSafelyTool",
-        "UpdateTicketTool",
-        "SearchTicketsTool",
-        "AddTicketCommentTool",
-    ])
+    __all__.extend(
+        [
+            "ListTicketsTool",
+            "GetTicketDetailsTool",
+            "CreateTicketTool",
+            "ClaimTicketTool",
+            "CompleteTicketSafelyTool",
+            "UpdateTicketTool",
+            "SearchTicketsTool",
+            "AddTicketCommentTool",
+        ]
+    )
 
 # Add agent tool classes to __all__ if available
 if _agents_available:
-    __all__.extend([
-        "StartOnboardingTool",
-        "AcknowledgeDocumentTool",
-        "CompleteOnboardingTool",
-        "GetOnboardingStatusTool",
-    ])
+    __all__.extend(
+        [
+            "StartOnboardingTool",
+            "AcknowledgeDocumentTool",
+            "CompleteOnboardingTool",
+            "GetOnboardingStatusTool",
+        ]
+    )

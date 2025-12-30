@@ -1,20 +1,19 @@
 """Tests for the GitHub Integration wizard step."""
 
-import pytest
-import subprocess
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+import pytest
+
+from fastband.core.config import FastbandConfig, GitHubConfig
+from fastband.wizard.base import StepStatus, WizardContext
 from fastband.wizard.steps.github import (
     GitHubIntegrationStep,
-    is_git_repository,
-    is_gh_installed,
     is_gh_authenticated,
+    is_gh_installed,
+    is_git_repository,
 )
-from fastband.wizard.base import WizardContext, StepResult, StepStatus
-from fastband.core.config import FastbandConfig, GitHubConfig
-
 
 # =============================================================================
 # TEST FIXTURES
@@ -298,8 +297,12 @@ class TestGitHubStepInteractive:
             with patch("fastband.wizard.steps.github.is_gh_installed", return_value=True):
                 with patch("fastband.wizard.steps.github.is_gh_authenticated", return_value=True):
                     with patch.object(github_step, "confirm", return_value=True):
-                        with patch.object(github_step, "_select_automation_level", return_value="hybrid"):
-                            with patch.object(github_step, "_get_default_branch", return_value="main"):
+                        with patch.object(
+                            github_step, "_select_automation_level", return_value="hybrid"
+                        ):
+                            with patch.object(
+                                github_step, "_get_default_branch", return_value="main"
+                            ):
                                 result = await github_step.execute(wizard_context)
 
         assert result.success is True
@@ -479,8 +482,12 @@ class TestContextConfiguration:
             with patch("fastband.wizard.steps.github.is_gh_installed", return_value=True):
                 with patch("fastband.wizard.steps.github.is_gh_authenticated", return_value=True):
                     with patch.object(github_step, "confirm", return_value=True):
-                        with patch.object(github_step, "_select_automation_level", return_value="full"):
-                            with patch.object(github_step, "_get_default_branch", return_value="develop"):
+                        with patch.object(
+                            github_step, "_select_automation_level", return_value="full"
+                        ):
+                            with patch.object(
+                                github_step, "_get_default_branch", return_value="develop"
+                            ):
                                 await github_step.execute(wizard_context)
 
         assert wizard_context.config.github.enabled is True
@@ -494,8 +501,12 @@ class TestContextConfiguration:
             with patch("fastband.wizard.steps.github.is_gh_installed", return_value=True):
                 with patch("fastband.wizard.steps.github.is_gh_authenticated", return_value=True):
                     with patch.object(github_step, "confirm", return_value=True):
-                        with patch.object(github_step, "_select_automation_level", return_value="hybrid"):
-                            with patch.object(github_step, "_get_default_branch", return_value="main"):
+                        with patch.object(
+                            github_step, "_select_automation_level", return_value="hybrid"
+                        ):
+                            with patch.object(
+                                github_step, "_get_default_branch", return_value="main"
+                            ):
                                 await github_step.execute(wizard_context)
 
         assert wizard_context.github_enabled is True

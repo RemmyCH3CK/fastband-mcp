@@ -5,21 +5,21 @@ Combines embedding providers, chunkers, and storage into a cohesive
 semantic code search system.
 """
 
-import asyncio
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, List, Optional, Dict, Any, Type
+from typing import Any
 
 from fastband.embeddings.base import (
-    EmbeddingProvider,
-    EmbeddingConfig,
     CodeChunk,
+    EmbeddingConfig,
+    EmbeddingProvider,
 )
-from fastband.embeddings.chunkers.base import Chunker, ChunkerConfig
+from fastband.embeddings.chunkers.base import Chunker
 from fastband.embeddings.chunkers.semantic import SemanticChunker
-from fastband.embeddings.storage.base import VectorStore, SearchResult, IndexStats
+from fastband.embeddings.storage.base import IndexStats, SearchResult, VectorStore
 from fastband.embeddings.storage.sqlite import SQLiteVectorStore
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ class IndexingProgress:
     total_chunks: int = 0
     embedded_chunks: int = 0
     skipped_files: int = 0
-    errors: List[str] = None
+    errors: list[str] = None
 
     def __post_init__(self):
         if self.errors is None:
@@ -56,9 +56,9 @@ class IndexingResult:
     files_processed: int
     files_skipped: int
     duration_seconds: float
-    errors: List[str]
+    errors: list[str]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "success": self.success,
             "chunks_indexed": self.chunks_indexed,
@@ -95,9 +95,9 @@ class SemanticIndex:
     def __init__(
         self,
         provider: EmbeddingProvider,
-        storage_path: Optional[Path] = None,
-        chunker: Optional[Chunker] = None,
-        store: Optional[VectorStore] = None,
+        storage_path: Path | None = None,
+        chunker: Chunker | None = None,
+        store: VectorStore | None = None,
     ):
         """
         Initialize the semantic index.
@@ -125,7 +125,7 @@ class SemanticIndex:
         self,
         directory: Path,
         incremental: bool = True,
-        progress_callback: Optional[Callable[[object], None]] = None,
+        progress_callback: Callable[[object], None] | None = None,
     ) -> IndexingResult:
         """
         Index all code files in a directory.
@@ -153,7 +153,7 @@ class SemanticIndex:
             progress.total_chunks = len(all_chunks)
 
             # Group chunks by file
-            chunks_by_file: Dict[str, List[CodeChunk]] = {}
+            chunks_by_file: dict[str, list[CodeChunk]] = {}
             for chunk in all_chunks:
                 file_path = chunk.metadata.file_path
                 if file_path not in chunks_by_file:
@@ -198,19 +198,21 @@ class SemanticIndex:
             store_items = []
 
             for i in range(0, len(chunks_to_index), batch_size):
-                batch = chunks_to_index[i:i + batch_size]
+                batch = chunks_to_index[i : i + batch_size]
                 texts = [chunk.content for chunk in batch]
 
                 try:
                     result = await self.provider.embed(texts)
 
-                    for chunk, embedding in zip(batch, result.embeddings):
-                        store_items.append((
-                            chunk.chunk_id,
-                            embedding,
-                            chunk.content,
-                            chunk.metadata,
-                        ))
+                    for chunk, embedding in zip(batch, result.embeddings, strict=False):
+                        store_items.append(
+                            (
+                                chunk.chunk_id,
+                                embedding,
+                                chunk.content,
+                                chunk.metadata,
+                            )
+                        )
                         progress.embedded_chunks += 1
 
                 except Exception as e:
@@ -312,7 +314,7 @@ class SemanticIndex:
 
             store_items = [
                 (chunk.chunk_id, embedding, chunk.content, chunk.metadata)
-                for chunk, embedding in zip(chunks, result.embeddings)
+                for chunk, embedding in zip(chunks, result.embeddings, strict=False)
             ]
             self.store.store_batch(store_items)
 
@@ -340,9 +342,9 @@ class SemanticIndex:
         self,
         query: str,
         limit: int = 10,
-        file_type: Optional[str] = None,
-        file_path_pattern: Optional[str] = None,
-    ) -> List[SearchResult]:
+        file_type: str | None = None,
+        file_path_pattern: str | None = None,
+    ) -> list[SearchResult]:
         """
         Search for code chunks matching a query.
 
@@ -383,7 +385,7 @@ class SemanticIndex:
 
 def create_index(
     provider_name: str = "openai",
-    storage_path: Optional[Path] = None,
+    storage_path: Path | None = None,
     **provider_kwargs,
 ) -> SemanticIndex:
     """
@@ -402,9 +404,9 @@ def create_index(
         index = create_index("ollama", model="nomic-embed-text")
     """
     from fastband.embeddings.providers import (
-        OpenAIEmbeddings,
         GeminiEmbeddings,
         OllamaEmbeddings,
+        OpenAIEmbeddings,
     )
 
     providers = {
@@ -414,10 +416,7 @@ def create_index(
     }
 
     if provider_name not in providers:
-        raise ValueError(
-            f"Unknown provider: {provider_name}. "
-            f"Supported: {list(providers.keys())}"
-        )
+        raise ValueError(f"Unknown provider: {provider_name}. Supported: {list(providers.keys())}")
 
     config = EmbeddingConfig(**provider_kwargs)
     provider = providers[provider_name](config)

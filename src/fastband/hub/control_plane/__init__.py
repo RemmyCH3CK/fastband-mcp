@@ -9,9 +9,9 @@ Provides the orchestration layer for multi-agent coordination:
 """
 
 from fastband.hub.control_plane.service import (
-    ControlPlaneService,
-    ControlPlaneDashboard,
     AgentActivity,
+    ControlPlaneDashboard,
+    ControlPlaneService,
     DirectiveState,
     TicketSummary,
     get_control_plane_service,

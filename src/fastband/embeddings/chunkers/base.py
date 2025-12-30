@@ -7,7 +7,6 @@ Defines the abstract interface for code chunkers.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional, Set
 
 from fastband.embeddings.base import CodeChunk
 
@@ -15,20 +14,53 @@ from fastband.embeddings.base import CodeChunk
 @dataclass
 class ChunkerConfig:
     """Configuration for chunkers."""
+
     max_chunk_size: int = 2000  # Max tokens per chunk
-    min_chunk_size: int = 50   # Min tokens per chunk
-    overlap: int = 100         # Overlap between chunks
+    min_chunk_size: int = 50  # Min tokens per chunk
+    overlap: int = 100  # Overlap between chunks
     include_imports: bool = True
     include_docstrings: bool = True
-    exclude_patterns: Set[str] = field(default_factory=lambda: {
-        "__pycache__", ".git", ".venv", "node_modules", ".pytest_cache",
-        "*.pyc", "*.pyo", "*.egg-info", "dist", "build",
-    })
-    include_extensions: Set[str] = field(default_factory=lambda: {
-        ".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".go", ".rs",
-        ".cpp", ".c", ".h", ".hpp", ".rb", ".php", ".swift", ".kt",
-        ".md", ".rst", ".txt", ".yaml", ".yml", ".json", ".toml",
-    })
+    exclude_patterns: set[str] = field(
+        default_factory=lambda: {
+            "__pycache__",
+            ".git",
+            ".venv",
+            "node_modules",
+            ".pytest_cache",
+            "*.pyc",
+            "*.pyo",
+            "*.egg-info",
+            "dist",
+            "build",
+        }
+    )
+    include_extensions: set[str] = field(
+        default_factory=lambda: {
+            ".py",
+            ".js",
+            ".ts",
+            ".jsx",
+            ".tsx",
+            ".java",
+            ".go",
+            ".rs",
+            ".cpp",
+            ".c",
+            ".h",
+            ".hpp",
+            ".rb",
+            ".php",
+            ".swift",
+            ".kt",
+            ".md",
+            ".rst",
+            ".txt",
+            ".yaml",
+            ".yml",
+            ".json",
+            ".toml",
+        }
+    )
 
 
 class Chunker(ABC):
@@ -46,11 +78,11 @@ class Chunker(ABC):
                 return [CodeChunk(...), ...]
     """
 
-    def __init__(self, config: Optional[ChunkerConfig] = None):
+    def __init__(self, config: ChunkerConfig | None = None):
         self.config = config or ChunkerConfig()
 
     @abstractmethod
-    def chunk_file(self, path: Path, content: str) -> List[CodeChunk]:
+    def chunk_file(self, path: Path, content: str) -> list[CodeChunk]:
         """
         Split a single file into chunks.
 
@@ -67,7 +99,7 @@ class Chunker(ABC):
         self,
         directory: Path,
         recursive: bool = True,
-    ) -> List[CodeChunk]:
+    ) -> list[CodeChunk]:
         """
         Chunk all files in a directory.
 
@@ -105,9 +137,8 @@ class Chunker(ABC):
             except Exception as e:
                 # Log and skip problematic files
                 import logging
-                logging.getLogger(__name__).warning(
-                    f"Failed to chunk {file_path}: {e}"
-                )
+
+                logging.getLogger(__name__).warning(f"Failed to chunk {file_path}: {e}")
 
         return chunks
 

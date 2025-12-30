@@ -6,13 +6,15 @@ for consistent behavior across the platform.
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Any, List, AsyncIterator
 from enum import Enum
+from typing import Any
 
 
 class Capability(Enum):
     """AI provider capabilities."""
+
     TEXT_COMPLETION = "text_completion"
     CODE_GENERATION = "code_generation"
     VISION = "vision"
@@ -25,25 +27,27 @@ class Capability(Enum):
 @dataclass
 class ProviderConfig:
     """Configuration for an AI provider."""
+
     name: str
-    api_key: Optional[str] = None
-    base_url: Optional[str] = None
-    model: Optional[str] = None
+    api_key: str | None = None
+    base_url: str | None = None
+    model: str | None = None
     max_tokens: int = 4096
     temperature: float = 0.7
     timeout: int = 120
-    extra: Dict[str, Any] = field(default_factory=dict)
+    extra: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class CompletionResponse:
     """Standardized response from any AI provider."""
+
     content: str
     model: str
     provider: str
-    usage: Dict[str, int]
+    usage: dict[str, int]
     finish_reason: str
-    raw_response: Optional[Dict] = None
+    raw_response: dict | None = None
 
 
 class AIProvider(ABC):
@@ -71,47 +75,32 @@ class AIProvider(ABC):
 
     @property
     @abstractmethod
-    def capabilities(self) -> List[Capability]:
+    def capabilities(self) -> list[Capability]:
         """Return list of supported capabilities."""
         pass
 
     @abstractmethod
     async def complete(
-        self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        **kwargs
+        self, prompt: str, system_prompt: str | None = None, **kwargs
     ) -> CompletionResponse:
         """Send a completion request to the AI."""
         pass
 
     @abstractmethod
     async def complete_with_tools(
-        self,
-        prompt: str,
-        tools: List[Dict[str, Any]],
-        system_prompt: Optional[str] = None,
-        **kwargs
+        self, prompt: str, tools: list[dict[str, Any]], system_prompt: str | None = None, **kwargs
     ) -> CompletionResponse:
         """Complete with tool/function calling support."""
         pass
 
     @abstractmethod
     async def stream(
-        self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        **kwargs
+        self, prompt: str, system_prompt: str | None = None, **kwargs
     ) -> AsyncIterator[str]:
         """Stream completion response."""
         pass
 
-    async def analyze_image(
-        self,
-        image_data: bytes,
-        prompt: str,
-        **kwargs
-    ) -> CompletionResponse:
+    async def analyze_image(self, image_data: bytes, prompt: str, **kwargs) -> CompletionResponse:
         """Analyze an image (vision capability)."""
         raise NotImplementedError("Vision not supported by this provider")
 

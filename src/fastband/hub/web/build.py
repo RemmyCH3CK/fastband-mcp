@@ -17,7 +17,6 @@ The static/ directory is included in the Python package via
 pyproject.toml [tool.hatch.build.targets.wheel.force-include].
 """
 
-import os
 import shutil
 import subprocess
 import sys
@@ -83,7 +82,7 @@ def install_dependencies() -> bool:
         )
 
         if result.returncode != 0:
-            print(f"  ERROR: npm install failed")
+            print("  ERROR: npm install failed")
             print(result.stderr)
             return False
 
@@ -112,7 +111,7 @@ def build_dashboard() -> bool:
         )
 
         if result.returncode != 0:
-            print(f"  ERROR: npm run build failed")
+            print("  ERROR: npm run build failed")
             print(result.stderr)
             return False
 
@@ -194,7 +193,7 @@ def build():
     print(f"\nStatic files: {STATIC_DIR}")
     print("\nTo run the dashboard:")
     print("  fastband serve --hub")
-    print(f"  Open http://localhost:8080/")
+    print("  Open http://localhost:8080/")
 
     return True
 

@@ -1,25 +1,25 @@
 """Tests for the code review workflow."""
 
-import pytest
 import tempfile
-from pathlib import Path
 from datetime import datetime, timedelta
+from pathlib import Path
+
+import pytest
 
 from fastband.tickets.models import (
     Ticket,
-    TicketStatus,
     TicketPriority,
+    TicketStatus,
     TicketType,
 )
-from fastband.tickets.storage import JSONTicketStore
 from fastband.tickets.review import (
     ReviewManager,
     ReviewResult,
-    ReviewType,
-    ReviewStatus,
     ReviewStatistics,
+    ReviewStatus,
+    ReviewType,
 )
-
+from fastband.tickets.storage import JSONTicketStore
 
 # =============================================================================
 # FIXTURES
@@ -392,7 +392,9 @@ class TestReviewManagerRequestReview:
 class TestReviewManagerSubmitReview:
     """Tests for ReviewManager.submit_review()."""
 
-    def test_submit_approved_review(self, review_manager, ticket_under_review, approved_review_result):
+    def test_submit_approved_review(
+        self, review_manager, ticket_under_review, approved_review_result
+    ):
         """Test submitting an approved review."""
         result = review_manager.submit_review(
             ticket_id=ticket_under_review.id,
@@ -408,7 +410,9 @@ class TestReviewManagerSubmitReview:
         assert ticket.status == TicketStatus.AWAITING_APPROVAL
         assert "Code_Review_Agent" in ticket.reviewers
 
-    def test_submit_rejected_review(self, review_manager, ticket_under_review, rejected_review_result):
+    def test_submit_rejected_review(
+        self, review_manager, ticket_under_review, rejected_review_result
+    ):
         """Test submitting a rejected review."""
         result = review_manager.submit_review(
             ticket_id=ticket_under_review.id,
@@ -436,7 +440,9 @@ class TestReviewManagerSubmitReview:
         assert result["success"] is False
         assert "not found" in result["error"]
 
-    def test_submit_review_wrong_status(self, review_manager, ticket_in_progress, approved_review_result):
+    def test_submit_review_wrong_status(
+        self, review_manager, ticket_in_progress, approved_review_result
+    ):
         """Test submitting review for ticket not in review."""
         result = review_manager.submit_review(
             ticket_id=ticket_in_progress.id,
@@ -448,7 +454,9 @@ class TestReviewManagerSubmitReview:
         assert result["success"] is False
         assert "UNDER_REVIEW" in result["error"]
 
-    def test_submit_review_creates_comment(self, review_manager, ticket_under_review, approved_review_result):
+    def test_submit_review_creates_comment(
+        self, review_manager, ticket_under_review, approved_review_result
+    ):
         """Test that submitting review creates comment."""
         review_manager.submit_review(
             ticket_id=ticket_under_review.id,
@@ -463,7 +471,9 @@ class TestReviewManagerSubmitReview:
         assert len(review_comments) >= 1
         assert review_comments[-1].review_result == "approved"
 
-    def test_submit_review_creates_history(self, review_manager, ticket_under_review, approved_review_result):
+    def test_submit_review_creates_history(
+        self, review_manager, ticket_under_review, approved_review_result
+    ):
         """Test that submitting review creates history entry."""
         initial_history = len(review_manager.store.get(ticket_under_review.id).history)
 
@@ -629,7 +639,9 @@ class TestReviewManagerGetStatus:
         assert status["overall_status"] == "needs_review"
         assert len(status["approved_reviews"]) == 0
 
-    def test_get_status_after_approval(self, review_manager, ticket_under_review, approved_review_result):
+    def test_get_status_after_approval(
+        self, review_manager, ticket_under_review, approved_review_result
+    ):
         """Test getting status after approval."""
         review_manager.submit_review(
             ticket_id=ticket_under_review.id,
@@ -644,7 +656,9 @@ class TestReviewManagerGetStatus:
         assert status["overall_status"] == "all_approved"
         assert len(status["approved_reviews"]) == 1
 
-    def test_get_status_after_rejection(self, review_manager, ticket_under_review, rejected_review_result):
+    def test_get_status_after_rejection(
+        self, review_manager, ticket_under_review, rejected_review_result
+    ):
         """Test getting status after rejection."""
         review_manager.submit_review(
             ticket_id=ticket_under_review.id,
@@ -710,7 +724,9 @@ class TestReviewManagerGetFeedback:
         assert feedback["review_count"] == 0
         assert len(feedback["issues_found"]) == 0
 
-    def test_get_feedback_with_issues(self, review_manager, ticket_under_review, rejected_review_result):
+    def test_get_feedback_with_issues(
+        self, review_manager, ticket_under_review, rejected_review_result
+    ):
         """Test getting feedback with issues."""
         review_manager.submit_review(
             ticket_id=ticket_under_review.id,
@@ -773,7 +789,9 @@ class TestReviewManagerGetFeedback:
 
         assert feedback["success"] is False
 
-    def test_get_feedback_aggregates_from_multiple(self, review_manager, ticket_under_review, store):
+    def test_get_feedback_aggregates_from_multiple(
+        self, review_manager, ticket_under_review, store
+    ):
         """Test feedback aggregation from multiple reviews."""
         # First review
         result1 = ReviewResult(
@@ -1048,7 +1066,9 @@ class TestReviewManagerPendingReviews:
         assert "code" in pending[0]["missing_reviews"]
         assert "process" in pending[0]["missing_reviews"]
 
-    def test_get_pending_reviews_partially_approved(self, review_manager, ticket_under_review, store):
+    def test_get_pending_reviews_partially_approved(
+        self, review_manager, ticket_under_review, store
+    ):
         """Test pending reviews with some already approved."""
         review_manager.configure_required_reviews(
             ticket_under_review.id,
@@ -1355,13 +1375,9 @@ class TestEdgeCases:
         )
 
         # Filter to include today's reviews
-        stats = review_manager.get_statistics(
-            since=datetime.now() - timedelta(hours=1)
-        )
+        stats = review_manager.get_statistics(since=datetime.now() - timedelta(hours=1))
         assert stats.total_reviews == 1
 
         # Filter to exclude today's reviews
-        stats = review_manager.get_statistics(
-            since=datetime.now() + timedelta(hours=1)
-        )
+        stats = review_manager.get_statistics(since=datetime.now() + timedelta(hours=1))
         assert stats.total_reviews == 0

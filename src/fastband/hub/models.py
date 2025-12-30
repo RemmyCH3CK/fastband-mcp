@@ -20,10 +20,9 @@ def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-from typing import Any, Dict, List, Optional
-from uuid import uuid4
-
 import logging
+from typing import Any
+from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
@@ -165,10 +164,10 @@ class UsageStats:
     messages_this_minute: int = 0
     tokens_used_today: int = 0
     memory_entries: int = 0
-    last_message_at: Optional[datetime] = None
-    reset_at: Optional[datetime] = None
+    last_message_at: datetime | None = None
+    reset_at: datetime | None = None
 
-    def can_send_message(self, limits: TierLimits) -> tuple[bool, Optional[str]]:
+    def can_send_message(self, limits: TierLimits) -> tuple[bool, str | None]:
         """Check if user can send a message.
 
         Returns:
@@ -205,11 +204,11 @@ class SessionConfig:
 
     user_id: str
     tier: SubscriptionTier = SubscriptionTier.FREE
-    project_path: Optional[str] = None
+    project_path: str | None = None
     model: str = "claude-sonnet-4-20250514"
     temperature: float = 0.7
     max_tokens: int = 4096
-    tools_enabled: List[str] = field(default_factory=list)
+    tools_enabled: list[str] = field(default_factory=list)
     memory_enabled: bool = True
 
 
@@ -235,8 +234,8 @@ class HubSession:
     status: SessionStatus = SessionStatus.INITIALIZING
     created_at: datetime = field(default_factory=_utc_now)
     last_activity: datetime = field(default_factory=_utc_now)
-    current_conversation_id: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    current_conversation_id: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def create(cls, config: SessionConfig) -> "HubSession":
@@ -276,10 +275,10 @@ class ToolCall:
 
     tool_id: str
     tool_name: str
-    arguments: Dict[str, Any]
-    result: Optional[Any] = None
-    error: Optional[str] = None
-    duration_ms: Optional[int] = None
+    arguments: dict[str, Any]
+    result: Any | None = None
+    error: str | None = None
+    duration_ms: int | None = None
 
 
 @dataclass(slots=True)
@@ -301,10 +300,10 @@ class ChatMessage:
     role: MessageRole
     content: str
     created_at: datetime = field(default_factory=_utc_now)
-    tool_calls: List[ToolCall] = field(default_factory=list)
-    tool_call_id: Optional[str] = None
+    tool_calls: list[ToolCall] = field(default_factory=list)
+    tool_call_id: str | None = None
     tokens_used: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def user(cls, content: str) -> "ChatMessage":
@@ -319,7 +318,7 @@ class ChatMessage:
     def assistant(
         cls,
         content: str,
-        tool_calls: Optional[List[ToolCall]] = None,
+        tool_calls: list[ToolCall] | None = None,
         tokens_used: int = 0,
     ) -> "ChatMessage":
         """Create an assistant message."""
@@ -350,7 +349,7 @@ class ChatMessage:
             tool_call_id=tool_call_id,
         )
 
-    def to_api_format(self) -> Dict[str, Any]:
+    def to_api_format(self) -> dict[str, Any]:
         """Convert to API message format."""
         msg = {
             "role": self.role.value,
@@ -393,14 +392,14 @@ class Conversation:
     session_id: str
     title: str = "New Conversation"
     status: ConversationStatus = ConversationStatus.ACTIVE
-    messages: List[ChatMessage] = field(default_factory=list)
+    messages: list[ChatMessage] = field(default_factory=list)
     created_at: datetime = field(default_factory=_utc_now)
     updated_at: datetime = field(default_factory=_utc_now)
-    summary: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    summary: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def create(cls, session_id: str, title: Optional[str] = None) -> "Conversation":
+    def create(cls, session_id: str, title: str | None = None) -> "Conversation":
         """Create a new conversation."""
         return cls(
             conversation_id=str(uuid4()),
@@ -413,7 +412,7 @@ class Conversation:
         self.messages.append(message)
         self.updated_at = _utc_now()
 
-    def get_context_messages(self, max_tokens: int = 8000) -> List[ChatMessage]:
+    def get_context_messages(self, max_tokens: int = 8000) -> list[ChatMessage]:
         """Get messages that fit within token budget.
 
         Uses a simple heuristic: ~4 chars per token.
@@ -457,12 +456,12 @@ class MemoryEntry:
     entry_id: str
     user_id: str
     content: str
-    embedding: Optional[List[float]] = None
+    embedding: list[float] | None = None
     source: str = "conversation"
     created_at: datetime = field(default_factory=_utc_now)
-    last_accessed: Optional[datetime] = None
+    last_accessed: datetime | None = None
     access_count: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_message(cls, message: ChatMessage, user_id: str) -> "MemoryEntry":
@@ -490,7 +489,7 @@ class MemoryContext:
         tokens_used: Tokens consumed by context
     """
 
-    entries: List[MemoryEntry]
+    entries: list[MemoryEntry]
     query: str
     total_found: int = 0
     tokens_used: int = 0
@@ -534,11 +533,11 @@ class ProjectInfo:
     name: str
     path: str
     connection_type: str = "local"
-    language: Optional[str] = None
-    framework: Optional[str] = None
+    language: str | None = None
+    framework: str | None = None
     created_at: datetime = field(default_factory=_utc_now)
-    last_analyzed: Optional[datetime] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    last_analyzed: datetime | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -561,13 +560,13 @@ class AnalysisResult:
     analysis_id: str
     project_id: str
     status: AnalysisStatus = AnalysisStatus.PENDING
-    summary: Optional[str] = None
-    recommendations: List[str] = field(default_factory=list)
-    detected_stack: Dict[str, Any] = field(default_factory=dict)
+    summary: str | None = None
+    recommendations: list[str] = field(default_factory=list)
+    detected_stack: dict[str, Any] = field(default_factory=dict)
     file_count: int = 0
     created_at: datetime = field(default_factory=_utc_now)
-    completed_at: Optional[datetime] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    completed_at: datetime | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def create(cls, project_id: str) -> "AnalysisResult":
@@ -581,8 +580,8 @@ class AnalysisResult:
     def complete(
         self,
         summary: str,
-        recommendations: List[str],
-        detected_stack: Dict[str, Any],
+        recommendations: list[str],
+        detected_stack: dict[str, Any],
         file_count: int,
     ) -> None:
         """Mark analysis as completed."""

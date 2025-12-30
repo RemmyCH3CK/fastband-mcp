@@ -1,18 +1,16 @@
 """Tests for the Backup Configuration wizard step."""
 
-import pytest
-from pathlib import Path
 import tempfile
-from unittest.mock import AsyncMock, MagicMock, patch
+from pathlib import Path
 
+import pytest
+
+from fastband.core.config import BackupConfig, FastbandConfig
 from fastband.wizard.base import (
-    WizardContext,
-    StepResult,
     StepStatus,
+    WizardContext,
 )
 from fastband.wizard.steps.backup import BackupConfigurationStep
-from fastband.core.config import FastbandConfig, BackupConfig
-
 
 # =============================================================================
 # TEST FIXTURES
@@ -290,7 +288,9 @@ class TestNonInteractiveMode:
         assert backup_config.change_detection is True
 
     @pytest.mark.asyncio
-    async def test_non_interactive_detects_database(self, backup_step, non_interactive_context, temp_dir):
+    async def test_non_interactive_detects_database(
+        self, backup_step, non_interactive_context, temp_dir
+    ):
         """Test non-interactive mode detects database type."""
         # Create a sqlite file
         db_file = temp_dir / "data.db"
@@ -302,7 +302,9 @@ class TestNonInteractiveMode:
         assert non_interactive_context.get("detected_db_type") == "sqlite"
 
     @pytest.mark.asyncio
-    async def test_non_interactive_sets_backup_path(self, backup_step, non_interactive_context, temp_dir):
+    async def test_non_interactive_sets_backup_path(
+        self, backup_step, non_interactive_context, temp_dir
+    ):
         """Test non-interactive mode sets backup path in context."""
         await backup_step.execute(non_interactive_context)
 
@@ -311,7 +313,9 @@ class TestNonInteractiveMode:
         assert ".fastband/backups" in backup_path
 
     @pytest.mark.asyncio
-    async def test_non_interactive_returns_success_message(self, backup_step, non_interactive_context):
+    async def test_non_interactive_returns_success_message(
+        self, backup_step, non_interactive_context
+    ):
         """Test non-interactive mode returns success message."""
         result = await backup_step.execute(non_interactive_context)
 

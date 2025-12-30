@@ -14,23 +14,23 @@ Tools:
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastband.tools.base import (
-    Tool,
-    ToolDefinition,
-    ToolMetadata,
-    ToolParameter,
-    ToolCategory,
-    ToolResult,
-)
 from fastband.agents.onboarding import (
     AgentOnboarding,
     get_onboarding,
 )
-
+from fastband.tools.base import (
+    Tool,
+    ToolCategory,
+    ToolDefinition,
+    ToolMetadata,
+    ToolParameter,
+    ToolResult,
+)
 
 # =============================================================================
 # START ONBOARDING TOOL
 # =============================================================================
+
 
 class StartOnboardingTool(Tool):
     """
@@ -40,9 +40,9 @@ class StartOnboardingTool(Tool):
     It returns a list of required documents that must be read and acknowledged.
     """
 
-    def __init__(self, project_path: Optional[Path] = None):
+    def __init__(self, project_path: Path | None = None):
         self._project_path = project_path
-        self._onboarding: Optional[AgentOnboarding] = None
+        self._onboarding: AgentOnboarding | None = None
 
     @property
     def onboarding(self) -> AgentOnboarding:
@@ -79,7 +79,7 @@ class StartOnboardingTool(Tool):
     async def execute(
         self,
         agent_name: str,
-        context: Optional[str] = None,
+        context: str | None = None,
         **kwargs,
     ) -> ToolResult:
         """Start onboarding session."""
@@ -108,6 +108,7 @@ class StartOnboardingTool(Tool):
 # ACKNOWLEDGE DOCUMENT TOOL
 # =============================================================================
 
+
 class AcknowledgeDocumentTool(Tool):
     """
     Acknowledge that a required document has been read.
@@ -116,9 +117,9 @@ class AcknowledgeDocumentTool(Tool):
     The agent must acknowledge ALL required documents before completing onboarding.
     """
 
-    def __init__(self, project_path: Optional[Path] = None):
+    def __init__(self, project_path: Path | None = None):
         self._project_path = project_path
-        self._onboarding: Optional[AgentOnboarding] = None
+        self._onboarding: AgentOnboarding | None = None
 
     @property
     def onboarding(self) -> AgentOnboarding:
@@ -161,7 +162,7 @@ class AcknowledgeDocumentTool(Tool):
         self,
         session_id: str,
         doc_path: str,
-        summary: Optional[str] = None,
+        summary: str | None = None,
         **kwargs,
     ) -> ToolResult:
         """Acknowledge document read."""
@@ -197,6 +198,7 @@ class AcknowledgeDocumentTool(Tool):
 # COMPLETE ONBOARDING TOOL
 # =============================================================================
 
+
 class CompleteOnboardingTool(Tool):
     """
     Complete the onboarding process.
@@ -205,9 +207,9 @@ class CompleteOnboardingTool(Tool):
     After completion, the agent can perform work on the project.
     """
 
-    def __init__(self, project_path: Optional[Path] = None):
+    def __init__(self, project_path: Path | None = None):
         self._project_path = project_path
-        self._onboarding: Optional[AgentOnboarding] = None
+        self._onboarding: AgentOnboarding | None = None
 
     @property
     def onboarding(self) -> AgentOnboarding:
@@ -251,7 +253,7 @@ class CompleteOnboardingTool(Tool):
         self,
         session_id: str,
         codebase_examined: bool = False,
-        platform_understanding: Optional[str] = None,
+        platform_understanding: str | None = None,
         **kwargs,
     ) -> ToolResult:
         """Complete onboarding."""
@@ -282,6 +284,7 @@ class CompleteOnboardingTool(Tool):
 # GET ONBOARDING STATUS TOOL
 # =============================================================================
 
+
 class GetOnboardingStatusTool(Tool):
     """
     Get onboarding status for an agent.
@@ -289,9 +292,9 @@ class GetOnboardingStatusTool(Tool):
     Check if onboarding is complete or what documents still need to be read.
     """
 
-    def __init__(self, project_path: Optional[Path] = None):
+    def __init__(self, project_path: Path | None = None):
         self._project_path = project_path
-        self._onboarding: Optional[AgentOnboarding] = None
+        self._onboarding: AgentOnboarding | None = None
 
     @property
     def onboarding(self) -> AgentOnboarding:

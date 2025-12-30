@@ -10,10 +10,9 @@ Configures backup settings for the Fastband MCP server including:
 """
 
 from pathlib import Path
-from typing import Optional, Dict, Any, List
 
-from fastband.wizard.base import WizardStep, WizardContext, StepResult
 from fastband.core.config import BackupConfig
+from fastband.wizard.base import StepResult, WizardContext, WizardStep
 
 
 class BackupConfigurationStep(WizardStep):
@@ -138,7 +137,7 @@ class BackupConfigurationStep(WizardStep):
         """
         return project_path / ".fastband" / "backups"
 
-    def format_frequency_options(self) -> List[Dict[str, str]]:
+    def format_frequency_options(self) -> list[dict[str, str]]:
         """Get formatted frequency options for selection."""
         return [
             {
@@ -158,7 +157,7 @@ class BackupConfigurationStep(WizardStep):
             },
         ]
 
-    def format_retention_options(self) -> List[Dict[str, str]]:
+    def format_retention_options(self) -> list[dict[str, str]]:
         """Get formatted retention options for selection."""
         return [
             {

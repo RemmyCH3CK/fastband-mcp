@@ -21,27 +21,26 @@ Usage:
     )
 """
 
-import asyncio
 import json
 import logging
-import os
 import platform
 import shutil
 import subprocess
 import threading
+import urllib.error
+import urllib.request
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
-import urllib.request
-import urllib.error
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class AlertLevel(Enum):
     """Alert severity levels."""
+
     INFO = "info"
     WARNING = "warning"
     ERROR = "error"
@@ -71,17 +70,18 @@ class AlertLevel(Enum):
 @dataclass
 class Alert:
     """Represents a backup alert."""
+
     id: str
     level: AlertLevel
     title: str
     message: str
     timestamp: datetime = field(default_factory=datetime.now)
-    error: Optional[str] = None
-    context: Dict[str, Any] = field(default_factory=dict)
+    error: str | None = None
+    context: dict[str, Any] = field(default_factory=dict)
     acknowledged: bool = False
-    sent_to: List[str] = field(default_factory=list)
+    sent_to: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -96,7 +96,7 @@ class Alert:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Alert":
+    def from_dict(cls, data: dict[str, Any]) -> "Alert":
         """Create from dictionary."""
         return cls(
             id=data["id"],
@@ -127,25 +127,26 @@ class Alert:
 @dataclass
 class AlertConfig:
     """Configuration for alert channels."""
+
     # File alerts (always enabled)
-    alert_log_path: Optional[Path] = None
+    alert_log_path: Path | None = None
 
     # System notifications
     system_notifications: bool = True
 
     # Webhook notifications
-    slack_webhook_url: Optional[str] = None
-    discord_webhook_url: Optional[str] = None
-    custom_webhook_url: Optional[str] = None
+    slack_webhook_url: str | None = None
+    discord_webhook_url: str | None = None
+    custom_webhook_url: str | None = None
 
     # Email notifications
     email_enabled: bool = False
-    email_to: Optional[str] = None
-    email_from: Optional[str] = None
-    smtp_host: Optional[str] = None
+    email_to: str | None = None
+    email_from: str | None = None
+    smtp_host: str | None = None
     smtp_port: int = 587
-    smtp_user: Optional[str] = None
-    smtp_password: Optional[str] = None
+    smtp_user: str | None = None
+    smtp_password: str | None = None
 
     # Alert thresholds
     min_level: AlertLevel = AlertLevel.WARNING  # Only alert at this level or higher
@@ -263,12 +264,16 @@ class SystemNotificationChannel(AlertChannel):
                 AlertLevel.CRITICAL: "critical",
             }[alert.level]
 
-            subprocess.run([
-                "notify-send",
-                "-u", urgency,
-                f"Fastband Backup {alert.level.emoji}",
-                f"{alert.title}\n{alert.message}",
-            ], capture_output=True)
+            subprocess.run(
+                [
+                    "notify-send",
+                    "-u",
+                    urgency,
+                    f"Fastband Backup {alert.level.emoji}",
+                    f"{alert.title}\n{alert.message}",
+                ],
+                capture_output=True,
+            )
             return True
         return False
 
@@ -285,24 +290,32 @@ class SlackChannel(AlertChannel):
         """Send alert to Slack."""
         try:
             payload = {
-                "attachments": [{
-                    "color": alert.level.color,
-                    "title": f"{alert.level.emoji} {alert.title}",
-                    "text": alert.message,
-                    "fields": [
-                        {"title": "Level", "value": alert.level.value.upper(), "short": True},
-                        {"title": "Time", "value": alert.timestamp.strftime("%Y-%m-%d %H:%M:%S"), "short": True},
-                    ],
-                    "footer": "Fastband Backup System",
-                }]
+                "attachments": [
+                    {
+                        "color": alert.level.color,
+                        "title": f"{alert.level.emoji} {alert.title}",
+                        "text": alert.message,
+                        "fields": [
+                            {"title": "Level", "value": alert.level.value.upper(), "short": True},
+                            {
+                                "title": "Time",
+                                "value": alert.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                                "short": True,
+                            },
+                        ],
+                        "footer": "Fastband Backup System",
+                    }
+                ]
             }
 
             if alert.error:
-                payload["attachments"][0]["fields"].append({
-                    "title": "Error",
-                    "value": f"```{alert.error}```",
-                    "short": False,
-                })
+                payload["attachments"][0]["fields"].append(
+                    {
+                        "title": "Error",
+                        "value": f"```{alert.error}```",
+                        "short": False,
+                    }
+                )
 
             data = json.dumps(payload).encode("utf-8")
             req = urllib.request.Request(
@@ -332,24 +345,32 @@ class DiscordChannel(AlertChannel):
             color_int = int(alert.level.color.lstrip("#"), 16)
 
             payload = {
-                "embeds": [{
-                    "title": f"{alert.level.emoji} {alert.title}",
-                    "description": alert.message,
-                    "color": color_int,
-                    "fields": [
-                        {"name": "Level", "value": alert.level.value.upper(), "inline": True},
-                        {"name": "Time", "value": alert.timestamp.strftime("%Y-%m-%d %H:%M:%S"), "inline": True},
-                    ],
-                    "footer": {"text": "Fastband Backup System"},
-                }]
+                "embeds": [
+                    {
+                        "title": f"{alert.level.emoji} {alert.title}",
+                        "description": alert.message,
+                        "color": color_int,
+                        "fields": [
+                            {"name": "Level", "value": alert.level.value.upper(), "inline": True},
+                            {
+                                "name": "Time",
+                                "value": alert.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                                "inline": True,
+                            },
+                        ],
+                        "footer": {"text": "Fastband Backup System"},
+                    }
+                ]
             }
 
             if alert.error:
-                payload["embeds"][0]["fields"].append({
-                    "name": "Error",
-                    "value": f"```{alert.error[:1000]}```",
-                    "inline": False,
-                })
+                payload["embeds"][0]["fields"].append(
+                    {
+                        "name": "Error",
+                        "value": f"```{alert.error[:1000]}```",
+                        "inline": False,
+                    }
+                )
 
             data = json.dumps(payload).encode("utf-8")
             req = urllib.request.Request(
@@ -404,8 +425,8 @@ class AlertManager:
 
     def __init__(
         self,
-        project_path: Optional[Path] = None,
-        config: Optional[AlertConfig] = None,
+        project_path: Path | None = None,
+        config: AlertConfig | None = None,
     ):
         self.project_path = Path(project_path or Path.cwd()).resolve()
         self.fastband_dir = self.project_path / ".fastband"
@@ -416,16 +437,16 @@ class AlertManager:
             self.config.alert_log_path = self.fastband_dir / "alerts.json"
 
         # Rate limiting
-        self._alert_times: Dict[str, datetime] = {}
-        self._alert_counts: Dict[str, int] = {}
+        self._alert_times: dict[str, datetime] = {}
+        self._alert_counts: dict[str, int] = {}
         self._lock = threading.Lock()
 
         # Initialize channels
-        self._channels: List[AlertChannel] = self._init_channels()
+        self._channels: list[AlertChannel] = self._init_channels()
 
-    def _init_channels(self) -> List[AlertChannel]:
+    def _init_channels(self) -> list[AlertChannel]:
         """Initialize alert channels based on config."""
-        channels: List[AlertChannel] = []
+        channels: list[AlertChannel] = []
 
         # Always add logging
         channels.append(LogChannel())
@@ -487,10 +508,10 @@ class AlertManager:
         level: AlertLevel,
         title: str,
         message: str,
-        error: Optional[Exception] = None,
-        context: Optional[Dict[str, Any]] = None,
+        error: Exception | None = None,
+        context: dict[str, Any] | None = None,
         force: bool = False,
-    ) -> Optional[Alert]:
+    ) -> Alert | None:
         """
         Send an alert through all configured channels.
 
@@ -538,9 +559,9 @@ class AlertManager:
         self,
         title: str,
         message: str,
-        error: Optional[Exception] = None,
-        context: Optional[Dict[str, Any]] = None,
-    ) -> Optional[Alert]:
+        error: Exception | None = None,
+        context: dict[str, Any] | None = None,
+    ) -> Alert | None:
         """
         Send a CRITICAL (fire alarm) level alert.
 
@@ -555,7 +576,7 @@ class AlertManager:
             force=True,  # Always send critical alerts
         )
 
-    def get_recent_alerts(self, limit: int = 20) -> List[Alert]:
+    def get_recent_alerts(self, limit: int = 20) -> list[Alert]:
         """Get recent alerts from the log file."""
         try:
             if not self.config.alert_log_path.exists():
@@ -598,12 +619,12 @@ class AlertManager:
 # GLOBAL INSTANCE AND CONVENIENCE FUNCTIONS
 # =============================================================================
 
-_alert_manager: Optional[AlertManager] = None
+_alert_manager: AlertManager | None = None
 
 
 def get_alert_manager(
-    project_path: Optional[Path] = None,
-    config: Optional[AlertConfig] = None,
+    project_path: Path | None = None,
+    config: AlertConfig | None = None,
 ) -> AlertManager:
     """Get the global AlertManager instance."""
     global _alert_manager
@@ -618,10 +639,10 @@ def send_backup_alert(
     level: AlertLevel,
     title: str,
     message: str,
-    error: Optional[Exception] = None,
-    context: Optional[Dict[str, Any]] = None,
-    project_path: Optional[Path] = None,
-) -> Optional[Alert]:
+    error: Exception | None = None,
+    context: dict[str, Any] | None = None,
+    project_path: Path | None = None,
+) -> Alert | None:
     """
     Send a backup alert (convenience function).
 
@@ -667,10 +688,10 @@ def send_backup_alert(
 
 def send_backup_failure_alert(
     message: str,
-    error: Optional[Exception] = None,
-    context: Optional[Dict[str, Any]] = None,
-    project_path: Optional[Path] = None,
-) -> Optional[Alert]:
+    error: Exception | None = None,
+    context: dict[str, Any] | None = None,
+    project_path: Path | None = None,
+) -> Alert | None:
     """
     Send a CRITICAL backup failure alert (fire alarm).
 

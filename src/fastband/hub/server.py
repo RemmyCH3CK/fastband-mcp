@@ -19,9 +19,8 @@ import asyncio
 import logging
 import os
 from pathlib import Path
-from typing import Optional
 
-from fastband.core.events import get_event_bus, HubEventType
+from fastband.core.events import HubEventType, get_event_bus
 from fastband.core.plugins import get_plugin_manager
 
 logger = logging.getLogger(__name__)
@@ -31,7 +30,7 @@ STATIC_DIR = Path(__file__).parent / "static"
 WEB_DIR = Path(__file__).parent / "web"
 
 
-def get_static_directory() -> Optional[Path]:
+def get_static_directory() -> Path | None:
     """
     Get the static files directory for the React dashboard.
 
@@ -64,8 +63,8 @@ def mount_dashboard(app) -> bool:
     Returns:
         True if dashboard was mounted successfully
     """
-    from fastapi.staticfiles import StaticFiles
     from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
 
     static_dir = get_static_directory()
 
@@ -86,8 +85,10 @@ def mount_dashboard(app) -> bool:
     # Mount other static files (favicon, etc.)
     def create_static_handler(file_path: Path):
         """Create handler with captured file path (avoids closure bug)."""
+
         async def handler():
             return FileResponse(file_path)
+
         return handler
 
     for file_name in ["favicon.ico", "favicon.svg", "manifest.json"]:
@@ -114,10 +115,8 @@ def mount_dashboard(app) -> bool:
         # Don't serve index for API routes (they should 404 properly)
         if full_path.startswith("api/"):
             from fastapi.responses import JSONResponse
-            return JSONResponse(
-                status_code=404,
-                content={"error": "Not found", "path": full_path}
-            )
+
+            return JSONResponse(status_code=404, content={"error": "Not found", "path": full_path})
 
         # SECURITY: Validate path doesn't escape static_dir (path traversal protection)
         try:
@@ -144,7 +143,7 @@ def mount_dashboard(app) -> bool:
 
 def create_server_app(
     with_dashboard: bool = True,
-    cors_origins: Optional[list[str]] = None,
+    cors_origins: list[str] | None = None,
 ):
     """
     Create a complete Fastband server application.
@@ -288,11 +287,13 @@ def main():
     port = int(os.getenv("FASTBAND_PORT", "8080"))
     no_dashboard = os.getenv("FASTBAND_NO_DASHBOARD", "").lower() in ("1", "true")
 
-    asyncio.run(run_server(
-        host=host,
-        port=port,
-        with_dashboard=not no_dashboard,
-    ))
+    asyncio.run(
+        run_server(
+            host=host,
+            port=port,
+            with_dashboard=not no_dashboard,
+        )
+    )
 
 
 if __name__ == "__main__":
