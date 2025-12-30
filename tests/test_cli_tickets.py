@@ -1,6 +1,7 @@
 """Tests for Fastband CLI tickets subcommand."""
 
 import json
+import re
 import tempfile
 from pathlib import Path
 
@@ -18,6 +19,14 @@ from fastband.tickets import (
 )
 
 runner = CliRunner()
+
+# Regex to strip ANSI escape codes from output
+ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def strip_ansi(text: str) -> str:
+    """Strip ANSI escape codes from text."""
+    return ANSI_ESCAPE.sub("", text)
 
 
 # =============================================================================
@@ -125,70 +134,78 @@ class TestTicketsHelp:
         """Test tickets command help."""
         result = runner.invoke(app, ["tickets", "--help"])
         assert result.exit_code == 0
-        assert "list" in result.stdout
-        assert "create" in result.stdout
-        assert "show" in result.stdout
-        assert "claim" in result.stdout
-        assert "complete" in result.stdout
-        assert "search" in result.stdout
-        assert "update" in result.stdout
+        output = strip_ansi(result.stdout)
+        assert "list" in output
+        assert "create" in output
+        assert "show" in output
+        assert "claim" in output
+        assert "complete" in output
+        assert "search" in output
+        assert "update" in output
 
     def test_tickets_list_help(self):
         """Test tickets list command help."""
         result = runner.invoke(app, ["tickets", "list", "--help"])
         assert result.exit_code == 0
-        assert "--status" in result.stdout
-        assert "--priority" in result.stdout
-        assert "--assigned-to" in result.stdout
-        assert "--json" in result.stdout
+        output = strip_ansi(result.stdout)
+        assert "--status" in output
+        assert "--priority" in output
+        assert "--assigned-to" in output
+        assert "--json" in output
 
     def test_tickets_create_help(self):
         """Test tickets create command help."""
         result = runner.invoke(app, ["tickets", "create", "--help"])
         assert result.exit_code == 0
-        assert "--title" in result.stdout
-        assert "--description" in result.stdout
-        assert "--type" in result.stdout
-        assert "--priority" in result.stdout
-        assert "--interactive" in result.stdout
+        output = strip_ansi(result.stdout)
+        assert "--title" in output
+        assert "--description" in output
+        assert "--type" in output
+        assert "--priority" in output
+        assert "--interactive" in output
 
     def test_tickets_show_help(self):
         """Test tickets show command help."""
         result = runner.invoke(app, ["tickets", "show", "--help"])
         assert result.exit_code == 0
-        assert "TICKET_ID" in result.stdout
-        assert "--json" in result.stdout
+        output = strip_ansi(result.stdout)
+        assert "TICKET_ID" in output
+        assert "--json" in output
 
     def test_tickets_claim_help(self):
         """Test tickets claim command help."""
         result = runner.invoke(app, ["tickets", "claim", "--help"])
         assert result.exit_code == 0
-        assert "TICKET_ID" in result.stdout
-        assert "--agent" in result.stdout
+        output = strip_ansi(result.stdout)
+        assert "TICKET_ID" in output
+        assert "--agent" in output
 
     def test_tickets_complete_help(self):
         """Test tickets complete command help."""
         result = runner.invoke(app, ["tickets", "complete", "--help"])
         assert result.exit_code == 0
-        assert "--problem" in result.stdout
-        assert "--solution" in result.stdout
-        assert "--files" in result.stdout
+        output = strip_ansi(result.stdout)
+        assert "--problem" in output
+        assert "--solution" in output
+        assert "--files" in output
 
     def test_tickets_search_help(self):
         """Test tickets search command help."""
         result = runner.invoke(app, ["tickets", "search", "--help"])
         assert result.exit_code == 0
-        assert "QUERY" in result.stdout
-        assert "--fields" in result.stdout
+        output = strip_ansi(result.stdout)
+        assert "QUERY" in output
+        assert "--fields" in output
 
     def test_tickets_update_help(self):
         """Test tickets update command help."""
         result = runner.invoke(app, ["tickets", "update", "--help"])
         assert result.exit_code == 0
-        assert "--title" in result.stdout
-        assert "--status" in result.stdout
-        assert "--priority" in result.stdout
-        assert "--assigned-to" in result.stdout
+        output = strip_ansi(result.stdout)
+        assert "--title" in output
+        assert "--status" in output
+        assert "--priority" in output
+        assert "--assigned-to" in output
 
 
 # =============================================================================
