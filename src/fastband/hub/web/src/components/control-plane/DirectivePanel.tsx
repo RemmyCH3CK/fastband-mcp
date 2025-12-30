@@ -26,7 +26,6 @@ function DirectiveCard({
   affectedTickets: string[]
 }) {
   const isHold = type === 'hold'
-  const _color = isHold ? 'warning' : 'success'  // Reserved for future theming
 
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp)
