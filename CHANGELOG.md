@@ -7,6 +7,27 @@ and this project adheres to a hybrid versioning scheme: `vMAJOR.YYYY.MM.PATCH[-p
 
 ## [Unreleased]
 
+## [1.2025.12.2] - 2025-12-30
+
+### Added
+- **Vision Analysis Tool** - `analyze_screenshot_with_vision` for Claude Vision API integration
+  - 5 analysis modes: general, ui_review, bug_detection, accessibility, verification
+  - Capture from URL or analyze existing base64 images
+  - 19 comprehensive tests
+
+### Fixed
+- **TypeScript strict mode** - Fixed unused variable error in DirectivePanel.tsx
+- **CLI help tests** - Added ANSI code stripping for reliable test assertions
+- **Codecov CI warning** - Updated deprecated `file` parameter to `files`
+
+### Changed
+- **Code quality** - Auto-fixed 1871 lint issues with ruff
+- **Formatting** - Standardized 97 files with ruff format
+- **Dependencies** - Added numpy and flask to dev dependencies
+
+### Dependencies
+- Bumped GitHub Actions: checkout v6, setup-python v6, setup-node v6, upload-artifact v6, download-artifact v7, codecov-action v5
+
 ## [1.2025.12.1] - 2025-12-30
 
 ### Control Plane Dashboard (New!)
