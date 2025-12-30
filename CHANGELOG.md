@@ -7,6 +7,12 @@ and this project adheres to a hybrid versioning scheme: `vMAJOR.YYYY.MM.PATCH[-p
 
 ## [Unreleased]
 
+## [1.2025.12.4] - 2025-12-30
+
+### Fixed
+- **Build artifacts** - Exclude macOS extended attribute files (`._*`) from wheel
+- **PyPI publishing** - Fixed duplicate filename error in ZIP archive
+
 ## [1.2025.12.3] - 2025-12-30
 
 ### Fixed

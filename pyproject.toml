@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fastband-mcp"
-version = "1.2025.12.3"
+version = "1.2025.12.4"
 description = "Universal AI-powered development platform - AI-agnostic MCP server with adaptive tools, ticket management, and multi-agent coordination"
 readme = "README.md"
 license = "MIT"
@@ -111,6 +111,13 @@ Issues = "https://github.com/RemmyCH3CK/fastband-mcp/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/fastband"]
+# Exclude macOS extended attribute files and other problematic files
+exclude = [
+    "**/._*",
+    "**/.DS_Store",
+    "**/__pycache__",
+    "**/*.pyc",
+]
 
 # Include built React dashboard static files in the package
 # The hub/static/ directory is created by `fastband build-dashboard`
