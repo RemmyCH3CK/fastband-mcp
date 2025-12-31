@@ -849,10 +849,9 @@ class TestWebSocketEndpointIntegration:
         """Create a fresh FastAPI app for testing."""
         from fastapi import FastAPI
 
-        from fastband.hub.control_plane.routes import router as control_plane_router
-
         # Reset global websocket manager for clean tests
         import fastband.hub.websockets.manager as ws_module
+        from fastband.hub.control_plane.routes import router as control_plane_router
 
         ws_module._websocket_manager = None
 
@@ -945,10 +944,9 @@ class TestCORSConfiguration:
 
     def test_cors_includes_hub_ports(self):
         """Test CORS configuration includes Hub ports."""
-        from fastband.hub.api.app import create_app
-
         # Reset global app
         import fastband.hub.api.app as app_module
+        from fastband.hub.api.app import create_app
 
         app_module._app = None
 
@@ -970,9 +968,8 @@ class TestCORSConfiguration:
 
     def test_cors_includes_dev_ports(self):
         """Test CORS configuration includes development ports."""
-        from fastband.hub.api.app import create_app
-
         import fastband.hub.api.app as app_module
+        from fastband.hub.api.app import create_app
 
         app_module._app = None
 
