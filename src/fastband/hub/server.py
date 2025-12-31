@@ -313,18 +313,11 @@ async def run_server(
         else:
             logger.warning("Dashboard not available (static files not built)")
 
-    # Configure uvicorn with custom logging to avoid Python 3.14 stream issues
-    # When running in background/daemon mode, stdout/stderr may be closed
-    # causing "I/O operation on closed file" errors in logging
-    import sys
+    # Configure safe logging for Python 3.14+ compatibility
+    # This replaces StreamHandlers with SafeStreamHandlers that catch I/O errors
+    from fastband.core.logging import configure_safe_logging, get_uvicorn_log_config
 
-    # Check if stdout is still valid
-    access_log_enabled = True
-    try:
-        if sys.stdout.closed or sys.stderr.closed:
-            access_log_enabled = False
-    except (ValueError, AttributeError):
-        access_log_enabled = False
+    configure_safe_logging()
 
     config = uvicorn.Config(
         app,
@@ -332,7 +325,7 @@ async def run_server(
         port=actual_port,
         log_level=log_level,
         reload=reload,
-        access_log=access_log_enabled,
+        log_config=get_uvicorn_log_config(),
     )
 
     server = uvicorn.Server(config)

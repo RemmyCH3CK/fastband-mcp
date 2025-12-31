@@ -187,6 +187,36 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(log_data)
 
 
+class SafeStreamHandler(logging.StreamHandler):
+    """
+    StreamHandler that safely handles I/O errors on closed streams.
+
+    Python 3.14+ can close streams during async operations, causing
+    ValueError: I/O operation on closed file. This handler catches
+    those errors silently to prevent crashes.
+    """
+
+    def emit(self, record: logging.LogRecord) -> None:
+        """Emit a log record, safely handling closed streams."""
+        try:
+            # Check if stream is closed before attempting write
+            if self.stream is None or getattr(self.stream, 'closed', False):
+                return
+            super().emit(record)
+        except (ValueError, OSError, AttributeError):
+            # Stream closed or unavailable - ignore silently
+            pass
+
+    def flush(self) -> None:
+        """Flush the stream, safely handling closed streams."""
+        try:
+            if self.stream is None or getattr(self.stream, 'closed', False):
+                return
+            super().flush()
+        except (ValueError, OSError, AttributeError):
+            pass
+
+
 class ColoredFormatter(logging.Formatter):
     """
     Formatter that adds colors to console output.
@@ -304,7 +334,7 @@ class FastbandLogger:
 
     def _add_console_handler(self) -> None:
         """Add console handler to the logger."""
-        handler = logging.StreamHandler(sys.stdout)
+        handler = SafeStreamHandler(sys.stderr)  # Use stderr and safe handler
         handler.setLevel(self.config.effective_level)
 
         if self.config.json_format:
@@ -515,3 +545,98 @@ def critical(msg: str, *args, **kwargs) -> None:
 def exception(msg: str, *args, **kwargs) -> None:
     """Log an exception with traceback."""
     get_logger().exception(msg, *args, **kwargs)
+
+
+def configure_safe_logging() -> None:
+    """
+    Configure all loggers to use safe stream handlers.
+
+    This patches the root logger and common library loggers (uvicorn, etc.)
+    to use SafeStreamHandler, preventing I/O errors on Python 3.14+.
+
+    Call this BEFORE starting uvicorn or any async operations.
+    """
+    # Patch root logger
+    root_logger = logging.getLogger()
+    _patch_logger_handlers(root_logger)
+
+    # Patch uvicorn loggers
+    for name in ["uvicorn", "uvicorn.access", "uvicorn.error"]:
+        logger = logging.getLogger(name)
+        _patch_logger_handlers(logger)
+
+    # Patch fastapi logger
+    _patch_logger_handlers(logging.getLogger("fastapi"))
+
+
+def _patch_logger_handlers(logger: logging.Logger) -> None:
+    """
+    Replace StreamHandlers with SafeStreamHandlers on a logger.
+
+    Args:
+        logger: The logger to patch.
+    """
+    new_handlers = []
+    for handler in logger.handlers:
+        if isinstance(handler, logging.StreamHandler) and not isinstance(
+            handler, SafeStreamHandler
+        ):
+            # Replace with safe handler
+            safe_handler = SafeStreamHandler(handler.stream)
+            safe_handler.setLevel(handler.level)
+            safe_handler.setFormatter(handler.formatter)
+            new_handlers.append(safe_handler)
+        else:
+            new_handlers.append(handler)
+
+    logger.handlers = new_handlers
+
+
+def get_uvicorn_log_config() -> dict:
+    """
+    Get uvicorn log configuration that uses SafeStreamHandler.
+
+    Returns:
+        Dict configuration for uvicorn.Config(log_config=...)
+    """
+    return {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "default": {
+                "format": "%(levelname)s:\t%(message)s",
+            },
+            "access": {
+                "format": '%(levelname)s:\t%(client_addr)s - "%(request_line)s" %(status_code)s',
+            },
+        },
+        "handlers": {
+            "default": {
+                "()": SafeStreamHandler,
+                "stream": "ext://sys.stderr",
+                "formatter": "default",
+            },
+            "access": {
+                "()": SafeStreamHandler,
+                "stream": "ext://sys.stderr",
+                "formatter": "access",
+            },
+        },
+        "loggers": {
+            "uvicorn": {
+                "handlers": ["default"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "uvicorn.error": {
+                "handlers": ["default"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "uvicorn.access": {
+                "handlers": ["access"],
+                "level": "INFO",
+                "propagate": False,
+            },
+        },
+    }

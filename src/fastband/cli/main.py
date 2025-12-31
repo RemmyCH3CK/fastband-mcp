@@ -596,6 +596,12 @@ def serve(
     """
     project_path = (path or Path.cwd()).resolve()
 
+    # Configure safe logging for Python 3.14+ compatibility
+    # Must be done before any asyncio.run() calls
+    from fastband.core.logging import configure_safe_logging
+
+    configure_safe_logging()
+
     if hub_only:
         # Only run Hub server
         from fastband.hub.server import find_available_port, is_port_available
