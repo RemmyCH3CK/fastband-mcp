@@ -215,7 +215,7 @@ async def run_server(
     load_all: bool = False,
 ):
     """
-    Run the Fastband MCP server.
+    Run the Fastband Agent Control server.
 
     Args:
         project_path: Project directory (default: current directory)

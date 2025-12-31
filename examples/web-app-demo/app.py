@@ -1,7 +1,7 @@
 """
 Web App Demo - Simple Flask application.
 
-This demonstrates how to structure a web app that uses Fastband MCP
+This demonstrates how to structure a web app that uses Fastband Agent Control
 for AI-assisted development.
 """
 

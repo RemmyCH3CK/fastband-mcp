@@ -1,5 +1,5 @@
 """
-Fastband MCP CLI entry point.
+Fastband Agent Control CLI entry point.
 
 Usage:
     fastband [OPTIONS] COMMAND [ARGS]...

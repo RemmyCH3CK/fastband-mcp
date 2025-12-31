@@ -1,1 +1,1 @@
-"""Fastband MCP test suite."""
+"""Fastband Agent Control test suite."""

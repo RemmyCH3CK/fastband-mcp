@@ -1,6 +1,6 @@
 # Configuration Reference
 
-Complete reference for Fastband MCP configuration options.
+Complete reference for Fastband Agent Control configuration options.
 
 ## Configuration File
 
@@ -198,8 +198,8 @@ storage:
 | Backend | Path Format | Requirements |
 |---------|-------------|--------------|
 | `sqlite` | File path | None (built-in) |
-| `postgres` | Connection URI | `pip install fastband-mcp[postgres]` |
-| `mysql` | Connection URI | `pip install fastband-mcp[mysql]` |
+| `postgres` | Connection URI | `pip install fastband-agent-control[postgres]` |
+| `mysql` | Connection URI | `pip install fastband-agent-control[mysql]` |
 | `file` | Directory path | None (JSON files) |
 
 PostgreSQL example:

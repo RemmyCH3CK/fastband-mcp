@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-The following versions of Fastband MCP are currently supported with security updates:
+The following versions of Fastband Agent Control are currently supported with security updates:
 
 | Version | Supported          |
 | ------- | ------------------ |
@@ -170,7 +170,7 @@ We regularly audit dependencies for known vulnerabilities. Current dependencies:
 Security updates are released as patch versions. To update:
 
 ```bash
-pip install --upgrade fastband-mcp
+pip install --upgrade fastband-agent-control
 ```
 
 ## Contact

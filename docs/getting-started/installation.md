@@ -1,6 +1,6 @@
 # Installation Guide
 
-This guide covers installing Fastband MCP on your system.
+This guide covers installing Fastband Agent Control on your system.
 
 ## Requirements
 
@@ -12,10 +12,10 @@ This guide covers installing Fastband MCP on your system.
 
 ### Basic Installation
 
-The simplest way to install Fastband MCP:
+The simplest way to install Fastband Agent Control:
 
 ```bash
-pip install fastband-mcp
+pip install fastband-agent-control
 ```
 
 This installs the core functionality with minimal dependencies.
@@ -26,19 +26,19 @@ Install with support for specific AI providers:
 
 ```bash
 # Claude (Anthropic) support
-pip install fastband-mcp[claude]
+pip install fastband-agent-control[claude]
 
 # OpenAI support
-pip install fastband-mcp[openai]
+pip install fastband-agent-control[openai]
 
 # Google Gemini support
-pip install fastband-mcp[gemini]
+pip install fastband-agent-control[gemini]
 
 # Ollama (local LLMs) support
-pip install fastband-mcp[ollama]
+pip install fastband-agent-control[ollama]
 
 # All AI providers
-pip install fastband-mcp[all-providers]
+pip install fastband-agent-control[all-providers]
 ```
 
 ### Full Installation
@@ -46,7 +46,7 @@ pip install fastband-mcp[all-providers]
 Install all features including web dashboard, screenshots, and database support:
 
 ```bash
-pip install fastband-mcp[full]
+pip install fastband-agent-control[full]
 ```
 
 This includes:
@@ -62,19 +62,19 @@ Install only the features you need:
 
 ```bash
 # Web dashboard support
-pip install fastband-mcp[web]
+pip install fastband-agent-control[web]
 
 # Screenshot and browser automation
-pip install fastband-mcp[screenshots]
+pip install fastband-agent-control[screenshots]
 
 # PostgreSQL database backend
-pip install fastband-mcp[postgres]
+pip install fastband-agent-control[postgres]
 
 # MySQL database backend
-pip install fastband-mcp[mysql]
+pip install fastband-agent-control[mysql]
 
 # Development dependencies
-pip install fastband-mcp[dev]
+pip install fastband-agent-control[dev]
 ```
 
 ## Setting Up API Keys
@@ -135,12 +135,12 @@ fastband version 1.2025.12.0-alpha.1
 
 ## Development Installation
 
-For contributing to Fastband MCP:
+For contributing to Fastband Agent Control:
 
 ```bash
 # Clone the repository
-git clone https://github.com/RemmyCH3CK/fastband-mcp
-cd fastband-mcp
+git clone https://github.com/RemmyCH3CK/fastband-agent-control
+cd fastband-agent-control
 
 # Install in development mode with all dependencies
 pip install -e ".[dev]"
@@ -159,7 +159,7 @@ Run Fastband in a Docker container:
 ```dockerfile
 FROM python:3.11-slim
 
-RUN pip install fastband-mcp[full]
+RUN pip install fastband-agent-control[full]
 
 WORKDIR /app
 COPY . .
@@ -201,7 +201,7 @@ playwright install chromium
 Use user installation:
 
 ```bash
-pip install --user fastband-mcp
+pip install --user fastband-agent-control
 ```
 
 ## Next Steps

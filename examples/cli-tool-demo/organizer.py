@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-File Organizer CLI - Demo application for Fastband MCP.
+File Organizer CLI - Demo application for Fastband Agent Control.
 
 A simple command-line tool that organizes files by extension.
 This demonstrates how to structure a CLI tool that can be developed
-with Fastband MCP ticket management.
+with Fastband Agent Control ticket management.
 """
 
 import typer

@@ -1,4 +1,4 @@
-"""Fastband CLI - Command-line interface for Fastband MCP Server."""
+"""Fastband CLI - Command-line interface for Fastband Agent Control Server."""
 
 from fastband.cli.main import app
 

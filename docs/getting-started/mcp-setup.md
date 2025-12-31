@@ -1,6 +1,6 @@
 # Setting Up Fastband as Your MCP Server
 
-This guide walks you through connecting Fastband MCP to Claude Code or Claude Desktop, step by step.
+This guide walks you through connecting Fastband Agent Control to Claude Code or Claude Desktop, step by step.
 
 ## What is MCP?
 
@@ -24,7 +24,7 @@ Before starting, make sure you have:
 Open your terminal and run:
 
 ```bash
-pip install fastband-mcp[claude]
+pip install fastband-agent-control[claude]
 ```
 
 Verify it installed:
@@ -219,6 +219,6 @@ Some operations (like searching large codebases) take time. You can:
 
 ## Getting Help
 
-- Check the [GitHub Issues](https://github.com/RemmyCH3CK/fastband-mcp/issues)
+- Check the [GitHub Issues](https://github.com/RemmyCH3CK/fastband-agent-control/issues)
 - Review error logs: `fastband serve --verbose`
 - Join the community discussions

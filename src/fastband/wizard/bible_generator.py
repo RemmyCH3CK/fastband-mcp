@@ -1,5 +1,5 @@
 """
-Agent Bible Generator for Fastband MCP.
+Agent Bible Generator for Fastband Agent Control.
 
 Generates project-specific AGENT_BIBLE.md from template during setup wizard.
 """

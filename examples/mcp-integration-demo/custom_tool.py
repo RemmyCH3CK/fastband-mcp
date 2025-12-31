@@ -3,7 +3,7 @@
 Custom Tool Example - Creating and registering custom Fastband tools.
 
 This script demonstrates how to create custom tools that integrate
-with the Fastband MCP ecosystem.
+with the Fastband Agent Control ecosystem.
 """
 
 import asyncio
@@ -293,7 +293,7 @@ async def main():
     """Demonstrate custom tool creation and usage."""
 
     console.print(Panel.fit(
-        "[bold blue]Fastband MCP - Custom Tool Demo[/bold blue]\n"
+        "[bold blue]Fastband Agent Control - Custom Tool Demo[/bold blue]\n"
         "[dim]Creating and using custom tools[/dim]",
         border_style="blue",
     ))

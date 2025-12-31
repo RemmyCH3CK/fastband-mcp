@@ -1,6 +1,6 @@
 # AI Providers Guide
 
-Fastband MCP supports multiple AI providers through a unified interface. This guide covers how to configure and use each provider effectively.
+Fastband Agent Control supports multiple AI providers through a unified interface. This guide covers how to configure and use each provider effectively.
 
 ## Provider Architecture
 
@@ -26,7 +26,7 @@ Claude is the recommended provider for code generation and complex reasoning tas
 
 ```bash
 # Install Claude support
-pip install fastband-mcp[claude]
+pip install fastband-agent-control[claude]
 
 # Set API key
 export ANTHROPIC_API_KEY="your-api-key"
@@ -106,7 +106,7 @@ GPT-4 and GPT-3.5 models for versatile AI capabilities.
 
 ```bash
 # Install OpenAI support
-pip install fastband-mcp[openai]
+pip install fastband-agent-control[openai]
 
 # Set API key
 export OPENAI_API_KEY="your-api-key"
@@ -171,7 +171,7 @@ Google's multimodal AI models.
 
 ```bash
 # Install Gemini support
-pip install fastband-mcp[gemini]
+pip install fastband-agent-control[gemini]
 
 # Set API key
 export GOOGLE_API_KEY="your-api-key"
@@ -234,7 +234,7 @@ ollama pull mistral
 3. Install Fastband support:
 
 ```bash
-pip install fastband-mcp[ollama]
+pip install fastband-agent-control[ollama]
 ```
 
 #### Configuration

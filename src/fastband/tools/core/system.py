@@ -26,7 +26,7 @@ class HealthCheckTool(Tool):
         return ToolDefinition(
             metadata=ToolMetadata(
                 name="health_check",
-                description="Check Fastband MCP server health and system status",
+                description="Check Fastband Agent Control server health and system status",
                 category=ToolCategory.CORE,
                 version="1.0.0",
             ),
@@ -113,7 +113,7 @@ class GetVersionTool(Tool):
         return ToolDefinition(
             metadata=ToolMetadata(
                 name="get_version",
-                description="Get Fastband MCP version and component versions",
+                description="Get Fastband Agent Control version and component versions",
                 category=ToolCategory.CORE,
                 version="1.0.0",
             ),

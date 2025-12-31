@@ -1,6 +1,6 @@
-# Contributing to Fastband MCP
+# Contributing to Fastband Agent Control
 
-Thank you for your interest in contributing to Fastband MCP! This document provides guidelines for contributing.
+Thank you for your interest in contributing to Fastband Agent Control! This document provides guidelines for contributing.
 
 ## Getting Started
 

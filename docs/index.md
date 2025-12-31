@@ -1,12 +1,12 @@
-# Fastband MCP Documentation
+# Fastband Agent Control Documentation
 
-Welcome to the Fastband MCP documentation. Fastband is a universal AI-powered development platform that provides an AI-agnostic MCP server with adaptive tools, ticket management, and multi-agent coordination.
+Welcome to the Fastband Agent Control documentation. Fastband is a universal AI-powered development platform that provides an AI-agnostic MCP server with adaptive tools, ticket management, and multi-agent coordination.
 
 ## Getting Started
 
 New to Fastband? Start here:
 
-- [Installation Guide](getting-started/installation.md) - Install Fastband MCP on your system
+- [Installation Guide](getting-started/installation.md) - Install Fastband Agent Control on your system
 - [MCP Setup Guide](getting-started/mcp-setup.md) - Connect Fastband to Claude Code/Desktop (step-by-step)
 - [Quick Start Tutorial](getting-started/quickstart.md) - Learn the CLI commands
 - [Configuration Reference](getting-started/configuration.md) - Complete configuration options
@@ -44,13 +44,13 @@ Internal planning and design documents:
 
 ```bash
 # Basic installation
-pip install fastband-mcp
+pip install fastband-agent-control
 
 # With Claude support
-pip install fastband-mcp[claude]
+pip install fastband-agent-control[claude]
 
 # Full installation
-pip install fastband-mcp[full]
+pip install fastband-agent-control[full]
 ```
 
 ### Initialize a Project
@@ -82,9 +82,9 @@ fastband serve
 
 ## Support
 
-- [GitHub Issues](https://github.com/RemmyCH3CK/fastband-mcp/issues) - Report bugs or request features
-- [GitHub Discussions](https://github.com/RemmyCH3CK/fastband-mcp/discussions) - Ask questions and share ideas
+- [GitHub Issues](https://github.com/RemmyCH3CK/fastband-agent-control/issues) - Report bugs or request features
+- [GitHub Discussions](https://github.com/RemmyCH3CK/fastband-agent-control/discussions) - Ask questions and share ideas
 
 ## License
 
-Fastband MCP is released under the MIT License. See [LICENSE](../LICENSE) for details.
+Fastband Agent Control is released under the MIT License. See [LICENSE](../LICENSE) for details.

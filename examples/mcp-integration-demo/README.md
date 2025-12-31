@@ -1,6 +1,6 @@
 # MCP Integration Demo
 
-Demonstrates how to integrate Fastband MCP with AI clients like Claude Code,
+Demonstrates how to integrate Fastband Agent Control with AI clients like Claude Code,
 or build your own MCP-aware applications.
 
 ## Overview
@@ -8,13 +8,13 @@ or build your own MCP-aware applications.
 This example shows:
 - How to configure MCP server for AI clients
 - Example MCP tool usage patterns
-- Building applications that use Fastband MCP programmatically
+- Building applications that use Fastband Agent Control programmatically
 - Integration with different AI providers
 
 ## Prerequisites
 
 - Python 3.10+
-- Fastband MCP installed (`pip install fastband-mcp`)
+- Fastband Agent Control installed (`pip install fastband-agent-control`)
 - An AI provider API key (Claude, OpenAI, etc.)
 
 ## Setup
@@ -40,7 +40,7 @@ This example shows:
 
 ### For Claude Code
 
-To use Fastband MCP with Claude Code, add this to your Claude configuration:
+To use Fastband Agent Control with Claude Code, add this to your Claude configuration:
 
 **macOS/Linux:** `~/.config/claude/claude_desktop_config.json`
 **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
@@ -73,7 +73,7 @@ Or with Python directly:
 
 ### For Other MCP Clients
 
-Fastband MCP follows the standard MCP protocol. Configuration varies by client:
+Fastband Agent Control follows the standard MCP protocol. Configuration varies by client:
 
 - **Stdio transport** (default): Use `fastband serve` as the command
 - **HTTP transport**: Coming in a future release
@@ -128,7 +128,7 @@ mcp-integration-demo/
 
 ## MCP Protocol Overview
 
-Fastband MCP implements the Model Context Protocol:
+Fastband Agent Control implements the Model Context Protocol:
 
 ### Available Tools
 
@@ -298,6 +298,6 @@ fastband tools info read_file
 
 ## Next Steps
 
-- Read the Fastband MCP documentation
+- Read the Fastband Agent Control documentation
 - Explore the `web-app-demo` for web development integration
 - Check the `cli-tool-demo` for ticket workflow examples

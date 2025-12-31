@@ -24,7 +24,7 @@ async def main():
     """Demonstrate direct tool usage."""
 
     console.print(Panel.fit(
-        "[bold blue]Fastband MCP - Tool Usage Demo[/bold blue]",
+        "[bold blue]Fastband Agent Control - Tool Usage Demo[/bold blue]",
         border_style="blue",
     ))
 

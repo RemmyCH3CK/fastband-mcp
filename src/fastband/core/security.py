@@ -1,5 +1,5 @@
 """
-Security utilities for Fastband MCP.
+Security utilities for Fastband Agent Control.
 
 Provides:
 - Path validation and sanitization

@@ -1,6 +1,6 @@
 # Quick Start Tutorial
 
-Get up and running with Fastband MCP in 5 minutes.
+Get up and running with Fastband Agent Control in 5 minutes.
 
 ## Initialize a Project
 

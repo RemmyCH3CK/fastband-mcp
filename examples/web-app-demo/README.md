@@ -1,10 +1,10 @@
 # Web App Demo
 
-A simple Flask web application demonstrating how to use Fastband MCP for AI-assisted web development.
+A simple Flask web application demonstrating how to use Fastband Agent Control for AI-assisted web development.
 
 ## Overview
 
-This example shows how Fastband MCP can help you:
+This example shows how Fastband Agent Control can help you:
 - Manage development tasks with the ticket system
 - Use AI-powered tools for code generation and assistance
 - Track file changes and development progress
@@ -12,7 +12,7 @@ This example shows how Fastband MCP can help you:
 ## Prerequisites
 
 - Python 3.10+
-- Fastband MCP installed (`pip install fastband-mcp`)
+- Fastband Agent Control installed (`pip install fastband-agent-control`)
 
 ## Setup
 

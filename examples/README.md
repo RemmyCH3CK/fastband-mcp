@@ -1,12 +1,12 @@
-# Fastband MCP Examples
+# Fastband Agent Control Examples
 
-This directory contains example projects demonstrating how to use Fastband MCP in different scenarios.
+This directory contains example projects demonstrating how to use Fastband Agent Control in different scenarios.
 
 ## Examples
 
 ### 1. Web App Demo (`web-app-demo/`)
 
-A simple Flask web application showing how to use Fastband MCP for web development.
+A simple Flask web application showing how to use Fastband Agent Control for web development.
 
 **Features demonstrated:**
 - Project initialization with `fastband init`
@@ -36,7 +36,7 @@ python organizer.py --help
 
 ### 3. MCP Integration Demo (`mcp-integration-demo/`)
 
-Examples of integrating Fastband MCP with AI clients and building custom tools.
+Examples of integrating Fastband Agent Control with AI clients and building custom tools.
 
 **Features demonstrated:**
 - MCP server configuration for Claude Code
@@ -52,9 +52,9 @@ python tool_usage.py
 
 ## Quick Start
 
-1. **Install Fastband MCP:**
+1. **Install Fastband Agent Control:**
    ```bash
-   pip install fastband-mcp
+   pip install fastband-agent-control
    ```
 
 2. **Choose an example:**
@@ -128,5 +128,5 @@ fastband:
 ## Need Help?
 
 - Check individual example READMEs for detailed instructions
-- See the main [Fastband MCP documentation](../README.md)
+- See the main [Fastband Agent Control documentation](../README.md)
 - Open an issue on GitHub

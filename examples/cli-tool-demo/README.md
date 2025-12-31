@@ -1,6 +1,6 @@
 # CLI Tool Demo
 
-A command-line tool example demonstrating Fastband MCP's ticket management workflow.
+A command-line tool example demonstrating Fastband Agent Control's ticket management workflow.
 
 ## Overview
 
@@ -12,7 +12,7 @@ This example shows:
 ## Prerequisites
 
 - Python 3.10+
-- Fastband MCP installed (`pip install fastband-mcp`)
+- Fastband Agent Control installed (`pip install fastband-agent-control`)
 
 ## Setup
 

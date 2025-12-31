@@ -1,7 +1,7 @@
 """
 Backup Configuration wizard step.
 
-Configures backup settings for the Fastband MCP server including:
+Configures backup settings for the Fastband Agent Control server including:
 - Database type detection (SQLite, PostgreSQL, MySQL)
 - Backup frequency (daily, weekly, on-change)
 - Retention policies

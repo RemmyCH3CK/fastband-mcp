@@ -1,5 +1,5 @@
 """
-Security tests for Fastband MCP.
+Security tests for Fastband Agent Control.
 
 Tests for:
 - SQL injection prevention

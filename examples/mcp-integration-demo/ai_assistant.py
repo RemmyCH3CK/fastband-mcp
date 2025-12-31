@@ -28,7 +28,7 @@ async def run_assistant():
     """Run the AI assistant with Fastband tools."""
 
     console.print(Panel.fit(
-        "[bold blue]Fastband MCP - AI Assistant Demo[/bold blue]\n"
+        "[bold blue]Fastband Agent Control - AI Assistant Demo[/bold blue]\n"
         "[dim]An AI assistant that can read and analyze your code[/dim]",
         border_style="blue",
     ))
