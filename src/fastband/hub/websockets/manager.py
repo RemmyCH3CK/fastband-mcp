@@ -130,7 +130,7 @@ class WebSocketManager:
         websocket: WebSocket,
         connection_id: str,
         subscriptions: list[str] | None = None,
-    ) -> None:
+    ) -> bool:
         """
         Accept and register a new WebSocket connection.
 
@@ -138,6 +138,9 @@ class WebSocketManager:
             websocket: FastAPI WebSocket instance
             connection_id: Unique connection identifier
             subscriptions: List of subscription type strings
+
+        Returns:
+            True if connection was established successfully
         """
         await websocket.accept()
 
@@ -169,17 +172,29 @@ class WebSocketManager:
         except (ValueError, OSError):
             pass  # Ignore logging errors from closed streams
 
-        # Send connection confirmation
-        await self.send_to_connection(
-            connection_id,
-            WSMessage(
+        # Send connection confirmation - use websocket directly to avoid disconnect on failure
+        try:
+            message = WSMessage(
                 type=WSEventType.CONNECTED.value,
                 data={
                     "connection_id": connection_id,
                     "subscriptions": [s.value for s in sub_set],
                 },
-            ),
-        )
+            )
+            await websocket.send_text(message.to_json())
+            return True
+        except Exception as e:
+            try:
+                logger.error(f"Failed to send connection confirmation to {connection_id}: {e}")
+            except (ValueError, OSError):
+                pass
+            # Clean up on failure
+            await self.disconnect(connection_id)
+            try:
+                await websocket.close()
+            except Exception:
+                pass  # Ignore close errors
+            return False
 
     async def disconnect(self, connection_id: str) -> None:
         """

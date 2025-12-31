@@ -257,11 +257,14 @@ async def control_plane_websocket(
     print(f"[WS:{connection_id}] Connecting with subscriptions: {subscription_list}", file=sys.stderr)
 
     try:
-        await ws_manager.connect(
+        connected = await ws_manager.connect(
             websocket=websocket,
             connection_id=connection_id,
             subscriptions=subscription_list,
         )
+        if not connected:
+            print(f"[WS:{connection_id}] Connect returned False - aborting", file=sys.stderr)
+            return
         print(f"[WS:{connection_id}] Connected successfully", file=sys.stderr)
     except Exception as e:
         print(f"[WS:{connection_id}] Connect failed: {type(e).__name__}: {e}", file=sys.stderr)
