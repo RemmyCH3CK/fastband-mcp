@@ -154,8 +154,6 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          # Use API token if trusted publishing not configured
-          password: ${{ secrets.PYPI_API_TOKEN }}
           skip-existing: true
 
   github-release:
