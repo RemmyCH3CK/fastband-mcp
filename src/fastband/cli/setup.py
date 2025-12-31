@@ -76,9 +76,10 @@ def detect_installation() -> InstallInfo:
                         )
 
             # Still likely pipx even if we can't find the venv
-            if "pipx" in str(fastband_path) or (
-                Path.home() / ".local" / "bin" / "fastband"
-            ).exists():
+            if (
+                "pipx" in str(fastband_path)
+                or (Path.home() / ".local" / "bin" / "fastband").exists()
+            ):
                 return InstallInfo(
                     method=InstallMethod.PIPX,
                     executable_path=fastband_path,
@@ -582,7 +583,9 @@ def show_mcp_config(project_path: Path | None = None) -> None:
     for config_type in ["desktop", "global"]:
         config_path = paths.get(config_type)
         if config_path and config_path.exists():
-            console.print(f"\n[green]✓[/green] {config_type.title()} config: [dim]{config_path}[/dim]")
+            console.print(
+                f"\n[green]✓[/green] {config_type.title()} config: [dim]{config_path}[/dim]"
+            )
             try:
                 with open(config_path) as f:
                     config = json.load(f)

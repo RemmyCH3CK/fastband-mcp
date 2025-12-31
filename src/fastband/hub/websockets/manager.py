@@ -60,7 +60,9 @@ class WSMessage:
     """WebSocket message format."""
 
     type: str
-    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat().replace("+00:00", "Z"))
+    timestamp: str = field(
+        default_factory=lambda: datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    )
     data: dict[str, Any] = field(default_factory=dict)
 
     def to_json(self) -> str:

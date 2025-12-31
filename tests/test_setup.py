@@ -77,9 +77,7 @@ class TestDetectInstallation:
         pipx_path = f"{home}/.local/bin/fastband"
 
         with patch("shutil.which", return_value=pipx_path):
-            with patch.object(
-                Path, "exists", return_value=True
-            ):
+            with patch.object(Path, "exists", return_value=True):
                 info = detect_installation()
                 # Should detect as pipx or pip depending on venv detection
                 assert info.method in [InstallMethod.PIPX, InstallMethod.PIP, InstallMethod.UV]
