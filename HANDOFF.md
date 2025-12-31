@@ -1,20 +1,22 @@
 # Fastband Agent Control - Handoff Document
 
-**Version:** 1.2025.12.6
-**Last Updated:** 2025-12-30 (Session 4)
+**Version:** 1.2025.12.7
+**Last Updated:** 2025-12-31 (Session 5)
 **Branch:** main
 **CI Status:** ✅ Passing
-**PyPI:** ✅ Published (as fastband-agent-control)
+**PyPI:** ✅ Published (v1.2025.12.7)
 
 ## Current State
 
-Fastband Agent Control (formerly Fastband MCP) is a universal platform for AI agent coordination. The project is in a **stable release state** with v1.2025.12.6 published to PyPI. All CI checks are passing.
+Fastband Agent Control is a universal platform for AI agent coordination. The project is in a **stable release state** with v1.2025.12.7 published to PyPI. All CI checks are passing.
 
 ### Installation
 
 ```bash
-pip install fastband-agent-control==1.2025.12.6
+pip install fastband-agent-control==1.2025.12.7
 ```
+
+**Note:** As of v1.2025.12.7, all Hub dependencies are included by default. No need for `[hub]` extras.
 
 ### What's Working
 
@@ -27,9 +29,11 @@ pip install fastband-agent-control==1.2025.12.6
 - **Plugin System** - Entry point discovery with async lifecycle
 - **CLI** - `fastband serve --hub` to run server with dashboard
 - **CI/CD** - GitHub Actions for testing and PyPI releases (all passing)
-- **Tests** - 1388 tests passing across Python 3.10, 3.11, 3.12
+- **Tests** - 1388+ tests passing across Python 3.10, 3.11, 3.12
 - **Vision Screenshot Analysis** - Claude Vision API integration for UI verification
-- **PyPI Publishing** - Automated releases with API token authentication
+- **PyPI Publishing** - Automated releases via GitHub Actions
+- **AI Provider Settings** - Dashboard UI for configuring API keys (NEW in v1.2025.12.7)
+- **Platform Analyzer** - Codebase analysis with unified `/api/analyze` endpoint
 
 ### Architecture Overview
 
@@ -37,7 +41,10 @@ pip install fastband-agent-control==1.2025.12.6
 src/fastband/
 ├── embeddings/      # RAG system (chunkers, providers, storage)
 ├── hub/             # AI Hub (billing, aws, web dashboard)
-│   └── web/         # React/TypeScript dashboard (Vite + Tailwind)
+│   ├── api/         # FastAPI routes (sessions, chat, providers, analyze)
+│   ├── control_plane/ # Control Plane service + WebSocket
+│   ├── web/         # React/TypeScript dashboard (Vite + Tailwind)
+│   └── static/      # Built dashboard assets (auto-generated)
 ├── tools/           # Tool categories
 │   ├── agents/      # Agent coordination tools
 │   ├── core/        # Core MCP tools
@@ -50,7 +57,38 @@ src/fastband/
 └── wizard/          # Setup wizard system
 ```
 
-## Recent Session Work (2025-12-30)
+## Recent Session Work (2025-12-31)
+
+### Session 5 - Installation Streamlining & AI Provider UI
+
+1. **All-Inclusive Package** (MAJOR)
+   - Moved Hub dependencies to core: fastapi, uvicorn, websockets, aiofiles, numpy
+   - Removed `[hub]` optional extra (no longer needed)
+   - Single `pip install fastband-agent-control` now works for everything
+   - No more `pipx inject` needed for missing deps
+
+2. **AI Provider Settings UI** (NEW FEATURE)
+   - Added Settings > AI Providers tab in dashboard
+   - Password-masked input fields with show/hide toggle
+   - Status badges: Connected / Invalid Key / Configured
+   - Direct links to Anthropic and OpenAI console for getting keys
+   - Environment variable alternative shown
+
+3. **Backend API Endpoints** (NEW)
+   - `GET /api/providers/status` - Check which providers are configured
+   - `POST /api/providers/configure` - Save and validate API keys
+   - Keys validated with minimal API call
+
+4. **Platform Analyzer Fix**
+   - Added unified `/api/analyze` endpoint
+   - Fixed "Method Not Allowed" error for local/GitHub analysis
+   - Updated frontend to use new endpoint
+
+5. **Test Coverage Improvements**
+   - Added 102 tests for tools modules
+   - Improved coverage: index_codebase (11%→95%), build tools (17%→91%)
+
+6. **Released v1.2025.12.7** - Published to PyPI via GitHub Actions
 
 ### Session 4 - Product Rename
 
@@ -58,114 +96,67 @@ src/fastband/
    - New PyPI package: `fastband-agent-control`
    - Updated CLI branding and help text
    - Updated version to 1.2025.12.6
-   - Updated README, CHANGELOG, and documentation
-
-### Session 3 - PyPI Release
-
-1. **Fixed Codecov Deprecation** - Changed `file:` to `files:` in CI workflow
-
-2. **PyPI Publishing Setup**
-   - Added `PYPI_API_TOKEN` secret to GitHub repository
-   - Added API token fallback in release workflow
-   - Added `workflow_dispatch` trigger for manual releases
-   - Fixed wheel build duplicate filename error (removed redundant `force-include`)
-
-3. **Released v1.2025.12.5** - Successfully published to PyPI
-   - Cleaned up failed release tags (v1.2025.12.2, v1.2025.12.3, v1.2025.12.4)
-
-### Session 2 - CI Fixes & Code Quality
-
-1. **Merged Dependabot PR #44** - 8 GitHub Actions updates
-   - actions/checkout v6, actions/setup-python v6, etc.
-
-2. **Fixed TypeScript Error** - Removed unused `_color` variable in `DirectivePanel.tsx`
-
-3. **Fixed Missing Dependencies**
-   - Added `numpy>=1.24.0` to hub and dev dependencies
-   - Added `flask>=2.0.0` to dev dependencies (for test_tickets_web.py)
-
-4. **Code Quality Cleanup**
-   - Auto-fixed 1871 lint issues with `ruff check --fix --unsafe-fixes`
-   - Auto-formatted 97 files with `ruff format`
-   - Updated ruff ignore rules in pyproject.toml for project patterns
-
-5. **Fixed CLI Help Tests**
-   - Added `strip_ansi()` helper to handle ANSI color codes in test assertions
-   - Tests were failing because rich/typer output contained escape codes
-
-### Session 1 - Vision Analysis Tool
-
-1. **Vision Analysis Tool** - `analyze_screenshot_with_vision`
-   - Location: `src/fastband/tools/web/__init__.py`
-   - Integrates Claude Vision API for screenshot analysis
-   - Supports 5 analysis modes: general, ui_review, bug_detection, accessibility, verification
-   - Can capture from URL or analyze existing base64 image
-   - 19 comprehensive tests added to `tests/test_web_tools.py`
-
-2. **Fixed `.gitignore`** - Added `node_modules/` to exclude web dependencies
-
-3. **Created `HANDOFF.md`** - This document
 
 ### Recent Commits (main branch)
 
 ```
-<pending> chore(release): v1.2025.12.6 - Rename to Fastband Agent Control
-8630f77 chore(release): v1.2025.12.5 - Fix duplicate files in wheel
-4fc7f25 fix(ci): Update Codecov action to use 'files' instead of deprecated 'file'
-d4ccf3b fix(tests): Strip ANSI codes from CLI help output assertions
-89f9b11 fix(deps): Add flask to dev dependencies for tests
-6d8ccc1 chore: Auto-fix lint and formatting issues
-de00de0 fix(deps): Add numpy to hub and dev dependencies
-b52b5b8 deps(actions): Bump the actions group (PR #44)
+afb4d70 feat(install): All-inclusive package with Hub deps + AI Provider settings
+a85a22a fix(hub): Fix TypeScript strict mode errors in dashboard
+7a0ba23 fix(ci): Add dashboard build step to CI/CD workflows
+07305e4 chore(release): v1.2025.12.1 - Control Plane & Security Fixes
 ```
 
-## Verification Layer Status
+## Pending Work / Known Issues
 
-The Verification Layer (from product diagram) is now **~80% complete**:
+### Awaiting Feedback
 
-| Component | Status | Location |
-|-----------|--------|----------|
-| Screenshot Capture | ✅ Complete | `tools/web/__init__.py:129-294` |
-| Browser Automation | ✅ Complete | `tools/web/__init__.py:59-127` |
-| DOM Query Tool | ✅ Complete | `tools/web/__init__.py:449-632` |
-| Console Capture | ✅ Complete | `tools/web/__init__.py:634-820` |
-| **Vision Analysis** | ✅ **NEW** | `tools/web/__init__.py:634-1013` |
-| E2E Browser Tests | ❌ Not Started | - |
-| Visual Regression | ❌ Not Started | - |
+**Installation Testing in Progress:**
+- Sent test prompt to elaris-web agent to verify installation experience
+- Awaiting feedback on any remaining friction points
+- Need to verify WebSocket connectivity in fresh install
 
-## Pending Tasks
+### Near-term Tasks
 
-### Near-term
+1. **Installation Validation**
+   - Collect feedback from elaris-web install test
+   - Address any reported issues
+   - Consider adding `fastband doctor` command for self-diagnosis
 
-1. **Dashboard Polish**
-   - Control Plane UI is functional but may need UX refinements
-   - Test WebSocket reconnection under various network conditions
+2. **WebSocket Connectivity**
+   - WebSocket was failing with 1006 error (old version issue)
+   - Should be fixed in v1.2025.12.7 (websockets now in core deps)
+   - Needs verification in clean install
 
-2. **Documentation**
-   - API reference docs could be expanded
-   - Add more code examples for plugin development
+3. **Chat Feature**
+   - Chat requires AI API keys to function
+   - Now has Settings > AI Providers UI for configuration
+   - Keys only persist for session (env vars for permanent)
 
-3. **Test Coverage**
-   - Currently at ~60% locally, target 80%+
-   - Hub components have room for more integration tests
+4. **Test Coverage**
+   - Currently at ~65%, target 80%+
+   - Hub components need more integration tests
 
-4. **E2E Testing**
-   - Add Playwright-based E2E tests for Control Plane dashboard
-   - Add visual regression testing
+### Open Issues
 
-### Open PRs
-
-None - all PRs merged.
-
-## Known Issues
-
+- **TestPyPI Trusted Publishing** - Warning in release workflow (non-blocking)
 - **macOS `._*` files** - Extended attributes creating dot-underscore files (cosmetic)
-- **TODOs in code** - 7 TODO comments in `examples/mcp-integration-demo/custom_tool.py`
+
+## Key API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/providers/status` | GET | Check AI provider configuration |
+| `/api/providers/configure` | POST | Save and validate API keys |
+| `/api/analyze` | POST | Platform Analyzer (local or GitHub) |
+| `/api/sessions` | POST | Create new chat session |
+| `/api/chat/stream` | POST | Stream chat responses (SSE) |
+| `/api/control-plane/dashboard` | GET | Control Plane state |
+| `/api/control-plane/ws` | WS | Real-time WebSocket updates |
 
 ## Development Setup
 
 ```bash
-# Install from PyPI
+# Install from PyPI (all deps included)
 pip install fastband-agent-control
 
 # Or install for development
@@ -176,44 +167,45 @@ pytest
 
 # Start server with dashboard
 fastband serve --hub
+# Dashboard at http://localhost:8080
 
-# Build dashboard
+# Build dashboard (if modifying frontend)
 cd src/fastband/hub/web && npm install && npm run build
+cp -r dist ../static
 ```
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `src/fastband/server.py` | Main MCP server entry point |
-| `src/fastband/hub/routes.py` | Hub API routes |
-| `src/fastband/hub/web/` | React dashboard source |
-| `src/fastband/tools/tickets/manager.py` | Ticket lifecycle management |
-| `src/fastband/tools/web/__init__.py` | Web tools including VisionAnalysisTool |
-| `src/fastband/plugins/` | Plugin system implementation |
-| `.github/workflows/ci.yml` | CI pipeline |
+| `pyproject.toml` | Package config (deps moved to core) |
+| `src/fastband/hub/api/routes.py` | Hub API routes + provider endpoints |
+| `src/fastband/hub/web/src/pages/Settings.tsx` | AI Providers settings UI |
+| `src/fastband/hub/control_plane/routes.py` | Control Plane + WebSocket |
+| `src/fastband/hub/server.py` | Hub server launcher |
+| `src/fastband/cli/main.py` | CLI commands |
 | `.github/workflows/release.yml` | PyPI release workflow |
 
 ## Release History
 
 | Version | Date | Highlights |
 |---------|------|------------|
-| v1.2025.12.6 | 2025-12-30 | **Rename to Fastband Agent Control**, new PyPI package |
-| v1.2025.12.5 | 2025-12-30 | PyPI publishing fix, wheel build fix |
-| v1.2025.12.1 | 2025-12-30 | Control Plane Dashboard, Plugin System, Security fixes |
-| v1.2025.12.0 | 2025-12-29 | Initial release |
+| v1.2025.12.7 | 2025-12-31 | **All-inclusive package**, AI Provider settings UI, Platform Analyzer fix |
+| v1.2025.12.6 | 2025-12-30 | Rename to Fastband Agent Control |
+| v1.2025.12.5 | 2025-12-30 | PyPI publishing fix |
+| v1.2025.12.1 | 2025-12-30 | Control Plane Dashboard, Plugin System |
 
 ## Next Steps (Suggestions)
 
-1. ~~Commit the VisionAnalysisTool and related changes~~ ✅ Done
-2. ~~Run full test suite to verify everything passes~~ ✅ Done (1388 tests passing)
-3. ~~Merge Dependabot PR #44~~ ✅ Done
-4. ~~Fix Codecov `file` → `files` deprecation in CI workflow~~ ✅ Done
-5. ~~Publish to PyPI~~ ✅ Done (v1.2025.12.5)
-6. ~~Rename to Fastband Agent Control~~ ✅ Done (v1.2025.12.6)
-7. Consider adding E2E tests for Control Plane dashboard
-8. Add visual regression testing capability
-9. Increase test coverage (currently ~60%, target 80%+)
+1. ✅ ~~Streamline installation (move hub deps to core)~~ Done
+2. ✅ ~~Add AI Provider settings UI~~ Done
+3. ✅ ~~Publish v1.2025.12.7~~ Done
+4. ⏳ Collect installation feedback from elaris-web test
+5. ⏳ Verify WebSocket connectivity in fresh install
+6. Consider adding persistent API key storage (encrypted file or keychain)
+7. Add `fastband doctor` CLI command for self-diagnosis
+8. Increase test coverage to 80%+
+9. Add E2E tests for Control Plane dashboard
 
 ## Contacts & Resources
 
