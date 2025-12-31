@@ -248,30 +248,39 @@ async def control_plane_websocket(
     Multiple subscriptions can be specified as comma-separated values:
     ?subscriptions=agents,tickets
     """
+    import sys
+
     connection_id = str(uuid.uuid4())[:8]
     subscription_list = [s.strip() for s in subscriptions.split(",") if s.strip()]
 
-    await ws_manager.connect(
-        websocket=websocket,
-        connection_id=connection_id,
-        subscriptions=subscription_list,
-    )
+    # Debug: print to stderr (bypasses logging issues)
+    print(f"[WS:{connection_id}] Connecting with subscriptions: {subscription_list}", file=sys.stderr)
 
     try:
+        await ws_manager.connect(
+            websocket=websocket,
+            connection_id=connection_id,
+            subscriptions=subscription_list,
+        )
+        print(f"[WS:{connection_id}] Connected successfully", file=sys.stderr)
+    except Exception as e:
+        print(f"[WS:{connection_id}] Connect failed: {type(e).__name__}: {e}", file=sys.stderr)
+        return
+
+    try:
+        print(f"[WS:{connection_id}] Entering receive loop", file=sys.stderr)
         while True:
             # Wait for incoming messages (ping/pong, subscription updates)
-            message = await websocket.receive_text()
-            await ws_manager.handle_client_message(connection_id, message)
+            try:
+                message = await websocket.receive_text()
+                print(f"[WS:{connection_id}] Received: {message[:100]}", file=sys.stderr)
+                await ws_manager.handle_client_message(connection_id, message)
+            except WebSocketDisconnect:
+                print(f"[WS:{connection_id}] Client disconnected normally", file=sys.stderr)
+                break
 
-    except WebSocketDisconnect:
-        try:
-            logger.info(f"WebSocket {connection_id} disconnected")
-        except (ValueError, OSError):
-            pass  # Ignore logging errors from closed streams
     except Exception as e:
-        try:
-            logger.error(f"WebSocket error for {connection_id}: {e}")
-        except (ValueError, OSError):
-            pass  # Ignore logging errors from closed streams
+        print(f"[WS:{connection_id}] Loop error: {type(e).__name__}: {e}", file=sys.stderr)
     finally:
+        print(f"[WS:{connection_id}] Cleaning up", file=sys.stderr)
         await ws_manager.disconnect(connection_id)
