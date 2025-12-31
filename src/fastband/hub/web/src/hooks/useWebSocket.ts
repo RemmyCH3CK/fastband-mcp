@@ -2,7 +2,7 @@
  * WebSocket hook for Control Plane real-time updates.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { WSMessage, SubscriptionType } from '../types/controlPlane'
 
 interface UseWebSocketOptions {
@@ -23,9 +23,12 @@ interface UseWebSocketReturn {
   disconnect: () => void
 }
 
+// Default subscriptions - defined outside component to avoid recreating on every render
+const DEFAULT_SUBSCRIPTIONS: SubscriptionType[] = ['all']
+
 export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketReturn {
   const {
-    subscriptions = ['all'],
+    subscriptions: subscriptionsProp,
     onMessage,
     onConnect,
     onDisconnect,
@@ -33,6 +36,14 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
     reconnectInterval = 3000,
     maxReconnectAttempts = 10,
   } = options
+
+  // Memoize subscriptions to prevent reconnect on every render
+  // Only change when the actual values change, not the array reference
+  const subscriptions = useMemo(
+    () => subscriptionsProp ?? DEFAULT_SUBSCRIPTIONS,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [subscriptionsProp?.join(',')]
+  )
 
   const [isConnected, setIsConnected] = useState(false)
   const [connectionId, setConnectionId] = useState<string | null>(null)
