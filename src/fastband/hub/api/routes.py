@@ -742,7 +742,9 @@ async def analyze_codebase(request: AnalyzeRequest):
             "ci_cd": report.tech_stack.ci_cd,
             "testing": report.tech_stack.testing,
             "package_managers": report.tech_stack.package_managers,
-        } if report.tech_stack else None,
+        }
+        if report.tech_stack
+        else None,
         workflow={
             "has_git": report.workflow.has_git,
             "default_branch": report.workflow.default_branch,
@@ -751,7 +753,9 @@ async def analyze_codebase(request: AnalyzeRequest):
             "has_docs": report.workflow.has_docs,
             "has_docker": report.workflow.has_docker,
             "has_kubernetes": report.workflow.has_kubernetes,
-        } if report.workflow else None,
+        }
+        if report.workflow
+        else None,
         recommendations=[
             {
                 "tool_category": rec.tool_category,
@@ -767,7 +771,9 @@ async def analyze_codebase(request: AnalyzeRequest):
             "total_lines": report.file_stats.total_lines,
             "by_extension": report.file_stats.by_extension,
             "by_directory": report.file_stats.by_directory,
-        } if report.file_stats else None,
+        }
+        if report.file_stats
+        else None,
     )
 
 
@@ -854,7 +860,9 @@ async def configure_provider(request: ProviderConfigRequest):
         "provider": provider,
         "configured": True,
         "valid": valid,
-        "message": "API key configured successfully" if valid else "Key saved but validation failed",
+        "message": "API key configured successfully"
+        if valid
+        else "Key saved but validation failed",
     }
 
 

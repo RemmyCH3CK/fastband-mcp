@@ -360,9 +360,7 @@ class TestControlPlaneServiceProperties:
         """Test lazy initialization of ops_log property."""
         service = ControlPlaneService(project_path=tmp_path)
 
-        with patch(
-            "fastband.hub.control_plane.service.get_ops_log"
-        ) as mock_get_ops_log:
+        with patch("fastband.hub.control_plane.service.get_ops_log") as mock_get_ops_log:
             mock_log = MagicMock()
             mock_get_ops_log.return_value = mock_log
 
@@ -396,9 +394,7 @@ class TestControlPlaneServiceProperties:
         """Test lazy initialization of ws_manager property."""
         service = ControlPlaneService(project_path=tmp_path)
 
-        with patch(
-            "fastband.hub.control_plane.service.get_websocket_manager"
-        ) as mock_get_ws:
+        with patch("fastband.hub.control_plane.service.get_websocket_manager") as mock_get_ws:
             mock_manager = MagicMock()
             mock_get_ws.return_value = mock_manager
 
@@ -542,9 +538,7 @@ class TestControlPlaneServicePolling:
         assert call_args.kwargs["event_type"] == WSEventType.TICKET_CLAIMED
 
     @pytest.mark.asyncio
-    async def test_broadcast_ops_log_entry_hold(
-        self, control_plane_service, mock_ws_manager
-    ):
+    async def test_broadcast_ops_log_entry_hold(self, control_plane_service, mock_ws_manager):
         """Test broadcasting hold event."""
         entry = LogEntry(
             id="1",
@@ -561,9 +555,7 @@ class TestControlPlaneServicePolling:
         assert call_args.kwargs["event_type"] == WSEventType.DIRECTIVE_HOLD
 
     @pytest.mark.asyncio
-    async def test_broadcast_ops_log_entry_clearance(
-        self, control_plane_service, mock_ws_manager
-    ):
+    async def test_broadcast_ops_log_entry_clearance(self, control_plane_service, mock_ws_manager):
         """Test broadcasting clearance event."""
         entry = LogEntry(
             id="1",
@@ -640,9 +632,7 @@ class TestControlPlaneServiceDashboard:
         assert agents == []
 
     @pytest.mark.asyncio
-    async def test_get_active_agents_with_activity(
-        self, control_plane_service, mock_ops_log
-    ):
+    async def test_get_active_agents_with_activity(self, control_plane_service, mock_ops_log):
         """Test getting active agents with activity."""
         mock_ops_log.check_active_agents.return_value = {
             "agent-1": {
@@ -669,9 +659,7 @@ class TestControlPlaneServiceDashboard:
         assert agent1.activity_count == 5
 
     @pytest.mark.asyncio
-    async def test_get_active_agents_with_clearance(
-        self, control_plane_service, mock_ops_log
-    ):
+    async def test_get_active_agents_with_clearance(self, control_plane_service, mock_ops_log):
         """Test getting active agents with clearance directive."""
         mock_ops_log.check_active_agents.return_value = {
             "agent-1": {
@@ -697,9 +685,7 @@ class TestControlPlaneServiceDashboard:
         assert agents[0].under_hold is False
 
     @pytest.mark.asyncio
-    async def test_get_active_agents_under_global_hold(
-        self, control_plane_service, mock_ops_log
-    ):
+    async def test_get_active_agents_under_global_hold(self, control_plane_service, mock_ops_log):
         """Test getting active agents under global hold."""
         mock_ops_log.check_active_agents.return_value = {
             "agent-1": {
@@ -725,9 +711,7 @@ class TestControlPlaneServiceDashboard:
         assert agents[0].has_clearance is False
 
     @pytest.mark.asyncio
-    async def test_get_active_agents_under_specific_hold(
-        self, control_plane_service, mock_ops_log
-    ):
+    async def test_get_active_agents_under_specific_hold(self, control_plane_service, mock_ops_log):
         """Test getting active agents under specific hold."""
         mock_ops_log.check_active_agents.return_value = {
             "agent-1": {
@@ -781,9 +765,7 @@ class TestControlPlaneServiceOperations:
         )
 
     @pytest.mark.asyncio
-    async def test_get_operations_timeline_defaults(
-        self, control_plane_service, mock_ops_log
-    ):
+    async def test_get_operations_timeline_defaults(self, control_plane_service, mock_ops_log):
         """Test getting operations timeline with defaults."""
         mock_ops_log.read_entries.return_value = []
 
@@ -795,9 +777,7 @@ class TestControlPlaneServiceOperations:
         )
 
     @pytest.mark.asyncio
-    async def test_get_active_tickets_empty(
-        self, control_plane_service, mock_ticket_store
-    ):
+    async def test_get_active_tickets_empty(self, control_plane_service, mock_ticket_store):
         """Test getting active tickets when none exist."""
         mock_ticket_store.list.return_value = []
 
@@ -831,9 +811,7 @@ class TestControlPlaneServiceDirectives:
     """Tests for directive state and operations."""
 
     @pytest.mark.asyncio
-    async def test_get_directive_state_no_directive(
-        self, control_plane_service, mock_ops_log
-    ):
+    async def test_get_directive_state_no_directive(self, control_plane_service, mock_ops_log):
         """Test getting directive state when no directive exists."""
         mock_ops_log.get_latest_directive.return_value = None
 
@@ -846,9 +824,7 @@ class TestControlPlaneServiceDirectives:
         assert state.affected_tickets == []
 
     @pytest.mark.asyncio
-    async def test_get_directive_state_with_hold(
-        self, control_plane_service, mock_ops_log
-    ):
+    async def test_get_directive_state_with_hold(self, control_plane_service, mock_ops_log):
         """Test getting directive state with hold."""
         mock_ops_log.get_latest_directive.return_value = LogEntry(
             id="d1",
@@ -871,9 +847,7 @@ class TestControlPlaneServiceDirectives:
         assert state.latest_directive is not None
 
     @pytest.mark.asyncio
-    async def test_get_directive_state_with_clearance(
-        self, control_plane_service, mock_ops_log
-    ):
+    async def test_get_directive_state_with_clearance(self, control_plane_service, mock_ops_log):
         """Test getting directive state with clearance."""
         mock_ops_log.get_latest_directive.return_value = LogEntry(
             id="d1",
@@ -895,9 +869,7 @@ class TestControlPlaneServiceDirectives:
         assert state.affected_tickets == ["FB-001", "FB-002"]
 
     @pytest.mark.asyncio
-    async def test_issue_hold(
-        self, control_plane_service, mock_ops_log, mock_ws_manager
-    ):
+    async def test_issue_hold(self, control_plane_service, mock_ops_log, mock_ws_manager):
         """Test issuing a hold directive."""
         hold_entry = LogEntry(
             id="h1",
@@ -925,9 +897,7 @@ class TestControlPlaneServiceDirectives:
         mock_ws_manager.broadcast.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_issue_hold_global(
-        self, control_plane_service, mock_ops_log, mock_ws_manager
-    ):
+    async def test_issue_hold_global(self, control_plane_service, mock_ops_log, mock_ws_manager):
         """Test issuing a global hold directive."""
         hold_entry = LogEntry(
             id="h1",
@@ -954,9 +924,7 @@ class TestControlPlaneServiceDirectives:
         )
 
     @pytest.mark.asyncio
-    async def test_grant_clearance(
-        self, control_plane_service, mock_ops_log, mock_ws_manager
-    ):
+    async def test_grant_clearance(self, control_plane_service, mock_ops_log, mock_ws_manager):
         """Test granting clearance."""
         clearance_entry = LogEntry(
             id="c1",
@@ -1034,9 +1002,7 @@ class TestControlPlaneServiceMetrics:
         assert metrics["websocket_connections"] == 3
         assert metrics["today_activity_count"] == 0
 
-    def test_compute_metrics_with_today_activity(
-        self, control_plane_service, mock_ws_manager
-    ):
+    def test_compute_metrics_with_today_activity(self, control_plane_service, mock_ws_manager):
         """Test computing metrics with today's activity."""
         mock_ws_manager.get_connection_count.return_value = 1
 
@@ -1077,9 +1043,7 @@ class TestGetControlPlaneService:
 
     def test_get_singleton(self, tmp_path):
         """Test getting the singleton instance."""
-        with patch(
-            "fastband.hub.control_plane.service._control_plane_service", None
-        ):
+        with patch("fastband.hub.control_plane.service._control_plane_service", None):
             service1 = get_control_plane_service(project_path=tmp_path)
             service2 = get_control_plane_service(project_path=tmp_path)
 
@@ -1087,9 +1051,7 @@ class TestGetControlPlaneService:
 
     def test_get_singleton_reset(self, tmp_path):
         """Test resetting the singleton instance."""
-        with patch(
-            "fastband.hub.control_plane.service._control_plane_service", None
-        ):
+        with patch("fastband.hub.control_plane.service._control_plane_service", None):
             service1 = get_control_plane_service(project_path=tmp_path)
             service2 = get_control_plane_service(project_path=tmp_path, reset=True)
 
@@ -1097,9 +1059,7 @@ class TestGetControlPlaneService:
 
     def test_get_singleton_default_path(self):
         """Test getting singleton with default path."""
-        with patch(
-            "fastband.hub.control_plane.service._control_plane_service", None
-        ):
+        with patch("fastband.hub.control_plane.service._control_plane_service", None):
             service = get_control_plane_service(reset=True)
 
             assert service.project_path is not None

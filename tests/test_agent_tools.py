@@ -89,9 +89,7 @@ class TestStartOnboardingToolDefinition:
     def test_agent_name_required(self, temp_project):
         """Test agent_name is required."""
         tool = StartOnboardingTool(project_path=temp_project)
-        agent_param = next(
-            p for p in tool.definition.parameters if p.name == "agent_name"
-        )
+        agent_param = next(p for p in tool.definition.parameters if p.name == "agent_name")
         assert agent_param.required is True
 
 
@@ -115,9 +113,7 @@ class TestStartOnboardingToolExecution:
         """Test onboarding with context."""
         tool = StartOnboardingTool(project_path=temp_project_with_bible)
 
-        result = await tool.execute(
-            agent_name="TestAgent", context="new_ticket"
-        )
+        result = await tool.execute(agent_name="TestAgent", context="new_ticket")
 
         assert result.success is True
 
@@ -195,12 +191,8 @@ class TestAcknowledgeDocumentToolDefinition:
     def test_required_parameters(self, temp_project):
         """Test required parameters."""
         tool = AcknowledgeDocumentTool(project_path=temp_project)
-        session_param = next(
-            p for p in tool.definition.parameters if p.name == "session_id"
-        )
-        doc_param = next(
-            p for p in tool.definition.parameters if p.name == "doc_path"
-        )
+        session_param = next(p for p in tool.definition.parameters if p.name == "session_id")
+        doc_param = next(p for p in tool.definition.parameters if p.name == "doc_path")
         assert session_param.required is True
         assert doc_param.required is True
 
@@ -251,9 +243,7 @@ class TestAcknowledgeDocumentToolExecution:
         """Test error with invalid session ID."""
         tool = AcknowledgeDocumentTool(project_path=temp_project_with_bible)
 
-        result = await tool.execute(
-            session_id="invalid-session-id", doc_path="/some/doc.md"
-        )
+        result = await tool.execute(session_id="invalid-session-id", doc_path="/some/doc.md")
 
         assert result.success is False
         assert "not found" in result.error.lower()
@@ -268,9 +258,7 @@ class TestAcknowledgeDocumentToolExecution:
         mock_onboarding.acknowledge_doc.side_effect = Exception("Error")
         tool._onboarding = mock_onboarding
 
-        result = await tool.execute(
-            session_id="session-123", doc_path="/doc.md"
-        )
+        result = await tool.execute(session_id="session-123", doc_path="/doc.md")
 
         assert result.success is False
         assert "Failed to acknowledge" in result.error
@@ -397,9 +385,7 @@ class TestGetOnboardingStatusToolDefinition:
     def test_agent_name_required(self, temp_project):
         """Test agent_name is required."""
         tool = GetOnboardingStatusTool(project_path=temp_project)
-        agent_param = next(
-            p for p in tool.definition.parameters if p.name == "agent_name"
-        )
+        agent_param = next(p for p in tool.definition.parameters if p.name == "agent_name")
         assert agent_param.required is True
 
 

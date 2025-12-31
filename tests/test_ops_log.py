@@ -532,15 +532,9 @@ class TestOpsLogWriteRead:
 
     def test_read_entries_filter_by_ticket_id(self, ops_log):
         """Test filtering entries by ticket_id."""
-        ops_log.write_entry(
-            "agent-1", EventType.TICKET_CLAIMED, "Claimed 1", ticket_id="FB-001"
-        )
-        ops_log.write_entry(
-            "agent-1", EventType.TICKET_CLAIMED, "Claimed 2", ticket_id="FB-002"
-        )
-        ops_log.write_entry(
-            "agent-1", EventType.TICKET_COMPLETED, "Completed", ticket_id="FB-001"
-        )
+        ops_log.write_entry("agent-1", EventType.TICKET_CLAIMED, "Claimed 1", ticket_id="FB-001")
+        ops_log.write_entry("agent-1", EventType.TICKET_CLAIMED, "Claimed 2", ticket_id="FB-002")
+        ops_log.write_entry("agent-1", EventType.TICKET_COMPLETED, "Completed", ticket_id="FB-001")
 
         entries = ops_log.read_entries(ticket_id="FB-001")
         assert len(entries) == 2
@@ -593,15 +587,9 @@ class TestOpsLogWriteRead:
 
     def test_read_entries_combined_filters(self, ops_log):
         """Test combining multiple filters."""
-        ops_log.write_entry(
-            "agent-1", EventType.TICKET_CLAIMED, "Claimed", ticket_id="FB-001"
-        )
-        ops_log.write_entry(
-            "agent-2", EventType.TICKET_CLAIMED, "Claimed", ticket_id="FB-001"
-        )
-        ops_log.write_entry(
-            "agent-1", EventType.STATUS_UPDATE, "Update", ticket_id="FB-001"
-        )
+        ops_log.write_entry("agent-1", EventType.TICKET_CLAIMED, "Claimed", ticket_id="FB-001")
+        ops_log.write_entry("agent-2", EventType.TICKET_CLAIMED, "Claimed", ticket_id="FB-001")
+        ops_log.write_entry("agent-1", EventType.STATUS_UPDATE, "Update", ticket_id="FB-001")
 
         entries = ops_log.read_entries(
             agent="agent-1",
@@ -887,9 +875,7 @@ class TestOpsLogTicketOperations:
         """Test claiming without conflict check."""
         ops_log.claim_ticket("agent-1", "FB-001")
 
-        entry, conflicts = ops_log.claim_ticket(
-            "agent-2", "FB-001", check_conflicts=False
-        )
+        entry, conflicts = ops_log.claim_ticket("agent-2", "FB-001", check_conflicts=False)
 
         assert conflicts == []
 
@@ -1045,9 +1031,7 @@ class TestOpsLogActiveAgents:
 
     def test_check_active_agents_tracks_ticket(self, ops_log):
         """Test that active agents tracks current ticket."""
-        ops_log.write_entry(
-            "agent-1", EventType.TICKET_CLAIMED, "Claimed", ticket_id="FB-001"
-        )
+        ops_log.write_entry("agent-1", EventType.TICKET_CLAIMED, "Claimed", ticket_id="FB-001")
 
         agents = ops_log.check_active_agents()
 
@@ -1055,12 +1039,8 @@ class TestOpsLogActiveAgents:
 
     def test_check_active_agents_clears_completed_ticket(self, ops_log):
         """Test that completed ticket clears current_ticket."""
-        ops_log.write_entry(
-            "agent-1", EventType.TICKET_CLAIMED, "Claimed", ticket_id="FB-001"
-        )
-        ops_log.write_entry(
-            "agent-1", EventType.TICKET_COMPLETED, "Completed", ticket_id="FB-001"
-        )
+        ops_log.write_entry("agent-1", EventType.TICKET_CLAIMED, "Claimed", ticket_id="FB-001")
+        ops_log.write_entry("agent-1", EventType.TICKET_COMPLETED, "Completed", ticket_id="FB-001")
 
         agents = ops_log.check_active_agents()
 

@@ -55,11 +55,13 @@ class TestWSMessage:
 
     def test_from_json(self):
         """Test JSON deserialization."""
-        json_str = json.dumps({
-            "type": "test:event",
-            "timestamp": "2025-01-01T00:00:00Z",
-            "data": {"key": "value"},
-        })
+        json_str = json.dumps(
+            {
+                "type": "test:event",
+                "timestamp": "2025-01-01T00:00:00Z",
+                "data": {"key": "value"},
+            }
+        )
         msg = WSMessage.from_json(json_str)
 
         assert msg.type == "test:event"
@@ -722,6 +724,7 @@ class TestGetWebSocketManager:
         """Test that get_websocket_manager returns an instance."""
         # Reset global state
         import fastband.hub.websockets.manager as ws_module
+
         ws_module._websocket_manager = None
 
         manager = get_websocket_manager()
@@ -731,6 +734,7 @@ class TestGetWebSocketManager:
     def test_get_websocket_manager_singleton(self):
         """Test that get_websocket_manager returns same instance."""
         import fastband.hub.websockets.manager as ws_module
+
         ws_module._websocket_manager = None
 
         manager1 = get_websocket_manager()
@@ -815,9 +819,7 @@ class TestWebSocketManagerIntegration:
         websockets = [self.create_mock_websocket() for _ in range(10)]
 
         # Connect all concurrently
-        await asyncio.gather(
-            *[manager.connect(ws, f"conn-{i}") for i, ws in enumerate(websockets)]
-        )
+        await asyncio.gather(*[manager.connect(ws, f"conn-{i}") for i, ws in enumerate(websockets)])
         assert manager.get_connection_count() == 10
 
         # Broadcast
@@ -830,7 +832,5 @@ class TestWebSocketManagerIntegration:
         assert count == 10
 
         # Disconnect all concurrently
-        await asyncio.gather(
-            *[manager.disconnect(f"conn-{i}") for i in range(10)]
-        )
+        await asyncio.gather(*[manager.disconnect(f"conn-{i}") for i in range(10)])
         assert manager.get_connection_count() == 0

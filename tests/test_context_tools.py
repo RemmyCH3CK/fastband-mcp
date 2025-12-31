@@ -87,9 +87,7 @@ class TestIndexCodebaseToolDefinition:
 
     def test_provider_parameter_enum(self, index_tool):
         """Test provider parameter has correct enum values."""
-        provider_param = next(
-            p for p in index_tool.definition.parameters if p.name == "provider"
-        )
+        provider_param = next(p for p in index_tool.definition.parameters if p.name == "provider")
         assert provider_param.enum == ["openai", "gemini", "ollama"]
 
 
@@ -117,9 +115,7 @@ class TestIndexCodebaseToolExecution:
         with patch.dict(os.environ, {}, clear=True):
             # Remove the key if it exists
             os.environ.pop("OPENAI_API_KEY", None)
-            result = await index_tool.execute(
-                directory=str(temp_project), provider="openai"
-            )
+            result = await index_tool.execute(directory=str(temp_project), provider="openai")
             assert result.success is False
             assert "OPENAI_API_KEY" in result.error
 
@@ -129,9 +125,7 @@ class TestIndexCodebaseToolExecution:
         with patch.dict(os.environ, {}, clear=True):
             os.environ.pop("GOOGLE_API_KEY", None)
             os.environ.pop("GEMINI_API_KEY", None)
-            result = await index_tool.execute(
-                directory=str(temp_project), provider="gemini"
-            )
+            result = await index_tool.execute(directory=str(temp_project), provider="gemini")
             assert result.success is False
             assert "API_KEY" in result.error
 
@@ -155,9 +149,7 @@ class TestIndexCodebaseToolExecution:
             "fastband.embeddings.index.create_index",
             return_value=mock_index,
         ):
-            result = await index_tool.execute(
-                directory=str(temp_project), provider="ollama"
-            )
+            result = await index_tool.execute(directory=str(temp_project), provider="ollama")
             assert result.success is True
             assert result.data["provider"] == "ollama"
 
@@ -208,9 +200,7 @@ class TestIndexCodebaseToolExecution:
                 "fastband.embeddings.index.create_index",
                 return_value=mock_index,
             ):
-                result = await index_tool.execute(
-                    directory=str(temp_project), clear=True
-                )
+                result = await index_tool.execute(directory=str(temp_project), clear=True)
 
                 assert result.success is True
                 mock_index.clear.assert_called_once()
@@ -296,9 +286,7 @@ class TestSemanticSearchToolDefinition:
 
     def test_query_parameter_required(self, search_tool):
         """Test query parameter is required."""
-        query_param = next(
-            p for p in search_tool.definition.parameters if p.name == "query"
-        )
+        query_param = next(p for p in search_tool.definition.parameters if p.name == "query")
         assert query_param.required is True
 
 
@@ -308,9 +296,7 @@ class TestSemanticSearchToolExecution:
     @pytest.mark.asyncio
     async def test_index_not_found(self, search_tool, temp_project):
         """Test error when no index exists."""
-        result = await search_tool.execute(
-            query="authentication", directory=str(temp_project)
-        )
+        result = await search_tool.execute(query="authentication", directory=str(temp_project))
         assert result.success is False
         assert "No index found" in result.error
 
@@ -413,9 +399,7 @@ class TestSemanticSearchToolExecution:
                 "fastband.embeddings.index.create_index",
                 side_effect=ImportError("torch not found"),
             ):
-                result = await search_tool.execute(
-                    query="test", directory=str(temp_project)
-                )
+                result = await search_tool.execute(query="test", directory=str(temp_project))
 
                 assert result.success is False
                 assert "Missing dependency" in result.error
@@ -432,9 +416,7 @@ class TestSemanticSearchToolExecution:
                 "fastband.embeddings.index.create_index",
                 side_effect=Exception("Network error"),
             ):
-                result = await search_tool.execute(
-                    query="test", directory=str(temp_project)
-                )
+                result = await search_tool.execute(query="test", directory=str(temp_project))
 
                 assert result.success is False
                 assert "failed" in result.error.lower()
@@ -466,9 +448,7 @@ class TestSemanticSearchToolExecution:
                 "fastband.embeddings.index.create_index",
                 return_value=mock_index,
             ):
-                result = await search_tool.execute(
-                    query="test", directory=str(temp_project)
-                )
+                result = await search_tool.execute(query="test", directory=str(temp_project))
 
                 assert result.success is True
                 # Docstring truncated to 200 chars

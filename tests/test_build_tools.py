@@ -276,9 +276,7 @@ class TestBuildExecution:
 
                 result = await tool.execute(command="echo test", skip_backup=False)
 
-                mock_backup.assert_called_once_with(
-                    "before_build", project_path=temp_project
-                )
+                mock_backup.assert_called_once_with("before_build", project_path=temp_project)
                 assert result.data["backup_created"] == "backup-123"
 
     @pytest.mark.asyncio
@@ -286,9 +284,7 @@ class TestBuildExecution:
         """Test build with backup skipped."""
         tool = BuildProjectTool(project_path=temp_project)
 
-        with patch(
-            "fastband.tools.core.build.trigger_backup_hook"
-        ) as mock_backup:
+        with patch("fastband.tools.core.build.trigger_backup_hook") as mock_backup:
             with patch.object(tool, "_run_build") as mock_run:
                 mock_run.return_value = {
                     "success": True,
@@ -392,9 +388,7 @@ class TestRunScriptToolDefinition:
     def test_script_required(self, temp_project):
         """Test script parameter is required."""
         tool = RunScriptTool(project_path=temp_project)
-        script_param = next(
-            p for p in tool.definition.parameters if p.name == "script"
-        )
+        script_param = next(p for p in tool.definition.parameters if p.name == "script")
         assert script_param.required is True
 
 
@@ -468,9 +462,7 @@ class TestRunScriptExecution:
         mock_process.communicate = AsyncMock(return_value=(b"Test passed", b""))
 
         with patch.object(shutil, "which", return_value="/usr/bin/npm"):
-            with patch.object(
-                asyncio, "create_subprocess_exec", return_value=mock_process
-            ):
+            with patch.object(asyncio, "create_subprocess_exec", return_value=mock_process):
                 result = await tool.execute(script="test", skip_backup=True)
 
                 assert result.success is True
@@ -489,9 +481,7 @@ class TestRunScriptExecution:
         mock_backup_info.id = "backup-456"
 
         with patch.object(shutil, "which", return_value="/usr/bin/npm"):
-            with patch.object(
-                asyncio, "create_subprocess_exec", return_value=mock_process
-            ):
+            with patch.object(asyncio, "create_subprocess_exec", return_value=mock_process):
                 with patch(
                     "fastband.tools.core.build.trigger_backup_hook",
                     return_value=mock_backup_info,
@@ -514,9 +504,7 @@ class TestRunScriptExecution:
             with patch.object(
                 asyncio, "create_subprocess_exec", return_value=mock_process
             ) as mock_exec:
-                await tool.execute(
-                    script="test", args=["--coverage"], skip_backup=True
-                )
+                await tool.execute(script="test", args=["--coverage"], skip_backup=True)
 
                 # Check args were passed
                 call_args = mock_exec.call_args
@@ -532,9 +520,7 @@ class TestRunScriptExecution:
         mock_process.communicate = AsyncMock(return_value=(b"", b"Error"))
 
         with patch.object(shutil, "which", return_value="/usr/bin/npm"):
-            with patch.object(
-                asyncio, "create_subprocess_exec", return_value=mock_process
-            ):
+            with patch.object(asyncio, "create_subprocess_exec", return_value=mock_process):
                 result = await tool.execute(script="test", skip_backup=True)
 
                 assert result.success is False
