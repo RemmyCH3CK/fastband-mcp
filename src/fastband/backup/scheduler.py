@@ -375,6 +375,13 @@ class BackupScheduler:
                 description=f"Scheduled backup (every {self.config.interval_hours}h)",
             )
 
+    def _safe_log(self, level: str, message: str) -> None:
+        """Log safely, ignoring stream errors (Python 3.14 compatibility)."""
+        try:
+            getattr(logger, level)(message)
+        except (ValueError, OSError):
+            pass  # Ignore logging errors from closed streams
+
     def start_daemon(self, foreground: bool = False) -> bool:
         """
         Start the backup scheduler daemon.
@@ -386,11 +393,11 @@ class BackupScheduler:
             True if started successfully
         """
         if self.is_running():
-            logger.warning("Scheduler is already running")
+            self._safe_log("warning", "Scheduler is already running")
             return False
 
         if not self.config.enabled or not self.config.scheduler_enabled:
-            logger.warning("Scheduler is disabled in config")
+            self._safe_log("warning", "Scheduler is disabled in config")
             return False
 
         if foreground:
@@ -405,7 +412,7 @@ class BackupScheduler:
 
         # Set up signal handlers
         def handle_shutdown(signum, frame):
-            logger.info("Shutdown signal received")
+            self._safe_log("info", "Shutdown signal received")
             self._running = False
             if self._shutdown_event:
                 self._shutdown_event.set()
@@ -421,8 +428,9 @@ class BackupScheduler:
         self.state.next_backup_at = datetime.now() + timedelta(hours=self.config.interval_hours)
         self._save_state()
 
-        logger.info(
-            f"Scheduler started (PID: {os.getpid()}, interval: {self.config.interval_hours}h)"
+        self._safe_log(
+            "info",
+            f"Scheduler started (PID: {os.getpid()}, interval: {self.config.interval_hours}h)",
         )
 
         # Create initial backup
@@ -435,7 +443,7 @@ class BackupScheduler:
             self.state.running = False
             self._save_state()
             self._remove_pid()
-            logger.info("Scheduler stopped")
+            self._safe_log("info", "Scheduler stopped")
 
         return True
 
@@ -450,7 +458,7 @@ class BackupScheduler:
                 time.sleep(0.5)
                 return self.is_running()
         except OSError as e:
-            logger.error(f"Fork failed: {e}")
+            self._safe_log("error", f"Fork failed: {e}")
             return False
 
         # Child process
@@ -461,7 +469,7 @@ class BackupScheduler:
             if pid > 0:
                 os._exit(0)
         except OSError as e:
-            logger.error(f"Second fork failed: {e}")
+            self._safe_log("error", f"Second fork failed: {e}")
             os._exit(1)
 
         # Grandchild - the actual daemon
@@ -490,14 +498,14 @@ class BackupScheduler:
         """
         pid = self._read_pid()
         if not pid:
-            logger.info("No scheduler running (no PID file)")
+            self._safe_log("info", "No scheduler running (no PID file)")
             return True
 
         if not self._is_process_running(pid):
             self._remove_pid()
             self.state.running = False
             self._save_state()
-            logger.info("Scheduler was not running (stale PID)")
+            self._safe_log("info", "Scheduler was not running (stale PID)")
             return True
 
         try:
@@ -516,7 +524,7 @@ class BackupScheduler:
             self._remove_pid()
             self.state.running = False
             self._save_state()
-            logger.info(f"Scheduler stopped (PID: {pid})")
+            self._safe_log("info", f"Scheduler stopped (PID: {pid})")
             return True
 
         except ProcessLookupError:
@@ -525,7 +533,7 @@ class BackupScheduler:
             self._save_state()
             return True
         except Exception as e:
-            logger.error(f"Failed to stop scheduler: {e}")
+            self._safe_log("error", f"Failed to stop scheduler: {e}")
             return False
 
 
