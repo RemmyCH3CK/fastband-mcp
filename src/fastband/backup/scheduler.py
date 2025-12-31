@@ -250,13 +250,13 @@ class BackupScheduler:
                 # Prune old backups based on retention
                 self._prune_old_backups()
 
-                logger.info(f"Backup created: {backup_info.id} ({backup_info.size_human})")
+                self._safe_log("info", f"Backup created: {backup_info.id} ({backup_info.size_human})")
                 return backup_info
 
         except Exception as e:
             self.state.errors += 1
             self._save_state()
-            logger.error(f"Backup failed: {e}")
+            self._safe_log("error", f"Backup failed: {e}")
 
             # Send CRITICAL alert (fire alarm)
             try:
@@ -273,7 +273,7 @@ class BackupScheduler:
                     project_path=self.project_path,
                 )
             except Exception as alert_error:
-                logger.error(f"Failed to send backup failure alert: {alert_error}")
+                self._safe_log("error", f"Failed to send backup failure alert: {alert_error}")
 
         return None
 
@@ -298,7 +298,7 @@ class BackupScheduler:
                     pruned_count += 1
 
         if pruned_count > 0:
-            logger.info(f"Pruned {pruned_count} old backups")
+            self._safe_log("info", f"Pruned {pruned_count} old backups")
 
     # =========================================================================
     # HOOK METHODS - Called by external code
@@ -313,7 +313,7 @@ class BackupScheduler:
         if not self.config.enabled or not self.config.hooks.before_build:
             return None
 
-        logger.info("Triggering pre-build backup")
+        self._safe_log("info", "Triggering pre-build backup")
         return self._create_backup(BackupType.ON_CHANGE, description="Pre-build backup")
 
     def trigger_after_ticket_completion(self, ticket_id: str = "") -> BackupInfo | None:
@@ -329,7 +329,7 @@ class BackupScheduler:
         if ticket_id:
             description = f"Post-completion backup (ticket #{ticket_id})"
 
-        logger.info("Triggering post-ticket-completion backup")
+        self._safe_log("info", "Triggering post-ticket-completion backup")
         return self._create_backup(BackupType.ON_CHANGE, description=description)
 
     def trigger_on_config_change(self) -> BackupInfo | None:
@@ -341,7 +341,7 @@ class BackupScheduler:
         if not self.config.enabled or not self.config.hooks.on_config_change:
             return None
 
-        logger.info("Triggering config-change backup")
+        self._safe_log("info", "Triggering config-change backup")
         return self._create_backup(BackupType.ON_CHANGE, description="Config change backup")
 
     # =========================================================================
@@ -568,5 +568,5 @@ def trigger_backup_hook(
     elif hook_type == "on_config_change":
         return scheduler.trigger_on_config_change()
     else:
-        logger.warning(f"Unknown hook type: {hook_type}")
+        scheduler._safe_log("warning", f"Unknown hook type: {hook_type}")
         return None
