@@ -607,7 +607,8 @@ def get_uvicorn_log_config() -> dict:
                 "format": "%(levelname)s:\t%(message)s",
             },
             "access": {
-                "format": '%(levelname)s:\t%(client_addr)s - "%(request_line)s" %(status_code)s',
+                # Use simple format - WebSocket records don't have client_addr
+                "format": "%(levelname)s:\t%(message)s",
             },
         },
         "handlers": {

@@ -173,6 +173,8 @@ class WebSocketManager:
             pass  # Ignore logging errors from closed streams
 
         # Send connection confirmation - use websocket directly to avoid disconnect on failure
+        import sys
+
         try:
             message = WSMessage(
                 type=WSEventType.CONNECTED.value,
@@ -181,9 +183,12 @@ class WebSocketManager:
                     "subscriptions": [s.value for s in sub_set],
                 },
             )
+            print(f"[WS:{connection_id}] Sending confirmation message...", file=sys.stderr)
             await websocket.send_text(message.to_json())
+            print(f"[WS:{connection_id}] Confirmation sent successfully", file=sys.stderr)
             return True
         except Exception as e:
+            print(f"[WS:{connection_id}] Send confirmation FAILED: {type(e).__name__}: {e}", file=sys.stderr)
             try:
                 logger.error(f"Failed to send connection confirmation to {connection_id}: {e}")
             except (ValueError, OSError):
