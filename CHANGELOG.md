@@ -7,6 +7,18 @@ and this project adheres to a hybrid versioning scheme: `vMAJOR.YYYY.MM.PATCH[-p
 
 ## [Unreleased]
 
+## [1.2025.12.6] - 2025-12-30
+
+### Changed
+- **Product Rename** - Renamed from "Fastband MCP" to "Fastband Agent Control"
+  - New PyPI package name: `fastband-agent-control`
+  - Updated CLI branding and help text
+  - Updated documentation and README
+  - Emphasis on AI agent coordination and multi-agent orchestration
+
+### Fixed
+- Updated branding across all core modules
+
 ## [1.2025.12.5] - 2025-12-30
 
 ### Fixed
@@ -107,7 +119,7 @@ and this project adheres to a hybrid versioning scheme: `vMAJOR.YYYY.MM.PATCH[-p
 
 ### 🚀 First Stable Release
 
-Fastband MCP v1.0 - A universal MCP server for AI-powered development.
+Fastband Agent Control v1.0 - A universal platform for AI agent coordination.
 
 ### AI Hub (New!)
 
@@ -243,7 +255,8 @@ This project uses a hybrid versioning format: `vMAJOR.YYYY.MM.PATCH[-prerelease]
 | PATCH       | Bug fixes and minor improvements      | 0, 1, 2      |
 | prerelease  | Development stage (optional)          | alpha.1, beta.1, rc.1 |
 
-[Unreleased]: https://github.com/RemmyCH3CK/fastband-mcp/compare/v1.2025.12.1...HEAD
+[Unreleased]: https://github.com/RemmyCH3CK/fastband-mcp/compare/v1.2025.12.6...HEAD
+[1.2025.12.6]: https://github.com/RemmyCH3CK/fastband-mcp/compare/v1.2025.12.5...v1.2025.12.6
 [1.2025.12.1]: https://github.com/RemmyCH3CK/fastband-mcp/compare/v1.2025.12.0...v1.2025.12.1
 [1.2025.12.0]: https://github.com/RemmyCH3CK/fastband-mcp/releases/tag/v1.2025.12.0
 [1.2025.12.0-alpha.1]: https://github.com/RemmyCH3CK/fastband-mcp/releases/tag/v1.2025.12.0-alpha.1

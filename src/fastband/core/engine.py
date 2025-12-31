@@ -1,5 +1,5 @@
 """
-Fastband MCP Server Engine.
+Fastband Agent Control Engine.
 
 The core MCP server that handles tool registration, execution, and protocol handling.
 """
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 class FastbandEngine:
     """
-    Fastband MCP Server Engine.
+    Fastband Agent Control Engine.
 
     Manages the MCP server lifecycle, tool registration, and execution.
 
@@ -47,7 +47,7 @@ class FastbandEngine:
         self.project_path = project_path or Path.cwd()
         self.config = config or get_config(self.project_path)
         self.registry = get_registry()
-        self.server = Server("fastband-mcp")
+        self.server = Server("fastband-agent-control")
         self._running = False
         self._setup_handlers()
 
@@ -147,7 +147,7 @@ class FastbandEngine:
 
     async def start(self):
         """Start the MCP server."""
-        logger.info(f"Starting Fastband MCP Server v{__version__}")
+        logger.info(f"Starting Fastband Agent Control v{__version__}")
         logger.info(f"Project path: {self.project_path}")
         logger.info(f"Active tools: {len(self.registry.get_active_tools())}")
 
@@ -162,7 +162,7 @@ class FastbandEngine:
 
     async def stop(self):
         """Stop the MCP server."""
-        logger.info("Stopping Fastband MCP Server")
+        logger.info("Stopping Fastband Agent Control")
         self._running = False
 
     @property

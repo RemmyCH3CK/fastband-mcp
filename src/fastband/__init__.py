@@ -1,12 +1,12 @@
 """
-Fastband MCP - Universal AI-powered development platform.
+Fastband Agent Control - Universal platform for AI agent coordination.
 
-An AI-agnostic MCP server with adaptive tools, ticket management,
-and multi-agent coordination.
+AI agent orchestration, multi-agent coordination, and autonomous
+development workflows with adaptive tools and ticket management.
 """
 
-__version__ = "1.2025.12.0"
-__version_tuple__ = (1, 2025, 12, 0)
+__version__ = "1.2025.12.6"
+__version_tuple__ = (1, 2025, 12, 6)
 __author__ = "Fastband Team"
 
 from fastband.core.config import FastbandConfig, get_config

@@ -1,10 +1,10 @@
-# Fastband MCP
+# Fastband Agent Control
 
-**Universal AI-powered development platform** - An AI-agnostic MCP server with adaptive tools, ticket management, and multi-agent coordination.
+**Universal platform for AI agent coordination** - Multi-agent orchestration, autonomous development workflows, and adaptive tools with ticket management.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-v1.2025.12.0--alpha.1-green.svg)](https://github.com/RemmyCH3CK/fastband-mcp/releases)
+[![Version](https://img.shields.io/badge/version-v1.2025.12.6-green.svg)](https://github.com/RemmyCH3CK/fastband-mcp/releases)
 
 ---
 
@@ -12,7 +12,7 @@
 
 > **"A toolbox that travels with you - always the right tools, never too many, ready to grow."**
 
-Fastband MCP transforms AI-assisted development from a project-specific setup into a **universal platform** that:
+Fastband Agent Control transforms AI-assisted development from a project-specific setup into a **universal platform** that:
 
 - Works with **any AI provider** (Claude, OpenAI, Gemini, local LLMs)
 - Adapts to **any project type** (web, mobile, desktop, API)
@@ -67,16 +67,16 @@ local = get_provider("ollama")
 
 ```bash
 # Basic installation
-pip install fastband-mcp
+pip install fastband-agent-control
 
 # With Claude support
-pip install fastband-mcp[claude]
+pip install fastband-agent-control[claude]
 
 # With all AI providers
-pip install fastband-mcp[all-providers]
+pip install fastband-agent-control[all-providers]
 
 # Full installation (all features)
-pip install fastband-mcp[full]
+pip install fastband-agent-control[full]
 ```
 
 ### Initialize a Project
@@ -165,23 +165,20 @@ fastband:
 
 ## Roadmap
 
-### v1.2025.12.0 (Current - Alpha)
-- [ ] Core MCP server
-- [ ] AI provider abstraction
-- [ ] Tool garage system
-- [ ] Setup wizard
-- [ ] Basic ticket manager
+### v1.2025.12.6 (Current - Stable)
+- [x] Core MCP server
+- [x] AI provider abstraction
+- [x] Tool garage system
+- [x] Setup wizard
+- [x] Full ticket manager with web UI
+- [x] Control Plane dashboard
+- [x] Plugin system
+- [x] Vision analysis tools
 
-### v1.2026.01.0 (Beta)
-- [ ] Full ticket manager with web UI
-- [ ] GitHub integration
-- [ ] Backup manager
-- [ ] Agent ops log
-
-### v1.2026.02.0 (Stable)
-- [ ] All features complete
-- [ ] Documentation
-- [ ] Example projects
+### v1.2026.01.0 (Next)
+- [ ] Enhanced multi-agent workflows
+- [ ] E2E testing integration
+- [ ] Visual regression testing
 
 ---
 
@@ -209,4 +206,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Acknowledgments
 
-Fastband MCP evolved from the MLB v4.0.1 development platform, incorporating lessons learned from building production AI-assisted development workflows.
+Fastband Agent Control evolved from the MLB v4.0.1 development platform, incorporating lessons learned from building production AI-assisted development workflows.

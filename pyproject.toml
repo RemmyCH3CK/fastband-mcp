@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "fastband-mcp"
-version = "1.2025.12.5"
-description = "Universal AI-powered development platform - AI-agnostic MCP server with adaptive tools, ticket management, and multi-agent coordination"
+name = "fastband-agent-control"
+version = "1.2025.12.6"
+description = "Fastband Agent Control - Universal platform for AI agent coordination, multi-agent orchestration, and autonomous development workflows"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
@@ -13,12 +13,14 @@ authors = [
     { name = "Fastband Team" }
 ]
 keywords = [
+    "agent-control",
+    "ai-agents",
+    "multi-agent",
+    "orchestration",
     "mcp",
     "ai",
     "development",
-    "tools",
     "automation",
-    "tickets",
     "claude",
     "openai",
     "gemini",
@@ -60,7 +62,7 @@ ollama = [
     "ollama>=0.1.0",
 ]
 all-providers = [
-    "fastband-mcp[claude,openai,gemini,ollama]",
+    "fastband-agent-control[claude,openai,gemini,ollama]",
 ]
 web = [
     "fastapi>=0.100.0",
@@ -96,7 +98,7 @@ dev = [
     "flask>=2.0.0",
 ]
 full = [
-    "fastband-mcp[all-providers,web,hub,screenshots,postgres,mysql,dev]",
+    "fastband-agent-control[all-providers,web,hub,screenshots,postgres,mysql,dev]",
 ]
 
 [project.scripts]

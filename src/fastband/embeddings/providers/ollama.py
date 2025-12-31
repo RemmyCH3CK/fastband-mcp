@@ -80,7 +80,7 @@ class OllamaEmbeddings(EmbeddingProvider):
             except ImportError:
                 raise ImportError(
                     "ollama package is required for Ollama embeddings. "
-                    "Install with: pip install fastband-mcp[ollama]"
+                    "Install with: pip install fastband-agent-control[ollama]"
                 )
         return self._client
 

@@ -89,7 +89,7 @@ class GeminiEmbeddings(EmbeddingProvider):
             except ImportError:
                 raise ImportError(
                     "google-generativeai package is required for Gemini embeddings. "
-                    "Install with: pip install fastband-mcp[gemini]"
+                    "Install with: pip install fastband-agent-control[gemini]"
                 )
         return self._client
 

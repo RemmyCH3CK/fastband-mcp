@@ -93,7 +93,7 @@ class OpenAIEmbeddings(EmbeddingProvider):
             except ImportError:
                 raise ImportError(
                     "openai package is required for OpenAI embeddings. "
-                    "Install with: pip install fastband-mcp[openai]"
+                    "Install with: pip install fastband-agent-control[openai]"
                 )
         return self._client
 

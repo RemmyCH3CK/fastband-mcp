@@ -1,19 +1,19 @@
-# Fastband MCP - Handoff Document
+# Fastband Agent Control - Handoff Document
 
-**Version:** 1.2025.12.5
-**Last Updated:** 2025-12-30 (Session 3)
+**Version:** 1.2025.12.6
+**Last Updated:** 2025-12-30 (Session 4)
 **Branch:** main
 **CI Status:** ✅ Passing
-**PyPI:** ✅ Published
+**PyPI:** ✅ Published (as fastband-agent-control)
 
 ## Current State
 
-Fastband MCP is a universal MCP server for AI-powered development. The project is in a **stable release state** with v1.2025.12.5 published to PyPI. All CI checks are passing.
+Fastband Agent Control (formerly Fastband MCP) is a universal platform for AI agent coordination. The project is in a **stable release state** with v1.2025.12.6 published to PyPI. All CI checks are passing.
 
 ### Installation
 
 ```bash
-pip install fastband-mcp==1.2025.12.5
+pip install fastband-agent-control==1.2025.12.6
 ```
 
 ### What's Working
@@ -51,6 +51,14 @@ src/fastband/
 ```
 
 ## Recent Session Work (2025-12-30)
+
+### Session 4 - Product Rename
+
+1. **Renamed to Fastband Agent Control**
+   - New PyPI package: `fastband-agent-control`
+   - Updated CLI branding and help text
+   - Updated version to 1.2025.12.6
+   - Updated README, CHANGELOG, and documentation
 
 ### Session 3 - PyPI Release
 
@@ -101,6 +109,7 @@ src/fastband/
 ### Recent Commits (main branch)
 
 ```
+<pending> chore(release): v1.2025.12.6 - Rename to Fastband Agent Control
 8630f77 chore(release): v1.2025.12.5 - Fix duplicate files in wheel
 4fc7f25 fix(ci): Update Codecov action to use 'files' instead of deprecated 'file'
 d4ccf3b fix(tests): Strip ANSI codes from CLI help output assertions
@@ -157,7 +166,7 @@ None - all PRs merged.
 
 ```bash
 # Install from PyPI
-pip install fastband-mcp
+pip install fastband-agent-control
 
 # Or install for development
 pip install -e ".[dev]"
@@ -189,6 +198,7 @@ cd src/fastband/hub/web && npm install && npm run build
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| v1.2025.12.6 | 2025-12-30 | **Rename to Fastband Agent Control**, new PyPI package |
 | v1.2025.12.5 | 2025-12-30 | PyPI publishing fix, wheel build fix |
 | v1.2025.12.1 | 2025-12-30 | Control Plane Dashboard, Plugin System, Security fixes |
 | v1.2025.12.0 | 2025-12-29 | Initial release |
@@ -200,13 +210,14 @@ cd src/fastband/hub/web && npm install && npm run build
 3. ~~Merge Dependabot PR #44~~ ✅ Done
 4. ~~Fix Codecov `file` → `files` deprecation in CI workflow~~ ✅ Done
 5. ~~Publish to PyPI~~ ✅ Done (v1.2025.12.5)
-6. Consider adding E2E tests for Control Plane dashboard
-7. Add visual regression testing capability
-8. Increase test coverage (currently ~19% in CI, target 60%+)
+6. ~~Rename to Fastband Agent Control~~ ✅ Done (v1.2025.12.6)
+7. Consider adding E2E tests for Control Plane dashboard
+8. Add visual regression testing capability
+9. Increase test coverage (currently ~19% in CI, target 60%+)
 
 ## Contacts & Resources
 
 - **Repository:** https://github.com/RemmyCH3CK/fastband-mcp
-- **PyPI:** https://pypi.org/project/fastband-mcp/
+- **PyPI:** https://pypi.org/project/fastband-agent-control/
 - **Docs:** `docs/` directory
 - **Changelog:** `CHANGELOG.md`

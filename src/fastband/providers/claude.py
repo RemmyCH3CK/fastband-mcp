@@ -96,7 +96,7 @@ class ClaudeProvider(AIProvider):
             except ImportError:
                 raise ImportError(
                     "anthropic package is required for Claude provider. "
-                    "Install with: pip install fastband-mcp[claude]"
+                    "Install with: pip install fastband-agent-control[claude]"
                 )
         return self._client
 

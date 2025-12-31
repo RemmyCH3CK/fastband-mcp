@@ -92,7 +92,7 @@ class OpenAIProvider(AIProvider):
             except ImportError:
                 raise ImportError(
                     "openai package is required for OpenAI provider. "
-                    "Install with: pip install fastband-mcp[openai]"
+                    "Install with: pip install fastband-agent-control[openai]"
                 )
         return self._client
 

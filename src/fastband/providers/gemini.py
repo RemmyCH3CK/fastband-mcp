@@ -95,7 +95,7 @@ class GeminiProvider(AIProvider):
             except ImportError:
                 raise ImportError(
                     "google-generativeai package is required for Gemini provider. "
-                    "Install with: pip install fastband-mcp[gemini]"
+                    "Install with: pip install fastband-agent-control[gemini]"
                 )
         return self._genai
 

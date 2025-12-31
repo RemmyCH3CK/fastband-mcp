@@ -2,7 +2,7 @@
 Fastband CLI - Main entry point.
 
 Provides commands for initializing, configuring, and managing
-Fastband MCP servers.
+Fastband Agent Control servers.
 """
 
 import asyncio
@@ -25,7 +25,7 @@ from fastband.core.detection import Language, ProjectInfo, detect_project
 # Create the main CLI app
 app = typer.Typer(
     name="fastband",
-    help="Fastband MCP Server - AI-powered development tools",
+    help="Fastband Agent Control - AI agent coordination and multi-agent orchestration",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
@@ -73,10 +73,10 @@ def main(
     ),
 ):
     """
-    Fastband MCP Server CLI.
+    Fastband Agent Control CLI.
 
-    A powerful AI-powered development tool server that provides
-    context-aware tools for your projects.
+    A universal platform for AI agent coordination, multi-agent orchestration,
+    and autonomous development workflows.
     """
     pass
 
@@ -515,7 +515,7 @@ def serve(
     ),
 ):
     """
-    Start the Fastband MCP server.
+    Start the Fastband Agent Control server.
 
     Launches the MCP server for the current project,
     loading configured tools and providers.
@@ -589,7 +589,7 @@ def serve(
         tool_mode = "all" if all_tools else ("minimal" if no_core else "core")
         console.print(
             Panel.fit(
-                f"[bold blue]Starting Fastband MCP Server[/bold blue]\n"
+                f"[bold blue]Starting Fastband Agent Control[/bold blue]\n"
                 f"[dim]{project_path}[/dim]\n"
                 f"[dim]Tool mode: {tool_mode}[/dim]",
                 border_style="blue",

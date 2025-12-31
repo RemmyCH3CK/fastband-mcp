@@ -186,7 +186,7 @@ class SemanticSearchTool(Tool):
         except ImportError as e:
             return ToolResult(
                 success=False,
-                error=f"Missing dependency: {e}. Install with: pip install fastband-mcp[{provider}]",
+                error=f"Missing dependency: {e}. Install with: pip install fastband-agent-control[{provider}]",
             )
         except Exception as e:
             return ToolResult(
