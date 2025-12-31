@@ -75,7 +75,9 @@ class WSMessage:
         parsed = json.loads(data)
         return cls(
             type=parsed.get("type", "unknown"),
-            timestamp=parsed.get("timestamp", datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")),
+            timestamp=parsed.get(
+                "timestamp", datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            ),
             data=parsed.get("data", {}),
         )
 
