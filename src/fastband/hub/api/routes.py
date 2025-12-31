@@ -29,7 +29,15 @@ from fastband.hub.session import SessionManager
 logger = logging.getLogger(__name__)
 
 # Dev mode - return mock responses when no chat manager
-DEV_MODE = os.environ.get("FASTBAND_DEV_MODE", "").lower() in ("1", "true", "yes")
+# Auto-detect: explicit env var OR no AI provider keys configured
+_explicit_dev = os.environ.get("FASTBAND_DEV_MODE", "").lower() in ("1", "true", "yes")
+_no_ai_keys = not any([
+    os.environ.get("ANTHROPIC_API_KEY"),
+    os.environ.get("OPENAI_API_KEY"),
+    os.environ.get("GOOGLE_API_KEY"),
+    os.environ.get("OLLAMA_HOST"),
+])
+DEV_MODE = _explicit_dev or _no_ai_keys
 
 
 def _utc_now() -> datetime:
