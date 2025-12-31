@@ -877,7 +877,9 @@ class TestWebSocketEndpointIntegration:
 
     def test_websocket_with_subscriptions(self, client):
         """Test WebSocket with specific subscriptions."""
-        with client.websocket_connect("/api/control-plane/ws?subscriptions=agents,tickets") as websocket:
+        with client.websocket_connect(
+            "/api/control-plane/ws?subscriptions=agents,tickets"
+        ) as websocket:
             data = websocket.receive_json()
             assert data["type"] == "system:connected"
             assert "agents" in data["data"]["subscriptions"]
