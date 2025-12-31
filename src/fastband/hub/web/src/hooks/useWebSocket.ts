@@ -115,8 +115,14 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
             setConnectionId(connId)
           }
         } else if (message.type === 'system:ping') {
-          // Respond to ping with pong
-          send({ type: 'system:pong', timestamp: new Date().toISOString(), data: {} })
+          // Respond to ping with pong - use wsRef directly to avoid stale closure
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+              type: 'system:pong',
+              timestamp: new Date().toISOString(),
+              data: {},
+            }))
+          }
         }
 
         // Forward to handler (use ref to avoid reconnect on callback change)
