@@ -1,10 +1,10 @@
 # Fastband Agent Control - Handoff Document
 
-**Version:** 1.2025.12.11
+**Version:** 1.2025.12.12
 **Last Updated:** 2025-12-31 (Session 8)
 **Branch:** main
 **CI Status:** ✅ Passing
-**PyPI:** ✅ Published (v1.2025.12.11)
+**PyPI:** ⏳ Pending (v1.2025.12.12)
 
 ## Current State
 
@@ -276,6 +276,7 @@ cp -r dist ../static
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| v1.2025.12.12 | 2025-12-31 | **Major fixes**: backup routes, scheduler routes, all API endpoints verified |
 | v1.2025.12.11 | 2025-12-31 | Fix project_path AttributeError in ticket routes |
 | v1.2025.12.10 | 2025-12-31 | Fix /api/tickets 500 error, system event handlers |
 | v1.2025.12.9 | 2025-12-31 | Fix version string mismatch in CLI |

@@ -946,11 +946,13 @@ class SchedulerStatusResponse(BaseModel):
 @router.get("/backups")
 async def list_backups() -> list[BackupResponse]:
     """List all backups."""
+    from pathlib import Path
+
     from fastband.backup.manager import BackupManager
     from fastband.core.config import get_config
 
     config = get_config()
-    manager = BackupManager(config.project_path, config.backup)
+    manager = BackupManager(Path.cwd(), config.backup)
 
     backups = manager.list_backups()
     return [
@@ -970,11 +972,13 @@ async def list_backups() -> list[BackupResponse]:
 @router.post("/backups")
 async def create_backup(request: BackupCreateRequest) -> BackupResponse:
     """Create a new backup."""
+    from pathlib import Path
+
     from fastband.backup.manager import BackupManager, BackupType
     from fastband.core.config import get_config
 
     config = get_config()
-    manager = BackupManager(config.project_path, config.backup)
+    manager = BackupManager(Path.cwd(), config.backup)
 
     # Map string to BackupType
     backup_type_map = {
@@ -1003,13 +1007,15 @@ async def create_backup(request: BackupCreateRequest) -> BackupResponse:
 @router.get("/backups/{backup_id}")
 async def get_backup(backup_id: str) -> BackupResponse:
     """Get a specific backup."""
+    from pathlib import Path
+
     from fastapi import HTTPException
 
     from fastband.backup.manager import BackupManager
     from fastband.core.config import get_config
 
     config = get_config()
-    manager = BackupManager(config.project_path, config.backup)
+    manager = BackupManager(Path.cwd(), config.backup)
 
     backup = manager.get_backup(backup_id)
     if not backup:
@@ -1029,13 +1035,15 @@ async def get_backup(backup_id: str) -> BackupResponse:
 @router.delete("/backups/{backup_id}")
 async def delete_backup(backup_id: str) -> dict:
     """Delete a backup."""
+    from pathlib import Path
+
     from fastapi import HTTPException
 
     from fastband.backup.manager import BackupManager
     from fastband.core.config import get_config
 
     config = get_config()
-    manager = BackupManager(config.project_path, config.backup)
+    manager = BackupManager(Path.cwd(), config.backup)
 
     success = manager.delete_backup(backup_id)
     if not success:
@@ -1047,13 +1055,15 @@ async def delete_backup(backup_id: str) -> dict:
 @router.post("/backups/{backup_id}/restore")
 async def restore_backup(backup_id: str) -> dict:
     """Restore a backup."""
+    from pathlib import Path
+
     from fastapi import HTTPException
 
     from fastband.backup.manager import BackupManager
     from fastband.core.config import get_config
 
     config = get_config()
-    manager = BackupManager(config.project_path, config.backup)
+    manager = BackupManager(Path.cwd(), config.backup)
 
     backup = manager.get_backup(backup_id)
     if not backup:
@@ -1069,47 +1079,54 @@ async def restore_backup(backup_id: str) -> dict:
 @router.get("/backups/scheduler/status")
 async def get_scheduler_status() -> SchedulerStatusResponse:
     """Get backup scheduler status."""
+    from pathlib import Path
+
     from fastband.backup.scheduler import BackupScheduler
     from fastband.core.config import get_config
 
     config = get_config()
-    scheduler = BackupScheduler(config.project_path, config.backup)
+    scheduler = BackupScheduler(Path.cwd(), config.backup)
 
-    state = scheduler.get_status()
+    status = scheduler.get_status()
+    state = status.get("state", {})
     return SchedulerStatusResponse(
-        running=state.running,
-        pid=state.pid,
-        started_at=state.started_at.isoformat() if state.started_at else None,
-        last_backup_at=state.last_backup_at.isoformat() if state.last_backup_at else None,
-        next_backup_at=state.next_backup_at.isoformat() if state.next_backup_at else None,
-        backups_created=state.backups_created,
-        errors=state.errors,
+        running=status.get("running", False),
+        pid=status.get("pid"),
+        started_at=state.get("started_at"),
+        last_backup_at=state.get("last_backup_at"),
+        next_backup_at=state.get("next_backup_at"),
+        backups_created=state.get("backups_created", 0),
+        errors=state.get("errors", 0),
     )
 
 
 @router.post("/backups/scheduler/start")
 async def start_scheduler() -> dict:
     """Start the backup scheduler."""
+    from pathlib import Path
+
     from fastband.backup.scheduler import BackupScheduler
     from fastband.core.config import get_config
 
     config = get_config()
-    scheduler = BackupScheduler(config.project_path, config.backup)
+    scheduler = BackupScheduler(Path.cwd(), config.backup)
 
-    success = scheduler.start()
+    success = scheduler.start_daemon()
     return {"started": success}
 
 
 @router.post("/backups/scheduler/stop")
 async def stop_scheduler() -> dict:
     """Stop the backup scheduler."""
+    from pathlib import Path
+
     from fastband.backup.scheduler import BackupScheduler
     from fastband.core.config import get_config
 
     config = get_config()
-    scheduler = BackupScheduler(config.project_path, config.backup)
+    scheduler = BackupScheduler(Path.cwd(), config.backup)
 
-    success = scheduler.stop()
+    success = scheduler.stop_daemon()
     return {"stopped": success}
 
 
