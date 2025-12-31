@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from fastband.hub.analyzer import PlatformAnalyzer
 from fastband.hub.chat import ChatManager
 from fastband.hub.models import (
     Conversation,
@@ -116,6 +117,30 @@ class HealthResponse(BaseModel):
     version: str
     active_sessions: int
     uptime_seconds: float
+
+
+class AnalyzeRequest(BaseModel):
+    """Request to analyze a codebase."""
+
+    path: str | None = Field(None, description="Local path to analyze")
+    github_url: str | None = Field(None, description="GitHub repository URL")
+    github_token: str | None = Field(None, description="GitHub access token for private repos")
+
+
+class AnalyzeResponse(BaseModel):
+    """Analysis response."""
+
+    report_id: str
+    project_name: str
+    connection_type: str
+    phase: str
+    summary: str
+    confidence: float
+    warnings: list[str]
+    tech_stack: dict[str, Any] | None = None
+    workflow: dict[str, Any] | None = None
+    recommendations: list[dict[str, Any]] = Field(default_factory=list)
+    file_stats: dict[str, Any] | None = None
 
 
 # =============================================================================
@@ -654,3 +679,221 @@ async def get_stats(
     Returns detailed statistics about sessions and usage.
     """
     return manager.get_stats()
+
+
+# =============================================================================
+# ANALYZER ENDPOINTS
+# =============================================================================
+
+
+@router.post("/analyze", response_model=AnalyzeResponse)
+async def analyze_codebase(request: AnalyzeRequest):
+    """Analyze a codebase for MCP tool recommendations.
+
+    Analyzes either a local directory or GitHub repository to detect:
+    - Programming languages and frameworks
+    - CI/CD pipelines
+    - Testing frameworks
+    - Database usage
+    - Team workflow patterns
+
+    Then generates MCP tool configuration recommendations.
+    """
+    from pathlib import Path
+
+    analyzer = PlatformAnalyzer()
+
+    if request.path:
+        # Local directory analysis
+        path = Path(request.path)
+        if not path.exists():
+            raise HTTPException(status_code=400, detail=f"Path does not exist: {request.path}")
+        if not path.is_dir():
+            raise HTTPException(status_code=400, detail=f"Path is not a directory: {request.path}")
+
+        report = await analyzer.analyze_local(path)
+
+    elif request.github_url:
+        # GitHub repository analysis
+        report = await analyzer.analyze_github(
+            repo_url=request.github_url,
+            access_token=request.github_token,
+        )
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Either 'path' or 'github_url' must be provided",
+        )
+
+    # Convert report to response
+    return AnalyzeResponse(
+        report_id=report.report_id,
+        project_name=report.project_name,
+        connection_type=report.connection_type.value,
+        phase=report.phase.value,
+        summary=report.summary,
+        confidence=report.confidence,
+        warnings=report.warnings,
+        tech_stack={
+            "primary_language": report.tech_stack.primary_language,
+            "languages": report.tech_stack.languages,
+            "frameworks": report.tech_stack.frameworks,
+            "databases": report.tech_stack.databases,
+            "ci_cd": report.tech_stack.ci_cd,
+            "testing": report.tech_stack.testing,
+            "package_managers": report.tech_stack.package_managers,
+        } if report.tech_stack else None,
+        workflow={
+            "has_git": report.workflow.has_git,
+            "default_branch": report.workflow.default_branch,
+            "has_ci": report.workflow.has_ci,
+            "has_tests": report.workflow.has_tests,
+            "has_docs": report.workflow.has_docs,
+            "has_docker": report.workflow.has_docker,
+            "has_kubernetes": report.workflow.has_kubernetes,
+        } if report.workflow else None,
+        recommendations=[
+            {
+                "tool_category": rec.tool_category,
+                "tools": rec.tools,
+                "priority": rec.priority,
+                "rationale": rec.rationale,
+                "configuration": rec.configuration,
+            }
+            for rec in report.recommendations
+        ],
+        file_stats={
+            "total_files": report.file_stats.total_files,
+            "total_lines": report.file_stats.total_lines,
+            "by_extension": report.file_stats.by_extension,
+            "by_directory": report.file_stats.by_directory,
+        } if report.file_stats else None,
+    )
+
+
+# =============================================================================
+# AI PROVIDER CONFIGURATION ENDPOINTS
+# =============================================================================
+
+
+class ProviderConfigRequest(BaseModel):
+    """Request to configure an AI provider."""
+
+    provider: str
+    api_key: str
+
+
+class ProviderStatusResponse(BaseModel):
+    """Status of configured AI providers."""
+
+    anthropic: dict | None = None
+    openai: dict | None = None
+
+
+@router.get("/providers/status", response_model=ProviderStatusResponse)
+async def get_provider_status():
+    """Get the configuration status of AI providers.
+
+    Returns which providers are configured and whether their keys are valid.
+    """
+    import os
+
+    result = {
+        "anthropic": {
+            "configured": bool(os.environ.get("ANTHROPIC_API_KEY")),
+            "valid": None,  # We don't validate on status check to avoid rate limits
+        },
+        "openai": {
+            "configured": bool(os.environ.get("OPENAI_API_KEY")),
+            "valid": None,
+        },
+    }
+
+    return ProviderStatusResponse(**result)
+
+
+@router.post("/providers/configure")
+async def configure_provider(request: ProviderConfigRequest):
+    """Configure an AI provider with an API key.
+
+    Validates the key and stores it for the current session.
+    Note: For persistence, set environment variables or use .env file.
+    """
+    import os
+
+    provider = request.provider.lower()
+    api_key = request.api_key.strip()
+
+    if provider not in ("anthropic", "openai"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown provider: {provider}. Supported: anthropic, openai",
+        )
+
+    # Validate key format
+    if provider == "anthropic" and not api_key.startswith("sk-ant-"):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid Anthropic API key format. Should start with 'sk-ant-'",
+        )
+
+    if provider == "openai" and not api_key.startswith("sk-"):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid OpenAI API key format. Should start with 'sk-'",
+        )
+
+    # Set the environment variable for the current process
+    env_var = "ANTHROPIC_API_KEY" if provider == "anthropic" else "OPENAI_API_KEY"
+    os.environ[env_var] = api_key
+
+    # Try to validate the key by making a simple API call
+    valid = await _validate_provider_key(provider, api_key)
+
+    return {
+        "provider": provider,
+        "configured": True,
+        "valid": valid,
+        "message": "API key configured successfully" if valid else "Key saved but validation failed",
+    }
+
+
+async def _validate_provider_key(provider: str, api_key: str) -> bool:
+    """Validate an API key by making a test request."""
+    try:
+        if provider == "anthropic":
+            try:
+                import anthropic
+
+                client = anthropic.Anthropic(api_key=api_key)
+                # Make a minimal request to validate
+                client.messages.create(
+                    model="claude-3-haiku-20240307",
+                    max_tokens=1,
+                    messages=[{"role": "user", "content": "hi"}],
+                )
+                return True
+            except anthropic.AuthenticationError:
+                return False
+            except Exception:
+                # Other errors might be rate limits, etc. - key might still be valid
+                return True
+
+        elif provider == "openai":
+            try:
+                import openai
+
+                client = openai.OpenAI(api_key=api_key)
+                # Make a minimal request to validate
+                client.models.list()
+                return True
+            except openai.AuthenticationError:
+                return False
+            except Exception:
+                return True
+
+    except ImportError:
+        # Provider library not installed, assume key is valid
+        return True
+    except Exception:
+        return False

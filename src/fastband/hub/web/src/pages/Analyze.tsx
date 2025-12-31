@@ -13,31 +13,46 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { Layout } from '../components/Layout'
-import { useSessionStore } from '../stores/session'
 
 interface AnalysisResult {
-  status: 'success' | 'error'
-  summary: {
-    total_files: number
-    languages: { [key: string]: number }
-    size_mb: number
-  }
+  report_id: string
+  project_name: string
+  connection_type: string
+  phase: string
+  summary: string
+  confidence: number
+  warnings: string[]
   tech_stack: {
-    languages: string[]
+    primary_language: string
+    languages: { [key: string]: number }
     frameworks: string[]
     databases: string[]
-    tools: string[]
-  }
+    ci_cd: string[]
+    testing: string[]
+    package_managers: string[]
+  } | null
+  workflow: {
+    has_git: boolean
+    default_branch: string
+    has_ci: boolean
+    has_tests: boolean
+    has_docs: boolean
+    has_docker: boolean
+    has_kubernetes: boolean
+  } | null
   recommendations: Array<{
-    tool: string
-    reason: string
-    priority: 'high' | 'medium' | 'low'
-  }>
-  workflows: Array<{
-    name: string
-    description: string
+    tool_category: string
     tools: string[]
+    priority: string
+    rationale: string
+    configuration: Record<string, unknown>
   }>
+  file_stats: {
+    total_files: number
+    total_lines: number
+    by_extension: { [key: string]: number }
+    by_directory: { [key: string]: number }
+  } | null
 }
 
 export function Analyze() {
@@ -46,8 +61,6 @@ export function Analyze() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<AnalysisResult | null>(null)
-
-  const { sessionId } = useSessionStore()
 
   const handleAnalyze = async () => {
     if (!path.trim()) {
@@ -60,16 +73,14 @@ export function Analyze() {
     setResult(null)
 
     try {
-      const endpoint =
-        sourceType === 'github' ? '/api/analyze/github' : '/api/analyze/local'
-
-      const response = await fetch(endpoint, {
+      const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          session_id: sessionId,
-          [sourceType === 'github' ? 'repo_url' : 'path']: path,
-        }),
+        body: JSON.stringify(
+          sourceType === 'github'
+            ? { github_url: path }
+            : { path: path }
+        ),
       })
 
       if (!response.ok) {
@@ -86,10 +97,10 @@ export function Analyze() {
     }
   }
 
-  const priorityColors = {
-    high: 'bg-red-500/20 text-red-300 border-red-500/50',
-    medium: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/50',
-    low: 'bg-green-500/20 text-green-300 border-green-500/50',
+  const priorityColors: Record<string, string> = {
+    essential: 'bg-red-500/20 text-red-300 border-red-500/50',
+    recommended: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/50',
+    optional: 'bg-green-500/20 text-green-300 border-green-500/50',
   }
 
   return (
@@ -181,107 +192,152 @@ export function Analyze() {
               <div className="bg-gray-800 rounded-lg p-6">
                 <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                   <FileCode className="w-5 h-5 text-blue-400" />
-                  Analysis Summary
+                  Analysis Summary: {result.project_name}
                 </h2>
+                <p className="text-gray-300 mb-4">{result.summary}</p>
                 <div className="grid grid-cols-3 gap-4">
                   <div className="p-4 bg-gray-700 rounded-lg">
                     <p className="text-3xl font-bold text-white">
-                      {result.summary.total_files.toLocaleString()}
+                      {result.file_stats?.total_files.toLocaleString() ?? 0}
                     </p>
                     <p className="text-sm text-gray-400">Files analyzed</p>
                   </div>
                   <div className="p-4 bg-gray-700 rounded-lg">
                     <p className="text-3xl font-bold text-white">
-                      {Object.keys(result.summary.languages).length}
+                      {result.file_stats?.total_lines.toLocaleString() ?? 0}
                     </p>
-                    <p className="text-sm text-gray-400">Languages detected</p>
+                    <p className="text-sm text-gray-400">Lines of code</p>
                   </div>
                   <div className="p-4 bg-gray-700 rounded-lg">
                     <p className="text-3xl font-bold text-white">
-                      {result.summary.size_mb.toFixed(1)} MB
+                      {Math.round(result.confidence * 100)}%
                     </p>
-                    <p className="text-sm text-gray-400">Total size</p>
+                    <p className="text-sm text-gray-400">Confidence</p>
                   </div>
                 </div>
+                {result.warnings.length > 0 && (
+                  <div className="mt-4 p-3 bg-yellow-900/30 border border-yellow-700 rounded">
+                    <p className="text-yellow-300 text-sm">{result.warnings.join(', ')}</p>
+                  </div>
+                )}
               </div>
 
               {/* Tech Stack */}
-              <div className="bg-gray-800 rounded-lg p-6">
-                <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <Package className="w-5 h-5 text-purple-400" />
-                  Tech Stack
-                </h2>
-                <div className="grid md:grid-cols-2 gap-4">
-                  {result.tech_stack.languages.length > 0 && (
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-400 mb-2">
-                        Languages
-                      </h3>
-                      <div className="flex flex-wrap gap-2">
-                        {result.tech_stack.languages.map((lang) => (
-                          <span
-                            key={lang}
-                            className="px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-sm"
-                          >
-                            {lang}
-                          </span>
-                        ))}
+              {result.tech_stack && (
+                <div className="bg-gray-800 rounded-lg p-6">
+                  <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <Package className="w-5 h-5 text-purple-400" />
+                    Tech Stack
+                  </h2>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {Object.keys(result.tech_stack.languages).length > 0 && (
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-400 mb-2">
+                          Languages
+                        </h3>
+                        <div className="flex flex-wrap gap-2">
+                          {Object.entries(result.tech_stack.languages).map(([lang, pct]) => (
+                            <span
+                              key={lang}
+                              className="px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-sm"
+                            >
+                              {lang} ({pct}%)
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  {result.tech_stack.frameworks.length > 0 && (
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-400 mb-2">
-                        Frameworks
-                      </h3>
-                      <div className="flex flex-wrap gap-2">
-                        {result.tech_stack.frameworks.map((fw) => (
-                          <span
-                            key={fw}
-                            className="px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 text-sm"
-                          >
-                            {fw}
-                          </span>
-                        ))}
+                    )}
+                    {result.tech_stack.frameworks.length > 0 && (
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-400 mb-2">
+                          Frameworks
+                        </h3>
+                        <div className="flex flex-wrap gap-2">
+                          {result.tech_stack.frameworks.map((fw) => (
+                            <span
+                              key={fw}
+                              className="px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 text-sm"
+                            >
+                              {fw}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  {result.tech_stack.databases.length > 0 && (
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-400 mb-2">
-                        Databases
-                      </h3>
-                      <div className="flex flex-wrap gap-2">
-                        {result.tech_stack.databases.map((db) => (
-                          <span
-                            key={db}
-                            className="px-3 py-1 rounded-full bg-green-500/20 text-green-300 text-sm"
-                          >
-                            {db}
-                          </span>
-                        ))}
+                    )}
+                    {result.tech_stack.databases.length > 0 && (
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-400 mb-2">
+                          Databases
+                        </h3>
+                        <div className="flex flex-wrap gap-2">
+                          {result.tech_stack.databases.map((db) => (
+                            <span
+                              key={db}
+                              className="px-3 py-1 rounded-full bg-green-500/20 text-green-300 text-sm"
+                            >
+                              {db}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  {result.tech_stack.tools.length > 0 && (
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-400 mb-2">
-                        Tools
-                      </h3>
-                      <div className="flex flex-wrap gap-2">
-                        {result.tech_stack.tools.map((tool) => (
-                          <span
-                            key={tool}
-                            className="px-3 py-1 rounded-full bg-orange-500/20 text-orange-300 text-sm"
-                          >
-                            {tool}
-                          </span>
-                        ))}
+                    )}
+                    {result.tech_stack.ci_cd.length > 0 && (
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-400 mb-2">
+                          CI/CD
+                        </h3>
+                        <div className="flex flex-wrap gap-2">
+                          {result.tech_stack.ci_cd.map((ci) => (
+                            <span
+                              key={ci}
+                              className="px-3 py-1 rounded-full bg-orange-500/20 text-orange-300 text-sm"
+                            >
+                              {ci}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Workflow Info */}
+              {result.workflow && (
+                <div className="bg-gray-800 rounded-lg p-6">
+                  <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <GitBranch className="w-5 h-5 text-yellow-400" />
+                    Workflow Features
+                  </h2>
+                  <div className="flex flex-wrap gap-3">
+                    {result.workflow.has_git && (
+                      <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-green-500/20 text-green-300 text-sm">
+                        <Check className="w-4 h-4" /> Git ({result.workflow.default_branch})
+                      </span>
+                    )}
+                    {result.workflow.has_ci && (
+                      <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-green-500/20 text-green-300 text-sm">
+                        <Check className="w-4 h-4" /> CI/CD
+                      </span>
+                    )}
+                    {result.workflow.has_tests && (
+                      <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-green-500/20 text-green-300 text-sm">
+                        <Check className="w-4 h-4" /> Tests
+                      </span>
+                    )}
+                    {result.workflow.has_docker && (
+                      <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-green-500/20 text-green-300 text-sm">
+                        <Check className="w-4 h-4" /> Docker
+                      </span>
+                    )}
+                    {result.workflow.has_docs && (
+                      <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-green-500/20 text-green-300 text-sm">
+                        <Check className="w-4 h-4" /> Documentation
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Recommendations */}
               <div className="bg-gray-800 rounded-lg p-6">
@@ -295,41 +351,20 @@ export function Analyze() {
                       key={i}
                       className={clsx(
                         'p-4 rounded-lg border',
-                        priorityColors[rec.priority]
+                        priorityColors[rec.priority] || 'bg-gray-700 border-gray-600'
                       )}
                     >
-                      <div className="flex items-center justify-between mb-1">
-                        <h3 className="font-medium">{rec.tool}</h3>
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-medium capitalize">{rec.tool_category}</h3>
                         <span className="text-xs uppercase">{rec.priority}</span>
                       </div>
-                      <p className="text-sm opacity-80">{rec.reason}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Workflows */}
-              <div className="bg-gray-800 rounded-lg p-6">
-                <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <GitBranch className="w-5 h-5 text-yellow-400" />
-                  Suggested Workflows
-                </h2>
-                <div className="space-y-4">
-                  {result.workflows.map((workflow, i) => (
-                    <div key={i} className="p-4 bg-gray-700 rounded-lg">
-                      <h3 className="font-medium text-white mb-1">
-                        {workflow.name}
-                      </h3>
-                      <p className="text-sm text-gray-400 mb-3">
-                        {workflow.description}
-                      </p>
-                      <div className="flex items-center gap-2">
-                        {workflow.tools.map((tool, j) => (
+                      <p className="text-sm opacity-80 mb-2">{rec.rationale}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {rec.tools.map((tool) => (
                           <span
-                            key={j}
-                            className="flex items-center gap-1 px-2 py-1 rounded bg-gray-600 text-gray-300 text-xs"
+                            key={tool}
+                            className="px-2 py-1 rounded bg-gray-600 text-gray-300 text-xs"
                           >
-                            <Check className="w-3 h-3" />
                             {tool}
                           </span>
                         ))}

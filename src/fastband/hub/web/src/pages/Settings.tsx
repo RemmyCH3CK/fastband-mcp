@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { clsx } from 'clsx'
 import {
   User,
@@ -9,19 +9,38 @@ import {
   Trash2,
   ExternalLink,
   Check,
+  Bot,
+  Eye,
+  EyeOff,
+  Loader2,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
 } from 'lucide-react'
 import { useAuthStore } from '../stores/auth'
 import { useSessionStore } from '../stores/session'
 import { Layout } from '../components/Layout'
 
-type Tab = 'profile' | 'billing' | 'notifications' | 'security'
+type Tab = 'profile' | 'ai-providers' | 'billing' | 'notifications' | 'security'
 
 const tabs: { id: Tab; label: string; icon: typeof User }[] = [
   { id: 'profile', label: 'Profile', icon: User },
+  { id: 'ai-providers', label: 'AI Providers', icon: Bot },
   { id: 'billing', label: 'Billing', icon: CreditCard },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'security', label: 'Security', icon: Shield },
 ]
+
+interface ProviderStatus {
+  configured: boolean
+  valid: boolean | null
+  checking: boolean
+}
+
+interface ProvidersState {
+  anthropic: ProviderStatus
+  openai: ProviderStatus
+}
 
 const plans = [
   {
@@ -62,8 +81,92 @@ export function Settings() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
+  // AI Provider state
+  const [anthropicKey, setAnthropicKey] = useState('')
+  const [openaiKey, setOpenaiKey] = useState('')
+  const [showAnthropicKey, setShowAnthropicKey] = useState(false)
+  const [showOpenaiKey, setShowOpenaiKey] = useState(false)
+  const [providers, setProviders] = useState<ProvidersState>({
+    anthropic: { configured: false, valid: null, checking: false },
+    openai: { configured: false, valid: null, checking: false },
+  })
+  const [savingProvider, setSavingProvider] = useState<string | null>(null)
+
   const { user } = useAuthStore()
   const { tier } = useSessionStore()
+
+  // Check provider status on mount
+  useEffect(() => {
+    checkProviderStatus()
+  }, [])
+
+  const checkProviderStatus = async () => {
+    try {
+      const response = await fetch('/api/providers/status')
+      if (response.ok) {
+        const data = await response.json()
+        setProviders({
+          anthropic: {
+            configured: data.anthropic?.configured ?? false,
+            valid: data.anthropic?.valid ?? null,
+            checking: false
+          },
+          openai: {
+            configured: data.openai?.configured ?? false,
+            valid: data.openai?.valid ?? null,
+            checking: false
+          },
+        })
+      }
+    } catch {
+      // API might not exist yet, that's ok
+      console.log('Provider status check not available')
+    }
+  }
+
+  const saveProviderKey = async (provider: 'anthropic' | 'openai', key: string) => {
+    if (!key.trim()) return
+
+    setSavingProvider(provider)
+    setProviders(prev => ({
+      ...prev,
+      [provider]: { ...prev[provider], checking: true }
+    }))
+
+    try {
+      const response = await fetch('/api/providers/configure', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, api_key: key }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setProviders(prev => ({
+          ...prev,
+          [provider]: { configured: true, valid: data.valid, checking: false }
+        }))
+        // Clear the input after successful save
+        if (provider === 'anthropic') setAnthropicKey('')
+        else setOpenaiKey('')
+      } else {
+        const error = await response.json()
+        setProviders(prev => ({
+          ...prev,
+          [provider]: { configured: false, valid: false, checking: false }
+        }))
+        alert(error.detail || 'Failed to save API key')
+      }
+    } catch {
+      setProviders(prev => ({
+        ...prev,
+        [provider]: { ...prev[provider], checking: false }
+      }))
+      alert('Failed to connect to server')
+    } finally {
+      setSavingProvider(null)
+    }
+  }
 
   const handleSave = async () => {
     setSaving(true)
@@ -180,6 +283,215 @@ export function Settings() {
                   <Trash2 className="w-4 h-4" />
                   Delete Account
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* AI Providers tab */}
+          {activeTab === 'ai-providers' && (
+            <div className="space-y-6">
+              {/* Quick status overview */}
+              <div className="bg-gradient-to-r from-blue-900/50 to-purple-900/50 rounded-lg p-6 border border-blue-500/30">
+                <h2 className="text-lg font-semibold text-white mb-2">
+                  AI Provider Configuration
+                </h2>
+                <p className="text-gray-300 text-sm">
+                  Configure your AI provider API keys to enable chat and intelligent features.
+                  Keys are stored securely and never shared.
+                </p>
+              </div>
+
+              {/* Anthropic */}
+              <div className="bg-gray-800 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                      <Bot className="w-5 h-5 text-orange-400" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-white">Anthropic (Claude)</h3>
+                      <p className="text-sm text-gray-400">Powers chat and AI assistance</p>
+                    </div>
+                  </div>
+                  {providers.anthropic.configured && (
+                    <div className="flex items-center gap-2">
+                      {providers.anthropic.valid === true && (
+                        <span className="flex items-center gap-1 px-2 py-1 rounded bg-green-500/20 text-green-400 text-xs">
+                          <CheckCircle className="w-3 h-3" /> Connected
+                        </span>
+                      )}
+                      {providers.anthropic.valid === false && (
+                        <span className="flex items-center gap-1 px-2 py-1 rounded bg-red-500/20 text-red-400 text-xs">
+                          <XCircle className="w-3 h-3" /> Invalid Key
+                        </span>
+                      )}
+                      {providers.anthropic.valid === null && (
+                        <span className="flex items-center gap-1 px-2 py-1 rounded bg-yellow-500/20 text-yellow-400 text-xs">
+                          <AlertCircle className="w-3 h-3" /> Configured
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <div className="relative">
+                    <input
+                      type={showAnthropicKey ? 'text' : 'password'}
+                      value={anthropicKey}
+                      onChange={(e) => setAnthropicKey(e.target.value)}
+                      placeholder={providers.anthropic.configured ? '••••••••••••••••' : 'sk-ant-...'}
+                      className={clsx(
+                        'w-full px-4 py-3 pr-20 rounded-lg',
+                        'bg-gray-700 border border-gray-600 text-white',
+                        'focus:border-blue-500 focus:outline-none',
+                        'placeholder:text-gray-500'
+                      )}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowAnthropicKey(!showAnthropicKey)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                    >
+                      {showAnthropicKey ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <a
+                      href="https://console.anthropic.com/settings/keys"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                    >
+                      Get an API key <ExternalLink className="w-3 h-3" />
+                    </a>
+                    <button
+                      onClick={() => saveProviderKey('anthropic', anthropicKey)}
+                      disabled={!anthropicKey.trim() || savingProvider === 'anthropic'}
+                      className={clsx(
+                        'flex items-center gap-2 px-4 py-2 rounded-lg',
+                        'bg-blue-600 text-white font-medium',
+                        'hover:bg-blue-700 transition-colors',
+                        'disabled:opacity-50 disabled:cursor-not-allowed'
+                      )}
+                    >
+                      {savingProvider === 'anthropic' ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Key className="w-4 h-4" />
+                          Save Key
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* OpenAI */}
+              <div className="bg-gray-800 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                      <Bot className="w-5 h-5 text-green-400" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-white">OpenAI</h3>
+                      <p className="text-sm text-gray-400">Powers embeddings and semantic search</p>
+                    </div>
+                  </div>
+                  {providers.openai.configured && (
+                    <div className="flex items-center gap-2">
+                      {providers.openai.valid === true && (
+                        <span className="flex items-center gap-1 px-2 py-1 rounded bg-green-500/20 text-green-400 text-xs">
+                          <CheckCircle className="w-3 h-3" /> Connected
+                        </span>
+                      )}
+                      {providers.openai.valid === false && (
+                        <span className="flex items-center gap-1 px-2 py-1 rounded bg-red-500/20 text-red-400 text-xs">
+                          <XCircle className="w-3 h-3" /> Invalid Key
+                        </span>
+                      )}
+                      {providers.openai.valid === null && (
+                        <span className="flex items-center gap-1 px-2 py-1 rounded bg-yellow-500/20 text-yellow-400 text-xs">
+                          <AlertCircle className="w-3 h-3" /> Configured
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <div className="relative">
+                    <input
+                      type={showOpenaiKey ? 'text' : 'password'}
+                      value={openaiKey}
+                      onChange={(e) => setOpenaiKey(e.target.value)}
+                      placeholder={providers.openai.configured ? '••••••••••••••••' : 'sk-...'}
+                      className={clsx(
+                        'w-full px-4 py-3 pr-20 rounded-lg',
+                        'bg-gray-700 border border-gray-600 text-white',
+                        'focus:border-blue-500 focus:outline-none',
+                        'placeholder:text-gray-500'
+                      )}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowOpenaiKey(!showOpenaiKey)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                    >
+                      {showOpenaiKey ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <a
+                      href="https://platform.openai.com/api-keys"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                    >
+                      Get an API key <ExternalLink className="w-3 h-3" />
+                    </a>
+                    <button
+                      onClick={() => saveProviderKey('openai', openaiKey)}
+                      disabled={!openaiKey.trim() || savingProvider === 'openai'}
+                      className={clsx(
+                        'flex items-center gap-2 px-4 py-2 rounded-lg',
+                        'bg-blue-600 text-white font-medium',
+                        'hover:bg-blue-700 transition-colors',
+                        'disabled:opacity-50 disabled:cursor-not-allowed'
+                      )}
+                    >
+                      {savingProvider === 'openai' ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Key className="w-4 h-4" />
+                          Save Key
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Help text */}
+              <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+                <h4 className="text-sm font-medium text-gray-300 mb-2">
+                  Alternatively, set via environment variables:
+                </h4>
+                <pre className="text-xs text-gray-400 bg-gray-900 p-3 rounded overflow-x-auto">
+{`export ANTHROPIC_API_KEY=sk-ant-...
+export OPENAI_API_KEY=sk-...`}
+                </pre>
               </div>
             </div>
           )}

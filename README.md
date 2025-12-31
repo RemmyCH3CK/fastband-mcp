@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-v1.2025.12.6-green.svg)](https://github.com/RemmyCH3CK/fastband-mcp/releases)
+[![Version](https://img.shields.io/badge/version-v1.2025.12.7-green.svg)](https://github.com/RemmyCH3CK/fastband-mcp/releases)
 
 ---
 
@@ -66,7 +66,7 @@ local = get_provider("ollama")
 ### Installation
 
 ```bash
-# Basic installation
+# Standard installation (includes CLI + Hub dashboard)
 pip install fastband-agent-control
 
 # With Claude support
@@ -75,7 +75,7 @@ pip install fastband-agent-control[claude]
 # With all AI providers
 pip install fastband-agent-control[all-providers]
 
-# Full installation (all features)
+# Full installation (all features + dev tools)
 pip install fastband-agent-control[full]
 ```
 
