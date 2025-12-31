@@ -9,7 +9,7 @@ import json
 import logging
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -61,7 +61,7 @@ class WSMessage:
 
     type: str
     timestamp: str = field(
-        default_factory=lambda: datetime.now(UTC).isoformat().replace("+00:00", "Z")
+        default_factory=lambda: datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     )
     data: dict[str, Any] = field(default_factory=dict)
 
@@ -75,7 +75,7 @@ class WSMessage:
         parsed = json.loads(data)
         return cls(
             type=parsed.get("type", "unknown"),
-            timestamp=parsed.get("timestamp", datetime.now(UTC).isoformat().replace("+00:00", "Z")),
+            timestamp=parsed.get("timestamp", datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")),
             data=parsed.get("data", {}),
         )
 
@@ -101,7 +101,7 @@ class Connection:
     id: str
     websocket: WebSocket
     subscriptions: set[SubscriptionType]
-    connected_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    connected_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     last_ping: datetime | None = None
 
 
