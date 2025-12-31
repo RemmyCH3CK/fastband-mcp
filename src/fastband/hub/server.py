@@ -313,14 +313,26 @@ async def run_server(
         else:
             logger.warning("Dashboard not available (static files not built)")
 
-    # Configure uvicorn
+    # Configure uvicorn with custom logging to avoid Python 3.14 stream issues
+    # When running in background/daemon mode, stdout/stderr may be closed
+    # causing "I/O operation on closed file" errors in logging
+    import sys
+
+    # Check if stdout is still valid
+    access_log_enabled = True
+    try:
+        if sys.stdout.closed or sys.stderr.closed:
+            access_log_enabled = False
+    except (ValueError, AttributeError):
+        access_log_enabled = False
+
     config = uvicorn.Config(
         app,
         host=host,
         port=actual_port,
         log_level=log_level,
         reload=reload,
-        access_log=True,
+        access_log=access_log_enabled,
     )
 
     server = uvicorn.Server(config)

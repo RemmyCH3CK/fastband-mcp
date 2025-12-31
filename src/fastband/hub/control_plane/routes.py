@@ -264,8 +264,14 @@ async def control_plane_websocket(
             await ws_manager.handle_client_message(connection_id, message)
 
     except WebSocketDisconnect:
-        logger.info(f"WebSocket {connection_id} disconnected")
+        try:
+            logger.info(f"WebSocket {connection_id} disconnected")
+        except (ValueError, OSError):
+            pass  # Ignore logging errors from closed streams
     except Exception as e:
-        logger.error(f"WebSocket error for {connection_id}: {e}")
+        try:
+            logger.error(f"WebSocket error for {connection_id}: {e}")
+        except (ValueError, OSError):
+            pass  # Ignore logging errors from closed streams
     finally:
         await ws_manager.disconnect(connection_id)

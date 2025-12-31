@@ -148,7 +148,10 @@ class WebSocketManager:
                 try:
                     sub_set.add(SubscriptionType(sub))
                 except ValueError:
-                    logger.warning(f"Unknown subscription type: {sub}")
+                    try:
+                        logger.warning(f"Unknown subscription type: {sub}")
+                    except (ValueError, OSError):
+                        pass  # Ignore logging errors
 
         # Default to ALL if none specified
         if not sub_set:
@@ -161,7 +164,10 @@ class WebSocketManager:
                 subscriptions=sub_set,
             )
 
-        logger.info(f"WebSocket connected: {connection_id} with subscriptions: {sub_set}")
+        try:
+            logger.info(f"WebSocket connected: {connection_id} with subscriptions: {sub_set}")
+        except (ValueError, OSError):
+            pass  # Ignore logging errors from closed streams
 
         # Send connection confirmation
         await self.send_to_connection(
@@ -185,7 +191,10 @@ class WebSocketManager:
         async with self._lock:
             if connection_id in self._connections:
                 del self._connections[connection_id]
-                logger.info(f"WebSocket disconnected: {connection_id}")
+                try:
+                    logger.info(f"WebSocket disconnected: {connection_id}")
+                except (ValueError, OSError):
+                    pass  # Ignore logging errors from closed streams
 
     async def send_to_connection(
         self,
@@ -212,7 +221,11 @@ class WebSocketManager:
             await conn.websocket.send_text(message.to_json())
             return True
         except Exception as e:
-            logger.error(f"Failed to send to {connection_id}: {e}")
+            # Use print as fallback if logging fails (Python 3.14 stream issues)
+            try:
+                logger.error(f"Failed to send to {connection_id}: {e}")
+            except (ValueError, OSError):
+                pass  # Ignore logging errors from closed streams
             await self.disconnect(connection_id)
             return False
 
