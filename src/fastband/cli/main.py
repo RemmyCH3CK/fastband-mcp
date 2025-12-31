@@ -506,7 +506,7 @@ def serve(
     hub_port: int = typer.Option(
         8080,
         "--hub-port",
-        help="Port for Hub server (default: 8080)",
+        help="Preferred port for Hub server (auto-selects next available if busy)",
     ),
     no_dashboard: bool = typer.Option(
         False,
@@ -530,12 +530,26 @@ def serve(
 
     if hub_only:
         # Only run Hub server
+        from fastband.hub.server import find_available_port, is_port_available
         from fastband.hub.server import run_server as run_hub_server
+
+        # Find available port
+        actual_port = hub_port
+        if not is_port_available("0.0.0.0", hub_port):
+            available = find_available_port("0.0.0.0", hub_port + 1)
+            if available:
+                actual_port = available
+                console.print(f"[yellow]Port {hub_port} is busy, using port {actual_port}[/yellow]")
+            else:
+                console.print(
+                    "[red]No available ports found. Close some applications or use --hub-port.[/red]"
+                )
+                raise typer.Exit(1)
 
         console.print(
             Panel.fit(
-                f"[bold blue]Starting Fastband Hub[/bold blue]\n"
-                f"[dim]Dashboard: http://localhost:{hub_port}/[/dim]",
+                f"[bold blue]Starting Fastband Hub[/bold blue] [dim]v{__version__}[/dim]\n"
+                f"[dim]Dashboard: http://localhost:{actual_port}/[/dim]",
                 border_style="blue",
             )
         )
@@ -543,14 +557,29 @@ def serve(
         asyncio.run(
             run_hub_server(
                 host="0.0.0.0",
-                port=hub_port,
+                port=actual_port,
                 with_dashboard=not no_dashboard,
+                auto_port=False,  # We already found the port
             )
         )
     elif hub:
         # Run both MCP and Hub servers
         from fastband.core.engine import run_server
+        from fastband.hub.server import find_available_port, is_port_available
         from fastband.hub.server import run_server as run_hub_server
+
+        # Find available port
+        actual_port = hub_port
+        if not is_port_available("0.0.0.0", hub_port):
+            available = find_available_port("0.0.0.0", hub_port + 1)
+            if available:
+                actual_port = available
+                console.print(f"[yellow]Port {hub_port} is busy, using port {actual_port}[/yellow]")
+            else:
+                console.print(
+                    "[red]No available ports found. Close some applications or use --hub-port.[/red]"
+                )
+                raise typer.Exit(1)
 
         tool_mode = "all" if all_tools else ("minimal" if no_core else "core")
         console.print(
@@ -558,7 +587,7 @@ def serve(
                 f"[bold blue]Starting Fastband[/bold blue] [dim]v{__version__}[/dim]\n"
                 f"[dim]{project_path}[/dim]\n"
                 f"[dim]Tool mode: {tool_mode}[/dim]\n"
-                f"[dim]Dashboard: http://localhost:{hub_port}/[/dim]",
+                f"[dim]Dashboard: http://localhost:{actual_port}/[/dim]",
                 border_style="blue",
             )
         )
@@ -575,8 +604,9 @@ def serve(
             hub_task = asyncio.create_task(
                 run_hub_server(
                     host="0.0.0.0",
-                    port=hub_port,
+                    port=actual_port,
                     with_dashboard=not no_dashboard,
+                    auto_port=False,  # We already found the port
                 )
             )
             await asyncio.gather(mcp_task, hub_task)

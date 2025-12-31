@@ -18,6 +18,7 @@ Or via CLI:
 import asyncio
 import logging
 import os
+import socket
 from pathlib import Path
 
 from fastband.core.events import HubEventType, get_event_bus
@@ -28,6 +29,49 @@ logger = logging.getLogger(__name__)
 # Path to static files (built React dashboard)
 STATIC_DIR = Path(__file__).parent / "static"
 WEB_DIR = Path(__file__).parent / "web"
+
+# Port range for auto-selection
+DEFAULT_PORT = 8080
+MAX_PORT = 8099
+
+
+def is_port_available(host: str, port: int) -> bool:
+    """
+    Check if a port is available for binding.
+
+    Args:
+        host: Host to check
+        port: Port to check
+
+    Returns:
+        True if port is available
+    """
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.bind((host if host != "0.0.0.0" else "127.0.0.1", port))
+            return True
+    except OSError:
+        return False
+
+
+def find_available_port(host: str, preferred_port: int = DEFAULT_PORT) -> int | None:
+    """
+    Find an available port, starting from preferred_port.
+
+    Tries ports from preferred_port up to MAX_PORT.
+
+    Args:
+        host: Host to bind to
+        preferred_port: Preferred starting port
+
+    Returns:
+        Available port number, or None if no port found
+    """
+    for port in range(preferred_port, MAX_PORT + 1):
+        if is_port_available(host, port):
+            return port
+    return None
 
 
 def get_static_directory() -> Path | None:
@@ -187,7 +231,8 @@ async def run_server(
     with_dashboard: bool = True,
     reload: bool = False,
     log_level: str = "info",
-):
+    auto_port: bool = True,
+) -> int:
     """
     Run the Fastband Hub server.
 
@@ -200,12 +245,30 @@ async def run_server(
 
     Args:
         host: Host to bind to
-        port: Port to listen on
+        port: Port to listen on (preferred port if auto_port=True)
         with_dashboard: Whether to serve the React dashboard
         reload: Enable auto-reload (development only)
         log_level: Logging level
+        auto_port: If True, automatically find available port if preferred is busy
+
+    Returns:
+        The actual port the server is running on
     """
     import uvicorn
+
+    # Auto-port selection
+    actual_port = port
+    if auto_port:
+        if not is_port_available(host, port):
+            available = find_available_port(host, port + 1)
+            if available:
+                logger.info(f"Port {port} is busy, using port {available}")
+                actual_port = available
+            else:
+                raise RuntimeError(
+                    f"No available ports found in range {port}-{MAX_PORT}. "
+                    "Close some applications or specify a different port with --hub-port."
+                )
 
     # SECURITY: Warn if binding to all interfaces
     if host == "0.0.0.0":
@@ -235,18 +298,18 @@ async def run_server(
         HubEventType.HUB_STARTED,  # type: ignore
         {
             "host": host,
-            "port": port,
+            "port": actual_port,
             "with_dashboard": with_dashboard,
             "plugins_loaded": loaded,
         },
         source="hub_server",
     )
 
-    logger.info(f"Starting Fastband Hub on http://{host}:{port}")
+    logger.info(f"Starting Fastband Hub on http://{host}:{actual_port}")
     if with_dashboard:
         static_dir = get_static_directory()
         if static_dir:
-            logger.info(f"Dashboard: http://{host}:{port}/")
+            logger.info(f"Dashboard: http://{host}:{actual_port}/")
         else:
             logger.warning("Dashboard not available (static files not built)")
 
@@ -254,7 +317,7 @@ async def run_server(
     config = uvicorn.Config(
         app,
         host=host,
-        port=port,
+        port=actual_port,
         log_level=log_level,
         reload=reload,
         access_log=True,
@@ -268,7 +331,7 @@ async def run_server(
         # Emit hub stopped event
         await event_bus.emit(
             HubEventType.HUB_STOPPED,  # type: ignore
-            {"host": host, "port": port},
+            {"host": host, "port": actual_port},
             source="hub_server",
         )
 
@@ -279,6 +342,8 @@ async def run_server(
         await event_bus.stop()
 
         logger.info("Fastband Hub stopped")
+
+    return actual_port
 
 
 def main():

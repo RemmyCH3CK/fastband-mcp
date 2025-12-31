@@ -1,7 +1,7 @@
 # Fastband Agent Control - Handoff Document
 
-**Version:** 1.2025.12.7
-**Last Updated:** 2025-12-31 (Session 6)
+**Version:** 1.2025.12.8 (dev)
+**Last Updated:** 2025-12-31 (Session 7)
 **Branch:** main
 **CI Status:** ✅ Passing
 **PyPI:** ✅ Published (v1.2025.12.7)
@@ -29,11 +29,14 @@ pip install fastband-agent-control==1.2025.12.7
 - **Plugin System** - Entry point discovery with async lifecycle
 - **CLI** - `fastband serve --hub` to run server with dashboard
 - **CI/CD** - GitHub Actions for testing and PyPI releases (all passing)
-- **Tests** - 1388+ tests passing across Python 3.10, 3.11, 3.12
+- **Tests** - 1781+ tests passing across Python 3.10, 3.11, 3.12
 - **Vision Screenshot Analysis** - Claude Vision API integration for UI verification
 - **PyPI Publishing** - Automated releases via GitHub Actions
-- **AI Provider Settings** - Dashboard UI for configuring API keys (NEW in v1.2025.12.7)
+- **AI Provider Settings** - Dashboard UI for configuring API keys
 - **Platform Analyzer** - Codebase analysis with unified `/api/analyze` endpoint
+- **Auto-Port Selection** - Hub automatically finds available port if 8080 is busy (NEW)
+- **Tickets Page** - Full ticket management UI in dashboard (NEW)
+- **Backups Page** - Backup management UI in dashboard (NEW)
 
 ### Architecture Overview
 
@@ -58,6 +61,47 @@ src/fastband/
 ```
 
 ## Recent Session Work (2025-12-31)
+
+### Session 7 - Multi-Project Support & Dashboard Features
+
+1. **Auto-Port Selection** (MAJOR)
+   - Hub automatically detects if port 8080 is busy
+   - Scans ports 8081-8099 to find available port
+   - Displays actual port in startup banner
+   - Enables running multiple Hub instances for different projects
+   - 13 unit tests added for port selection logic
+
+2. **Tickets Page** (NEW FEATURE)
+   - Full ticket management UI at `/tickets`
+   - Create, edit, delete tickets from dashboard
+   - Filter by status, priority, type
+   - Claim tickets for agents
+   - Status badges and priority indicators
+   - Statistics overview (total, open, in progress, resolved)
+
+3. **Backups Page** (NEW FEATURE)
+   - Backup management UI at `/backups`
+   - Create manual backups with descriptions
+   - View backup history with size and file count
+   - Restore and delete backups
+   - Scheduler status and start/stop controls
+   - Real-time status updates
+
+4. **API Endpoints Added**
+   - Backup endpoints: `GET/POST /api/backups`, `DELETE/POST /api/backups/{id}/restore`
+   - Scheduler endpoints: `GET/POST /api/backups/scheduler/{status,start,stop}`
+   - Ticket endpoints: `GET/POST/PUT/DELETE /api/tickets`, `POST /api/tickets/{id}/claim`
+   - Stats endpoint: `GET /api/tickets/stats/summary`
+
+5. **Dashboard Navigation**
+   - Added Tickets and Backups to sidebar navigation
+   - Version number now displayed in startup banner
+
+6. **Installation Test Results**
+   - v1.2025.12.7 verified working with pipx on macOS
+   - WebSocket connectivity confirmed (was broken in v1.2025.12.6)
+   - All dependencies bundle correctly
+   - Clean install experience with no manual intervention
 
 ### Session 5 - Installation Streamlining & AI Provider UI
 
@@ -151,6 +195,16 @@ a85a22a fix(hub): Fix TypeScript strict mode errors in dashboard
 | `/api/chat/stream` | POST | Stream chat responses (SSE) |
 | `/api/control-plane/dashboard` | GET | Control Plane state |
 | `/api/control-plane/ws` | WS | Real-time WebSocket updates |
+| `/api/tickets` | GET/POST | List or create tickets |
+| `/api/tickets/{id}` | GET/PUT/DELETE | Get, update, or delete ticket |
+| `/api/tickets/{id}/claim` | POST | Claim ticket for agent |
+| `/api/tickets/stats/summary` | GET | Ticket statistics |
+| `/api/backups` | GET/POST | List or create backups |
+| `/api/backups/{id}` | GET/DELETE | Get or delete backup |
+| `/api/backups/{id}/restore` | POST | Restore a backup |
+| `/api/backups/scheduler/status` | GET | Scheduler status |
+| `/api/backups/scheduler/start` | POST | Start scheduler |
+| `/api/backups/scheduler/stop` | POST | Stop scheduler |
 
 ## Development Setup
 
@@ -201,11 +255,14 @@ cp -r dist ../static
 3. ✅ ~~Publish v1.2025.12.7~~ Done
 4. ✅ ~~Collect installation feedback from elaris-web test~~ Verified working!
 5. ✅ ~~Verify WebSocket connectivity in fresh install~~ Confirmed working!
-6. Consider adding persistent API key storage (encrypted file or keychain)
-7. Add `fastband doctor` CLI command for self-diagnosis
-8. Increase test coverage to 80%+
-9. Add E2E tests for Control Plane dashboard
-10. Add project path configuration to dashboard UI
+6. ✅ ~~Auto-port selection for multi-project support~~ Done (Session 7)
+7. ✅ ~~Tickets page in Hub dashboard~~ Done (Session 7)
+8. ✅ ~~Backups page in Hub dashboard~~ Done (Session 7)
+9. Consider adding persistent API key storage (encrypted file or keychain)
+10. Add `fastband doctor` CLI command for self-diagnosis
+11. Increase test coverage to 80%+
+12. Add E2E tests for Control Plane dashboard
+13. Add project path configuration to dashboard UI
 
 ## Contacts & Resources
 

@@ -13,6 +13,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Shield,
+  Archive,
+  Ticket,
 } from 'lucide-react'
 import { useAuthStore } from '../stores/auth'
 import { useSessionStore } from '../stores/session'
@@ -25,8 +27,10 @@ interface LayoutProps {
 
 const navigation = [
   { name: 'Control Plane', href: '/', icon: Shield },
+  { name: 'Tickets', href: '/tickets', icon: Ticket },
   { name: 'Chat', href: '/chat', icon: MessageSquare },
   { name: 'Analyze', href: '/analyze', icon: FileCode },
+  { name: 'Backups', href: '/backups', icon: Archive },
   { name: 'Usage', href: '/usage', icon: BarChart3 },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]

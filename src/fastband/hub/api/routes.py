@@ -905,3 +905,538 @@ async def _validate_provider_key(provider: str, api_key: str) -> bool:
         return True
     except Exception:
         return False
+
+
+# =============================================================================
+# BACKUP ENDPOINTS
+# =============================================================================
+
+
+class BackupCreateRequest(BaseModel):
+    """Request to create a backup."""
+
+    description: str = ""
+    backup_type: str = "manual"
+
+
+class BackupResponse(BaseModel):
+    """Response with backup information."""
+
+    id: str
+    backup_type: str
+    created_at: str
+    size_bytes: int
+    size_human: str
+    files_count: int
+    description: str
+
+
+class SchedulerStatusResponse(BaseModel):
+    """Response with scheduler status."""
+
+    running: bool
+    pid: int | None
+    started_at: str | None
+    last_backup_at: str | None
+    next_backup_at: str | None
+    backups_created: int
+    errors: int
+
+
+@router.get("/backups")
+async def list_backups() -> list[BackupResponse]:
+    """List all backups."""
+    from fastband.backup.manager import BackupManager
+    from fastband.core.config import get_config
+
+    config = get_config()
+    manager = BackupManager(config.project_path, config.backup)
+
+    backups = manager.list_backups()
+    return [
+        BackupResponse(
+            id=b.id,
+            backup_type=b.backup_type.value,
+            created_at=b.created_at.isoformat(),
+            size_bytes=b.size_bytes,
+            size_human=b.size_human,
+            files_count=b.files_count,
+            description=b.description,
+        )
+        for b in backups
+    ]
+
+
+@router.post("/backups")
+async def create_backup(request: BackupCreateRequest) -> BackupResponse:
+    """Create a new backup."""
+    from fastband.backup.manager import BackupManager, BackupType
+    from fastband.core.config import get_config
+
+    config = get_config()
+    manager = BackupManager(config.project_path, config.backup)
+
+    # Map string to BackupType
+    backup_type_map = {
+        "full": BackupType.FULL,
+        "incremental": BackupType.INCREMENTAL,
+        "manual": BackupType.MANUAL,
+    }
+    backup_type = backup_type_map.get(request.backup_type, BackupType.MANUAL)
+
+    backup = manager.create_backup(
+        backup_type=backup_type,
+        description=request.description,
+    )
+
+    return BackupResponse(
+        id=backup.id,
+        backup_type=backup.backup_type.value,
+        created_at=backup.created_at.isoformat(),
+        size_bytes=backup.size_bytes,
+        size_human=backup.size_human,
+        files_count=backup.files_count,
+        description=backup.description,
+    )
+
+
+@router.get("/backups/{backup_id}")
+async def get_backup(backup_id: str) -> BackupResponse:
+    """Get a specific backup."""
+    from fastapi import HTTPException
+
+    from fastband.backup.manager import BackupManager
+    from fastband.core.config import get_config
+
+    config = get_config()
+    manager = BackupManager(config.project_path, config.backup)
+
+    backup = manager.get_backup(backup_id)
+    if not backup:
+        raise HTTPException(status_code=404, detail="Backup not found")
+
+    return BackupResponse(
+        id=backup.id,
+        backup_type=backup.backup_type.value,
+        created_at=backup.created_at.isoformat(),
+        size_bytes=backup.size_bytes,
+        size_human=backup.size_human,
+        files_count=backup.files_count,
+        description=backup.description,
+    )
+
+
+@router.delete("/backups/{backup_id}")
+async def delete_backup(backup_id: str) -> dict:
+    """Delete a backup."""
+    from fastapi import HTTPException
+
+    from fastband.backup.manager import BackupManager
+    from fastband.core.config import get_config
+
+    config = get_config()
+    manager = BackupManager(config.project_path, config.backup)
+
+    success = manager.delete_backup(backup_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Backup not found")
+
+    return {"deleted": True, "id": backup_id}
+
+
+@router.post("/backups/{backup_id}/restore")
+async def restore_backup(backup_id: str) -> dict:
+    """Restore a backup."""
+    from fastapi import HTTPException
+
+    from fastband.backup.manager import BackupManager
+    from fastband.core.config import get_config
+
+    config = get_config()
+    manager = BackupManager(config.project_path, config.backup)
+
+    backup = manager.get_backup(backup_id)
+    if not backup:
+        raise HTTPException(status_code=404, detail="Backup not found")
+
+    success = manager.restore_backup(backup_id)
+    if not success:
+        raise HTTPException(status_code=500, detail="Restore failed")
+
+    return {"restored": True, "id": backup_id}
+
+
+@router.get("/backups/scheduler/status")
+async def get_scheduler_status() -> SchedulerStatusResponse:
+    """Get backup scheduler status."""
+    from fastband.backup.scheduler import BackupScheduler
+    from fastband.core.config import get_config
+
+    config = get_config()
+    scheduler = BackupScheduler(config.project_path, config.backup)
+
+    state = scheduler.get_status()
+    return SchedulerStatusResponse(
+        running=state.running,
+        pid=state.pid,
+        started_at=state.started_at.isoformat() if state.started_at else None,
+        last_backup_at=state.last_backup_at.isoformat() if state.last_backup_at else None,
+        next_backup_at=state.next_backup_at.isoformat() if state.next_backup_at else None,
+        backups_created=state.backups_created,
+        errors=state.errors,
+    )
+
+
+@router.post("/backups/scheduler/start")
+async def start_scheduler() -> dict:
+    """Start the backup scheduler."""
+    from fastband.backup.scheduler import BackupScheduler
+    from fastband.core.config import get_config
+
+    config = get_config()
+    scheduler = BackupScheduler(config.project_path, config.backup)
+
+    success = scheduler.start()
+    return {"started": success}
+
+
+@router.post("/backups/scheduler/stop")
+async def stop_scheduler() -> dict:
+    """Stop the backup scheduler."""
+    from fastband.backup.scheduler import BackupScheduler
+    from fastband.core.config import get_config
+
+    config = get_config()
+    scheduler = BackupScheduler(config.project_path, config.backup)
+
+    success = scheduler.stop()
+    return {"stopped": success}
+
+
+# =============================================================================
+# TICKET ENDPOINTS
+# =============================================================================
+
+
+class TicketCreateRequest(BaseModel):
+    """Request to create a ticket."""
+
+    title: str
+    description: str = ""
+    ticket_type: str = "task"
+    priority: str = "medium"
+    labels: list[str] = []
+    requirements: list[str] = []
+
+
+class TicketUpdateRequest(BaseModel):
+    """Request to update a ticket."""
+
+    title: str | None = None
+    description: str | None = None
+    ticket_type: str | None = None
+    priority: str | None = None
+    status: str | None = None
+    labels: list[str] | None = None
+    assigned_to: str | None = None
+    notes: str | None = None
+    resolution: str | None = None
+
+
+class TicketResponse(BaseModel):
+    """Response with ticket information."""
+
+    id: str
+    ticket_number: str | None
+    title: str
+    description: str
+    ticket_type: str
+    priority: str
+    status: str
+    assigned_to: str | None
+    created_by: str
+    created_at: str
+    updated_at: str
+    labels: list[str]
+    requirements: list[str]
+    notes: str
+    resolution: str
+
+
+@router.get("/tickets")
+async def list_tickets(
+    status: str | None = None,
+    priority: str | None = None,
+    ticket_type: str | None = None,
+    assigned_to: str | None = None,
+) -> list[TicketResponse]:
+    """List all tickets with optional filters."""
+    from fastband.core.config import get_config
+    from fastband.tickets.storage import TicketStore
+
+    config = get_config()
+    store = TicketStore(config.project_path)
+
+    tickets = store.list_tickets()
+
+    # Apply filters
+    if status:
+        tickets = [t for t in tickets if t.status.value == status]
+    if priority:
+        tickets = [t for t in tickets if t.priority.value == priority]
+    if ticket_type:
+        tickets = [t for t in tickets if t.ticket_type.value == ticket_type]
+    if assigned_to:
+        tickets = [t for t in tickets if t.assigned_to == assigned_to]
+
+    return [
+        TicketResponse(
+            id=t.id,
+            ticket_number=t.ticket_number,
+            title=t.title,
+            description=t.description,
+            ticket_type=t.ticket_type.value,
+            priority=t.priority.value,
+            status=t.status.value,
+            assigned_to=t.assigned_to,
+            created_by=t.created_by,
+            created_at=t.created_at.isoformat(),
+            updated_at=t.updated_at.isoformat(),
+            labels=t.labels,
+            requirements=t.requirements,
+            notes=t.notes,
+            resolution=t.resolution,
+        )
+        for t in tickets
+    ]
+
+
+@router.post("/tickets")
+async def create_ticket(request: TicketCreateRequest) -> TicketResponse:
+    """Create a new ticket."""
+    from fastband.core.config import get_config
+    from fastband.tickets.models import Ticket, TicketPriority, TicketType
+    from fastband.tickets.storage import TicketStore
+
+    config = get_config()
+    store = TicketStore(config.project_path)
+
+    ticket = Ticket(
+        title=request.title,
+        description=request.description,
+        ticket_type=TicketType.from_string(request.ticket_type),
+        priority=TicketPriority.from_string(request.priority),
+        labels=request.labels,
+        requirements=request.requirements,
+        created_by="dashboard",
+    )
+
+    store.save_ticket(ticket)
+
+    return TicketResponse(
+        id=ticket.id,
+        ticket_number=ticket.ticket_number,
+        title=ticket.title,
+        description=ticket.description,
+        ticket_type=ticket.ticket_type.value,
+        priority=ticket.priority.value,
+        status=ticket.status.value,
+        assigned_to=ticket.assigned_to,
+        created_by=ticket.created_by,
+        created_at=ticket.created_at.isoformat(),
+        updated_at=ticket.updated_at.isoformat(),
+        labels=ticket.labels,
+        requirements=ticket.requirements,
+        notes=ticket.notes,
+        resolution=ticket.resolution,
+    )
+
+
+@router.get("/tickets/{ticket_id}")
+async def get_ticket(ticket_id: str) -> TicketResponse:
+    """Get a specific ticket."""
+    from fastapi import HTTPException
+
+    from fastband.core.config import get_config
+    from fastband.tickets.storage import TicketStore
+
+    config = get_config()
+    store = TicketStore(config.project_path)
+
+    ticket = store.get_ticket(ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    return TicketResponse(
+        id=ticket.id,
+        ticket_number=ticket.ticket_number,
+        title=ticket.title,
+        description=ticket.description,
+        ticket_type=ticket.ticket_type.value,
+        priority=ticket.priority.value,
+        status=ticket.status.value,
+        assigned_to=ticket.assigned_to,
+        created_by=ticket.created_by,
+        created_at=ticket.created_at.isoformat(),
+        updated_at=ticket.updated_at.isoformat(),
+        labels=ticket.labels,
+        requirements=ticket.requirements,
+        notes=ticket.notes,
+        resolution=ticket.resolution,
+    )
+
+
+@router.put("/tickets/{ticket_id}")
+async def update_ticket(ticket_id: str, request: TicketUpdateRequest) -> TicketResponse:
+    """Update a ticket."""
+    from datetime import datetime
+
+    from fastapi import HTTPException
+
+    from fastband.core.config import get_config
+    from fastband.tickets.models import TicketPriority, TicketStatus, TicketType
+    from fastband.tickets.storage import TicketStore
+
+    config = get_config()
+    store = TicketStore(config.project_path)
+
+    ticket = store.get_ticket(ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    # Update fields
+    if request.title is not None:
+        ticket.title = request.title
+    if request.description is not None:
+        ticket.description = request.description
+    if request.ticket_type is not None:
+        ticket.ticket_type = TicketType.from_string(request.ticket_type)
+    if request.priority is not None:
+        ticket.priority = TicketPriority.from_string(request.priority)
+    if request.status is not None:
+        ticket.status = TicketStatus.from_string(request.status)
+    if request.labels is not None:
+        ticket.labels = request.labels
+    if request.assigned_to is not None:
+        ticket.assigned_to = request.assigned_to
+    if request.notes is not None:
+        ticket.notes = request.notes
+    if request.resolution is not None:
+        ticket.resolution = request.resolution
+
+    ticket.updated_at = datetime.now()
+    store.save_ticket(ticket)
+
+    return TicketResponse(
+        id=ticket.id,
+        ticket_number=ticket.ticket_number,
+        title=ticket.title,
+        description=ticket.description,
+        ticket_type=ticket.ticket_type.value,
+        priority=ticket.priority.value,
+        status=ticket.status.value,
+        assigned_to=ticket.assigned_to,
+        created_by=ticket.created_by,
+        created_at=ticket.created_at.isoformat(),
+        updated_at=ticket.updated_at.isoformat(),
+        labels=ticket.labels,
+        requirements=ticket.requirements,
+        notes=ticket.notes,
+        resolution=ticket.resolution,
+    )
+
+
+@router.delete("/tickets/{ticket_id}")
+async def delete_ticket(ticket_id: str) -> dict:
+    """Delete a ticket."""
+    from fastapi import HTTPException
+
+    from fastband.core.config import get_config
+    from fastband.tickets.storage import TicketStore
+
+    config = get_config()
+    store = TicketStore(config.project_path)
+
+    ticket = store.get_ticket(ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    store.delete_ticket(ticket_id)
+    return {"deleted": True, "id": ticket_id}
+
+
+@router.post("/tickets/{ticket_id}/claim")
+async def claim_ticket(ticket_id: str, agent_name: str = "dashboard") -> TicketResponse:
+    """Claim a ticket for an agent."""
+    from datetime import datetime
+
+    from fastapi import HTTPException
+
+    from fastband.core.config import get_config
+    from fastband.tickets.models import TicketStatus
+    from fastband.tickets.storage import TicketStore
+
+    config = get_config()
+    store = TicketStore(config.project_path)
+
+    ticket = store.get_ticket(ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    if ticket.status != TicketStatus.OPEN:
+        raise HTTPException(status_code=400, detail="Ticket is not open")
+
+    ticket.assigned_to = agent_name
+    ticket.status = TicketStatus.IN_PROGRESS
+    ticket.started_at = datetime.now()
+    ticket.updated_at = datetime.now()
+    store.save_ticket(ticket)
+
+    return TicketResponse(
+        id=ticket.id,
+        ticket_number=ticket.ticket_number,
+        title=ticket.title,
+        description=ticket.description,
+        ticket_type=ticket.ticket_type.value,
+        priority=ticket.priority.value,
+        status=ticket.status.value,
+        assigned_to=ticket.assigned_to,
+        created_by=ticket.created_by,
+        created_at=ticket.created_at.isoformat(),
+        updated_at=ticket.updated_at.isoformat(),
+        labels=ticket.labels,
+        requirements=ticket.requirements,
+        notes=ticket.notes,
+        resolution=ticket.resolution,
+    )
+
+
+@router.get("/tickets/stats/summary")
+async def get_ticket_stats() -> dict:
+    """Get ticket statistics."""
+    from fastband.core.config import get_config
+    from fastband.tickets.models import TicketStatus
+    from fastband.tickets.storage import TicketStore
+
+    config = get_config()
+    store = TicketStore(config.project_path)
+
+    tickets = store.list_tickets()
+
+    stats = {
+        "total": len(tickets),
+        "by_status": {},
+        "by_priority": {},
+        "by_type": {},
+    }
+
+    for ticket in tickets:
+        status = ticket.status.value
+        priority = ticket.priority.value
+        ticket_type = ticket.ticket_type.value
+
+        stats["by_status"][status] = stats["by_status"].get(status, 0) + 1
+        stats["by_priority"][priority] = stats["by_priority"].get(priority, 0) + 1
+        stats["by_type"][ticket_type] = stats["by_type"].get(ticket_type, 0) + 1
+
+    return stats
