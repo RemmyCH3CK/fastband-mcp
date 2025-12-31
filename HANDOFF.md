@@ -146,7 +146,7 @@ The Verification Layer (from product diagram) is now **~80% complete**:
    - Add more code examples for plugin development
 
 3. **Test Coverage**
-   - Currently at ~19% in CI, target 60%+
+   - Currently at ~60% locally, target 80%+
    - Hub components have room for more integration tests
 
 4. **E2E Testing**
@@ -213,7 +213,7 @@ cd src/fastband/hub/web && npm install && npm run build
 6. ~~Rename to Fastband Agent Control~~ ✅ Done (v1.2025.12.6)
 7. Consider adding E2E tests for Control Plane dashboard
 8. Add visual regression testing capability
-9. Increase test coverage (currently ~19% in CI, target 60%+)
+9. Increase test coverage (currently ~60%, target 80%+)
 
 ## Contacts & Resources
 
