@@ -19,6 +19,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from fastband.agents.ops_log import EventType, get_ops_log
 from fastband.backup import trigger_backup_hook
 from fastband.tickets.models import (
     Agent,
@@ -572,6 +573,23 @@ class ClaimTicketTool(Tool):
             # Save changes
             self.store.update(ticket)
 
+            # Log to OpsLog for Control Plane visibility
+            try:
+                ops_log = get_ops_log()
+                ops_log.write_entry(
+                    agent=agent_name,
+                    event_type=EventType.TICKET_CLAIMED,
+                    message=f"Claimed ticket: {ticket.title}",
+                    ticket_id=ticket.id,
+                    metadata={
+                        "ticket_number": ticket.ticket_number,
+                        "priority": ticket.priority.value,
+                        "ticket_type": ticket.ticket_type.value,
+                    },
+                )
+            except Exception:
+                pass  # Don't fail claim if logging fails
+
             return ToolResult(
                 success=True,
                 data={
@@ -771,6 +789,24 @@ class CompleteTicketSafelyTool(Tool):
 
             # Save changes
             self.store.update(ticket)
+
+            # Log to OpsLog for Control Plane visibility
+            try:
+                ops_log = get_ops_log()
+                ops_log.write_entry(
+                    agent=agent_name,
+                    event_type=EventType.TICKET_COMPLETED,
+                    message=f"Completed ticket: {ticket.title}",
+                    ticket_id=ticket.id,
+                    metadata={
+                        "ticket_number": ticket.ticket_number,
+                        "problem_summary": problem_summary[:200],
+                        "solution_summary": solution_summary[:200],
+                        "files_modified": files_modified[:10],
+                    },
+                )
+            except Exception:
+                pass  # Don't fail completion if logging fails
 
             # Trigger backup hook after ticket completion
             backup_info = None

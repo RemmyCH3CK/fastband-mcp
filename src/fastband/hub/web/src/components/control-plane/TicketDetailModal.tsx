@@ -163,8 +163,8 @@ export function TicketDetailModal({
         <div className="flex items-center gap-3 pt-2">
           <button
             onClick={() => {
-              // Navigate to ticket manager
-              window.open(`/tickets/${ticket.id}`, '_blank')
+              // Navigate to ticket manager with ticket ID in query params
+              window.open(`/tickets?id=${ticket.id}`, '_blank')
             }}
             className="btn-secondary flex items-center gap-2 py-2"
           >

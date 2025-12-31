@@ -14,6 +14,7 @@ Tools:
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from fastband.agents.ops_log import EventType, get_ops_log
 from fastband.agents.onboarding import (
     AgentOnboarding,
     get_onboarding,
@@ -269,6 +270,23 @@ class CompleteOnboardingTool(Tool):
                 codebase_examined=codebase_examined,
                 platform_understanding=platform_understanding,
             )
+
+            # Log to OpsLog for Control Plane visibility
+            if result.get("success"):
+                try:
+                    agent_name = result.get("agent_name", "unknown")
+                    ops_log = get_ops_log()
+                    ops_log.write_entry(
+                        agent=agent_name,
+                        event_type=EventType.AGENT_STARTED,
+                        message=f"Agent {agent_name} completed onboarding and is ready",
+                        metadata={
+                            "codebase_examined": codebase_examined,
+                            "platform_understanding": platform_understanding[:200] if platform_understanding else None,
+                        },
+                    )
+                except Exception:
+                    pass  # Don't fail onboarding if logging fails
 
             return ToolResult(
                 success=result.get("success", False),
