@@ -41,6 +41,18 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
   const reconnectAttempts = useRef(0)
   const reconnectTimeout = useRef<NodeJS.Timeout | null>(null)
 
+  // Use refs for callbacks to avoid reconnect on callback changes
+  const onMessageRef = useRef(onMessage)
+  const onConnectRef = useRef(onConnect)
+  const onDisconnectRef = useRef(onDisconnect)
+
+  // Update refs when callbacks change (doesn't trigger reconnect)
+  useEffect(() => {
+    onMessageRef.current = onMessage
+    onConnectRef.current = onConnect
+    onDisconnectRef.current = onDisconnect
+  }, [onMessage, onConnect, onDisconnect])
+
   const getWebSocketUrl = useCallback(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const host = window.location.host
@@ -64,14 +76,14 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
       console.log('[WebSocket] Connected')
       setIsConnected(true)
       reconnectAttempts.current = 0
-      onConnect?.()
+      onConnectRef.current?.()
     }
 
     ws.onclose = (event) => {
       console.log('[WebSocket] Disconnected:', event.code, event.reason)
       setIsConnected(false)
       setConnectionId(null)
-      onDisconnect?.()
+      onDisconnectRef.current?.()
 
       // Auto-reconnect logic
       if (autoReconnect && reconnectAttempts.current < maxReconnectAttempts) {
@@ -107,17 +119,14 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
           send({ type: 'system:pong', timestamp: new Date().toISOString(), data: {} })
         }
 
-        // Forward to handler
-        onMessage?.(message)
+        // Forward to handler (use ref to avoid reconnect on callback change)
+        onMessageRef.current?.(message)
       } catch (error) {
         console.error('[WebSocket] Failed to parse message:', error)
       }
     }
   }, [
     getWebSocketUrl,
-    onConnect,
-    onDisconnect,
-    onMessage,
     autoReconnect,
     reconnectInterval,
     maxReconnectAttempts,
