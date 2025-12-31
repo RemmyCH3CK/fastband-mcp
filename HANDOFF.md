@@ -1,7 +1,7 @@
 # Fastband Agent Control - Handoff Document
 
 **Version:** 1.2025.12.7
-**Last Updated:** 2025-12-31 (Session 5)
+**Last Updated:** 2025-12-31 (Session 6)
 **Branch:** main
 **CI Status:** ✅ Passing
 **PyPI:** ✅ Published (v1.2025.12.7)
@@ -108,38 +108,37 @@ a85a22a fix(hub): Fix TypeScript strict mode errors in dashboard
 
 ## Pending Work / Known Issues
 
-### Awaiting Feedback
+### Installation Test Results (Session 6)
 
-**Installation Testing in Progress:**
-- Sent test prompt to elaris-web agent to verify installation experience
-- Awaiting feedback on any remaining friction points
-- Need to verify WebSocket connectivity in fresh install
+**v1.2025.12.7 Verified Working:**
+- ✅ Clean pipx install (~7.4 seconds)
+- ✅ All dependencies bundled (no manual injection needed)
+- ✅ WebSocket connects successfully (101 Switching Protocols)
+- ✅ Dashboard loads and connects
+- ✅ API endpoints work correctly
+
+**Minor Issues:**
+- Python 3.14 logging cosmetic error (not a Fastband bug)
+- Project path not configurable from dashboard UI
 
 ### Near-term Tasks
 
-1. **Installation Validation**
-   - Collect feedback from elaris-web install test
-   - Address any reported issues
-   - Consider adding `fastband doctor` command for self-diagnosis
+1. **Consider `fastband doctor` CLI command** for self-diagnosis
 
-2. **WebSocket Connectivity**
-   - WebSocket was failing with 1006 error (old version issue)
-   - Should be fixed in v1.2025.12.7 (websockets now in core deps)
-   - Needs verification in clean install
-
-3. **Chat Feature**
+2. **Chat Feature**
    - Chat requires AI API keys to function
-   - Now has Settings > AI Providers UI for configuration
+   - Settings > AI Providers UI for configuration
    - Keys only persist for session (env vars for permanent)
 
-4. **Test Coverage**
-   - Currently at ~65%, target 80%+
+3. **Test Coverage**
+   - Currently at ~64%, target 80%+
    - Hub components need more integration tests
 
 ### Open Issues
 
 - **TestPyPI Trusted Publishing** - Warning in release workflow (non-blocking)
 - **macOS `._*` files** - Extended attributes creating dot-underscore files (cosmetic)
+- **Python 3.14 logging** - Cosmetic stderr output when backgrounding (Python issue, not ours)
 
 ## Key API Endpoints
 
@@ -200,12 +199,13 @@ cp -r dist ../static
 1. ✅ ~~Streamline installation (move hub deps to core)~~ Done
 2. ✅ ~~Add AI Provider settings UI~~ Done
 3. ✅ ~~Publish v1.2025.12.7~~ Done
-4. ⏳ Collect installation feedback from elaris-web test
-5. ⏳ Verify WebSocket connectivity in fresh install
+4. ✅ ~~Collect installation feedback from elaris-web test~~ Verified working!
+5. ✅ ~~Verify WebSocket connectivity in fresh install~~ Confirmed working!
 6. Consider adding persistent API key storage (encrypted file or keychain)
 7. Add `fastband doctor` CLI command for self-diagnosis
 8. Increase test coverage to 80%+
 9. Add E2E tests for Control Plane dashboard
+10. Add project path configuration to dashboard UI
 
 ## Contacts & Resources
 

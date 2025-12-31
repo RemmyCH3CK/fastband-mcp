@@ -555,7 +555,7 @@ def serve(
         tool_mode = "all" if all_tools else ("minimal" if no_core else "core")
         console.print(
             Panel.fit(
-                f"[bold blue]Starting Fastband[/bold blue]\n"
+                f"[bold blue]Starting Fastband[/bold blue] [dim]v{__version__}[/dim]\n"
                 f"[dim]{project_path}[/dim]\n"
                 f"[dim]Tool mode: {tool_mode}[/dim]\n"
                 f"[dim]Dashboard: http://localhost:{hub_port}/[/dim]",
@@ -589,7 +589,7 @@ def serve(
         tool_mode = "all" if all_tools else ("minimal" if no_core else "core")
         console.print(
             Panel.fit(
-                f"[bold blue]Starting Fastband Agent Control[/bold blue]\n"
+                f"[bold blue]Starting Fastband Agent Control[/bold blue] [dim]v{__version__}[/dim]\n"
                 f"[dim]{project_path}[/dim]\n"
                 f"[dim]Tool mode: {tool_mode}[/dim]",
                 border_style="blue",
