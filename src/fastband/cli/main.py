@@ -759,6 +759,141 @@ def build_dashboard(
 
 
 # =============================================================================
+# ANALYZE COMMAND (AI Agent Bible Generator)
+# =============================================================================
+
+
+@app.command()
+def analyze(
+    path: Path | None = typer.Argument(
+        None,
+        help="Project path to analyze (default: current directory)",
+    ),
+    output: Path | None = typer.Option(
+        None,
+        "--output",
+        "-o",
+        help="Output path for AGENT_BIBLE.md (default: .fastband/AGENT_BIBLE.md)",
+    ),
+    prefix: str = typer.Option(
+        "FB",
+        "--prefix",
+        "-p",
+        help="Ticket prefix for the project (e.g., FB, APP, API)",
+    ),
+    provider: str = typer.Option(
+        "auto",
+        "--provider",
+        help="AI provider to use (anthropic, openai, auto)",
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        "-f",
+        help="Overwrite existing AGENT_BIBLE.md",
+    ),
+):
+    """
+    Analyze the codebase and generate an AI-powered AGENT_BIBLE.md.
+
+    This command uses AI to analyze your project structure, detect patterns,
+    frameworks, and conventions, then generates a comprehensive Agent Bible
+    that defines rules for AI agents working on this project.
+
+    Requires ANTHROPIC_API_KEY or OPENAI_API_KEY to be set.
+
+    Example:
+        fastband analyze                    # Analyze current directory
+        fastband analyze /path/to/project   # Analyze specific project
+        fastband analyze --prefix APP       # Use custom ticket prefix
+    """
+    from fastband.wizard.ai_bible_generator import (
+        CodebaseAnalyzer,
+        AIBibleGenerator,
+        generate_ai_bible,
+    )
+
+    project_path = (path or Path.cwd()).resolve()
+
+    # Check output path
+    output_path = output
+    if output_path is None:
+        output_path = project_path / ".fastband" / "AGENT_BIBLE.md"
+
+    if output_path.exists() and not force:
+        console.print(f"[yellow]AGENT_BIBLE.md already exists at {output_path}[/yellow]")
+        console.print("Use [bold]--force[/bold] to overwrite")
+        raise typer.Exit(1)
+
+    console.print(
+        Panel.fit(
+            f"[bold blue]AI Agent Bible Generator[/bold blue]\n"
+            f"[dim]{project_path}[/dim]",
+            border_style="blue",
+        )
+    )
+
+    # Step 1: Analyze codebase
+    console.print("\n[bold]Step 1:[/bold] Analyzing codebase...")
+    with console.status("[bold green]Scanning project structure..."):
+        try:
+            analyzer = CodebaseAnalyzer(project_path)
+            analysis = analyzer.analyze()
+        except Exception as e:
+            console.print(f"[red]✗[/red] Failed to analyze codebase: {e}")
+            raise typer.Exit(1)
+
+    # Display analysis summary
+    console.print(f"[green]✓[/green] Found {len(analysis.languages)} languages: {', '.join(analysis.languages[:5])}")
+    console.print(f"[green]✓[/green] Detected {len(analysis.frameworks)} frameworks: {', '.join(analysis.frameworks[:5])}")
+    console.print(f"[green]✓[/green] Found {len(analysis.key_files)} key files")
+    console.print(f"[green]✓[/green] Identified {len(analysis.patterns)} architectural patterns")
+
+    # Step 2: Generate using AI
+    console.print("\n[bold]Step 2:[/bold] Generating Agent Bible with AI...")
+    with console.status("[bold green]Generating content (this may take a moment)..."):
+        try:
+            generator = AIBibleGenerator(provider=provider)
+            content = generator.generate(analysis, ticket_prefix=prefix)
+        except ValueError as e:
+            console.print(f"[red]✗[/red] {e}")
+            console.print("  Set ANTHROPIC_API_KEY or OPENAI_API_KEY environment variable")
+            raise typer.Exit(1)
+        except Exception as e:
+            console.print(f"[red]✗[/red] Failed to generate: {e}")
+            raise typer.Exit(1)
+
+    # Step 3: Save
+    console.print("\n[bold]Step 3:[/bold] Saving AGENT_BIBLE.md...")
+    try:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(content)
+        console.print(f"[green]✓[/green] Saved to [bold]{output_path}[/bold]")
+    except Exception as e:
+        console.print(f"[red]✗[/red] Failed to save: {e}")
+        raise typer.Exit(1)
+
+    # Success
+    console.print()
+    console.print(
+        Panel(
+            "[bold green]Agent Bible Generated![/bold green]\n\n"
+            f"Location: {output_path}\n"
+            f"Ticket Prefix: {prefix}\n\n"
+            "The Agent Bible contains:\n"
+            "  - Project overview and tech stack\n"
+            "  - Architecture and patterns\n"
+            "  - Critical rules for AI agents\n"
+            "  - Code style and conventions\n"
+            "  - Testing requirements\n\n"
+            "[dim]AI agents will read this during onboarding.[/dim]",
+            border_style="green",
+            title="✓ Complete",
+        )
+    )
+
+
+# =============================================================================
 # ENTRY POINT
 # =============================================================================
 

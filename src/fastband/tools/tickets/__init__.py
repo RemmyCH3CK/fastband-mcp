@@ -48,6 +48,7 @@ def _ticket_to_summary(ticket: Ticket) -> dict[str, Any]:
     """Convert ticket to summary dict for listing."""
     return {
         "id": ticket.id,
+        "ticket_number": ticket.ticket_number,  # Friendly ID like FB-001
         "title": ticket.title,
         "status": ticket.status.display_name,
         "priority": ticket.priority.display_name,
