@@ -1172,12 +1172,12 @@ async def list_tickets(
 ) -> list[TicketResponse]:
     """List all tickets with optional filters."""
     from fastband.core.config import get_config
-    from fastband.tickets.storage import TicketStore
+    from fastband.tickets.storage import StorageFactory
 
     config = get_config()
-    store = TicketStore(config.project_path)
+    store = StorageFactory.get_default(config.project_path)
 
-    tickets = store.list_tickets()
+    tickets = store.list()
 
     # Apply filters
     if status:
@@ -1216,10 +1216,10 @@ async def create_ticket(request: TicketCreateRequest) -> TicketResponse:
     """Create a new ticket."""
     from fastband.core.config import get_config
     from fastband.tickets.models import Ticket, TicketPriority, TicketType
-    from fastband.tickets.storage import TicketStore
+    from fastband.tickets.storage import StorageFactory
 
     config = get_config()
-    store = TicketStore(config.project_path)
+    store = StorageFactory.get_default(config.project_path)
 
     ticket = Ticket(
         title=request.title,
@@ -1231,7 +1231,7 @@ async def create_ticket(request: TicketCreateRequest) -> TicketResponse:
         created_by="dashboard",
     )
 
-    store.save_ticket(ticket)
+    store.create(ticket)
 
     return TicketResponse(
         id=ticket.id,
@@ -1258,12 +1258,12 @@ async def get_ticket(ticket_id: str) -> TicketResponse:
     from fastapi import HTTPException
 
     from fastband.core.config import get_config
-    from fastband.tickets.storage import TicketStore
+    from fastband.tickets.storage import StorageFactory
 
     config = get_config()
-    store = TicketStore(config.project_path)
+    store = StorageFactory.get_default(config.project_path)
 
-    ticket = store.get_ticket(ticket_id)
+    ticket = store.get(ticket_id)
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
@@ -1295,12 +1295,12 @@ async def update_ticket(ticket_id: str, request: TicketUpdateRequest) -> TicketR
 
     from fastband.core.config import get_config
     from fastband.tickets.models import TicketPriority, TicketStatus, TicketType
-    from fastband.tickets.storage import TicketStore
+    from fastband.tickets.storage import StorageFactory
 
     config = get_config()
-    store = TicketStore(config.project_path)
+    store = StorageFactory.get_default(config.project_path)
 
-    ticket = store.get_ticket(ticket_id)
+    ticket = store.get(ticket_id)
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
@@ -1325,7 +1325,7 @@ async def update_ticket(ticket_id: str, request: TicketUpdateRequest) -> TicketR
         ticket.resolution = request.resolution
 
     ticket.updated_at = datetime.now()
-    store.save_ticket(ticket)
+    store.update(ticket)
 
     return TicketResponse(
         id=ticket.id,
@@ -1352,16 +1352,16 @@ async def delete_ticket(ticket_id: str) -> dict:
     from fastapi import HTTPException
 
     from fastband.core.config import get_config
-    from fastband.tickets.storage import TicketStore
+    from fastband.tickets.storage import StorageFactory
 
     config = get_config()
-    store = TicketStore(config.project_path)
+    store = StorageFactory.get_default(config.project_path)
 
-    ticket = store.get_ticket(ticket_id)
+    ticket = store.get(ticket_id)
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
-    store.delete_ticket(ticket_id)
+    store.delete(ticket_id)
     return {"deleted": True, "id": ticket_id}
 
 
@@ -1374,12 +1374,12 @@ async def claim_ticket(ticket_id: str, agent_name: str = "dashboard") -> TicketR
 
     from fastband.core.config import get_config
     from fastband.tickets.models import TicketStatus
-    from fastband.tickets.storage import TicketStore
+    from fastband.tickets.storage import StorageFactory
 
     config = get_config()
-    store = TicketStore(config.project_path)
+    store = StorageFactory.get_default(config.project_path)
 
-    ticket = store.get_ticket(ticket_id)
+    ticket = store.get(ticket_id)
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
@@ -1390,7 +1390,7 @@ async def claim_ticket(ticket_id: str, agent_name: str = "dashboard") -> TicketR
     ticket.status = TicketStatus.IN_PROGRESS
     ticket.started_at = datetime.now()
     ticket.updated_at = datetime.now()
-    store.save_ticket(ticket)
+    store.update(ticket)
 
     return TicketResponse(
         id=ticket.id,
@@ -1416,12 +1416,12 @@ async def get_ticket_stats() -> dict:
     """Get ticket statistics."""
     from fastband.core.config import get_config
     from fastband.tickets.models import TicketStatus
-    from fastband.tickets.storage import TicketStore
+    from fastband.tickets.storage import StorageFactory
 
     config = get_config()
-    store = TicketStore(config.project_path)
+    store = StorageFactory.get_default(config.project_path)
 
-    tickets = store.list_tickets()
+    tickets = store.list()
 
     stats = {
         "total": len(tickets),

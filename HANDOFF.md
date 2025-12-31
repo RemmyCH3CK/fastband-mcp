@@ -1,19 +1,19 @@
 # Fastband Agent Control - Handoff Document
 
-**Version:** 1.2025.12.9
+**Version:** 1.2025.12.10
 **Last Updated:** 2025-12-31 (Session 8)
 **Branch:** main
 **CI Status:** ✅ Passing
-**PyPI:** ✅ Published (v1.2025.12.9)
+**PyPI:** ✅ Published (v1.2025.12.10)
 
 ## Current State
 
-Fastband Agent Control is a universal platform for AI agent coordination. The project is in a **stable release state** with v1.2025.12.9 published to PyPI. All CI checks are passing.
+Fastband Agent Control is a universal platform for AI agent coordination. The project is in a **stable release state** with v1.2025.12.10 published to PyPI. All CI checks are passing.
 
 ### Installation
 
 ```bash
-pip install fastband-agent-control==1.2025.12.9
+pip install fastband-agent-control==1.2025.12.10
 ```
 
 **Note:** As of v1.2025.12.7, all Hub dependencies are included by default. No need for `[hub]` extras.
@@ -276,6 +276,7 @@ cp -r dist ../static
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| v1.2025.12.10 | 2025-12-31 | Fix /api/tickets 500 error, system event handlers |
 | v1.2025.12.9 | 2025-12-31 | Fix version string mismatch in CLI |
 | v1.2025.12.8 | 2025-12-31 | **WebSocket CORS fix**, `fastband setup` command, Python 3.10 compatibility |
 | v1.2025.12.7 | 2025-12-31 | **All-inclusive package**, AI Provider settings UI, Platform Analyzer fix |

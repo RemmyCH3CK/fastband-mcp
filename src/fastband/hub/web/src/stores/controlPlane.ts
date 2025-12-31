@@ -209,6 +209,14 @@ export const useControlPlaneStore = create<ControlPlaneState>((set, get) => ({
         get().addOpsLogEntry(clearanceEntry)
         break
 
+      // System events - handled by useWebSocket hook, ignore here
+      case 'system:connected':
+      case 'system:ping':
+      case 'system:pong':
+      case 'system:error':
+        // These are handled by the WebSocket hook, not the store
+        break
+
       default:
         console.log('[ControlPlane] Unhandled event type:', type)
     }
