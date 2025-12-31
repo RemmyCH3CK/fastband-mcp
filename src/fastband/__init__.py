@@ -5,8 +5,8 @@ AI agent orchestration, multi-agent coordination, and autonomous
 development workflows with adaptive tools and ticket management.
 """
 
-__version__ = "1.2025.12.24"
-__version_tuple__ = (1, 2025, 12, 24)
+__version__ = "1.2025.12.25"
+__version_tuple__ = (1, 2025, 12, 25)
 __author__ = "Fastband Team"
 
 from fastband.core.config import FastbandConfig, get_config
