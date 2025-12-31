@@ -1171,11 +1171,11 @@ async def list_tickets(
     assigned_to: str | None = None,
 ) -> list[TicketResponse]:
     """List all tickets with optional filters."""
-    from fastband.core.config import get_config
+    from pathlib import Path
+
     from fastband.tickets.storage import StorageFactory
 
-    config = get_config()
-    store = StorageFactory.get_default(config.project_path)
+    store = StorageFactory.get_default(Path.cwd())
 
     tickets = store.list()
 
@@ -1214,12 +1214,12 @@ async def list_tickets(
 @router.post("/tickets")
 async def create_ticket(request: TicketCreateRequest) -> TicketResponse:
     """Create a new ticket."""
-    from fastband.core.config import get_config
+    from pathlib import Path
+
     from fastband.tickets.models import Ticket, TicketPriority, TicketType
     from fastband.tickets.storage import StorageFactory
 
-    config = get_config()
-    store = StorageFactory.get_default(config.project_path)
+    store = StorageFactory.get_default(Path.cwd())
 
     ticket = Ticket(
         title=request.title,
@@ -1255,13 +1255,13 @@ async def create_ticket(request: TicketCreateRequest) -> TicketResponse:
 @router.get("/tickets/{ticket_id}")
 async def get_ticket(ticket_id: str) -> TicketResponse:
     """Get a specific ticket."""
+    from pathlib import Path
+
     from fastapi import HTTPException
 
-    from fastband.core.config import get_config
     from fastband.tickets.storage import StorageFactory
 
-    config = get_config()
-    store = StorageFactory.get_default(config.project_path)
+    store = StorageFactory.get_default(Path.cwd())
 
     ticket = store.get(ticket_id)
     if not ticket:
@@ -1290,15 +1290,14 @@ async def get_ticket(ticket_id: str) -> TicketResponse:
 async def update_ticket(ticket_id: str, request: TicketUpdateRequest) -> TicketResponse:
     """Update a ticket."""
     from datetime import datetime
+    from pathlib import Path
 
     from fastapi import HTTPException
 
-    from fastband.core.config import get_config
     from fastband.tickets.models import TicketPriority, TicketStatus, TicketType
     from fastband.tickets.storage import StorageFactory
 
-    config = get_config()
-    store = StorageFactory.get_default(config.project_path)
+    store = StorageFactory.get_default(Path.cwd())
 
     ticket = store.get(ticket_id)
     if not ticket:
@@ -1349,13 +1348,13 @@ async def update_ticket(ticket_id: str, request: TicketUpdateRequest) -> TicketR
 @router.delete("/tickets/{ticket_id}")
 async def delete_ticket(ticket_id: str) -> dict:
     """Delete a ticket."""
+    from pathlib import Path
+
     from fastapi import HTTPException
 
-    from fastband.core.config import get_config
     from fastband.tickets.storage import StorageFactory
 
-    config = get_config()
-    store = StorageFactory.get_default(config.project_path)
+    store = StorageFactory.get_default(Path.cwd())
 
     ticket = store.get(ticket_id)
     if not ticket:
@@ -1369,15 +1368,14 @@ async def delete_ticket(ticket_id: str) -> dict:
 async def claim_ticket(ticket_id: str, agent_name: str = "dashboard") -> TicketResponse:
     """Claim a ticket for an agent."""
     from datetime import datetime
+    from pathlib import Path
 
     from fastapi import HTTPException
 
-    from fastband.core.config import get_config
     from fastband.tickets.models import TicketStatus
     from fastband.tickets.storage import StorageFactory
 
-    config = get_config()
-    store = StorageFactory.get_default(config.project_path)
+    store = StorageFactory.get_default(Path.cwd())
 
     ticket = store.get(ticket_id)
     if not ticket:
@@ -1414,12 +1412,12 @@ async def claim_ticket(ticket_id: str, agent_name: str = "dashboard") -> TicketR
 @router.get("/tickets/stats/summary")
 async def get_ticket_stats() -> dict:
     """Get ticket statistics."""
-    from fastband.core.config import get_config
+    from pathlib import Path
+
     from fastband.tickets.models import TicketStatus
     from fastband.tickets.storage import StorageFactory
 
-    config = get_config()
-    store = StorageFactory.get_default(config.project_path)
+    store = StorageFactory.get_default(Path.cwd())
 
     tickets = store.list()
 
