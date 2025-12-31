@@ -32,7 +32,6 @@ from fastband.hub.websockets.manager import WebSocketManager, WSEventType
 from fastband.tickets.models import Ticket, TicketPriority, TicketStatus, TicketType
 from fastband.tickets.storage import TicketStore
 
-
 # =============================================================================
 # FIXTURES
 # =============================================================================

@@ -17,7 +17,6 @@ import pytest
 from fastband.tools.context.index_codebase import IndexCodebaseTool
 from fastband.tools.context.semantic_search import SemanticSearchTool
 
-
 # =============================================================================
 # FIXTURES
 # =============================================================================
