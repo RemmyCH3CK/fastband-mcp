@@ -1,13 +1,20 @@
 # Fastband MCP - Handoff Document
 
-**Version:** 1.2025.12.4
-**Last Updated:** 2025-12-30 (Session 2)
+**Version:** 1.2025.12.5
+**Last Updated:** 2025-12-30 (Session 3)
 **Branch:** main
 **CI Status:** ✅ Passing
+**PyPI:** ✅ Published
 
 ## Current State
 
-Fastband MCP is a universal MCP server for AI-powered development. The project is in a **stable release state** with v1.2025.12.1 published. All CI checks are passing.
+Fastband MCP is a universal MCP server for AI-powered development. The project is in a **stable release state** with v1.2025.12.5 published to PyPI. All CI checks are passing.
+
+### Installation
+
+```bash
+pip install fastband-mcp==1.2025.12.5
+```
 
 ### What's Working
 
@@ -22,6 +29,7 @@ Fastband MCP is a universal MCP server for AI-powered development. The project i
 - **CI/CD** - GitHub Actions for testing and PyPI releases (all passing)
 - **Tests** - 1388 tests passing across Python 3.10, 3.11, 3.12
 - **Vision Screenshot Analysis** - Claude Vision API integration for UI verification
+- **PyPI Publishing** - Automated releases with API token authentication
 
 ### Architecture Overview
 
@@ -43,6 +51,19 @@ src/fastband/
 ```
 
 ## Recent Session Work (2025-12-30)
+
+### Session 3 - PyPI Release
+
+1. **Fixed Codecov Deprecation** - Changed `file:` to `files:` in CI workflow
+
+2. **PyPI Publishing Setup**
+   - Added `PYPI_API_TOKEN` secret to GitHub repository
+   - Added API token fallback in release workflow
+   - Added `workflow_dispatch` trigger for manual releases
+   - Fixed wheel build duplicate filename error (removed redundant `force-include`)
+
+3. **Released v1.2025.12.5** - Successfully published to PyPI
+   - Cleaned up failed release tags (v1.2025.12.2, v1.2025.12.3, v1.2025.12.4)
 
 ### Session 2 - CI Fixes & Code Quality
 
@@ -80,13 +101,13 @@ src/fastband/
 ### Recent Commits (main branch)
 
 ```
+8630f77 chore(release): v1.2025.12.5 - Fix duplicate files in wheel
+4fc7f25 fix(ci): Update Codecov action to use 'files' instead of deprecated 'file'
 d4ccf3b fix(tests): Strip ANSI codes from CLI help output assertions
 89f9b11 fix(deps): Add flask to dev dependencies for tests
 6d8ccc1 chore: Auto-fix lint and formatting issues
 de00de0 fix(deps): Add numpy to hub and dev dependencies
 b52b5b8 deps(actions): Bump the actions group (PR #44)
-0061e33 fix(hub): Remove unused _color variable in DirectivePanel
-a85a22a fix(hub): Fix TypeScript strict mode errors in dashboard
 ```
 
 ## Verification Layer Status
@@ -116,7 +137,7 @@ The Verification Layer (from product diagram) is now **~80% complete**:
    - Add more code examples for plugin development
 
 3. **Test Coverage**
-   - Currently at 60%, target 90%+
+   - Currently at ~19% in CI, target 60%+
    - Hub components have room for more integration tests
 
 4. **E2E Testing**
@@ -131,12 +152,14 @@ None - all PRs merged.
 
 - **macOS `._*` files** - Extended attributes creating dot-underscore files (cosmetic)
 - **TODOs in code** - 7 TODO comments in `examples/mcp-integration-demo/custom_tool.py`
-- **Codecov deprecation warning** - CI shows warning about deprecated `file` input parameter
 
 ## Development Setup
 
 ```bash
-# Install dependencies
+# Install from PyPI
+pip install fastband-mcp
+
+# Or install for development
 pip install -e ".[dev]"
 
 # Run tests
@@ -162,27 +185,28 @@ cd src/fastband/hub/web && npm install && npm run build
 | `.github/workflows/ci.yml` | CI pipeline |
 | `.github/workflows/release.yml` | PyPI release workflow |
 
-## Recent Changes (v1.2025.12.1)
+## Release History
 
-- Control Plane Dashboard with Terminal Noir design
-- WebSocket Manager for real-time updates
-- Plugin System with event bus
-- Security fixes (path traversal, race conditions)
-- TypeScript strict mode compliance
-- CI/CD dashboard build step
+| Version | Date | Highlights |
+|---------|------|------------|
+| v1.2025.12.5 | 2025-12-30 | PyPI publishing fix, wheel build fix |
+| v1.2025.12.1 | 2025-12-30 | Control Plane Dashboard, Plugin System, Security fixes |
+| v1.2025.12.0 | 2025-12-29 | Initial release |
 
 ## Next Steps (Suggestions)
 
 1. ~~Commit the VisionAnalysisTool and related changes~~ ✅ Done
 2. ~~Run full test suite to verify everything passes~~ ✅ Done (1388 tests passing)
 3. ~~Merge Dependabot PR #44~~ ✅ Done
-4. Consider adding E2E tests for Control Plane dashboard
-5. Add visual regression testing capability
-6. Fix Codecov `file` → `files` deprecation in CI workflow
-7. Increase test coverage (currently ~19% in CI, target 60%+)
+4. ~~Fix Codecov `file` → `files` deprecation in CI workflow~~ ✅ Done
+5. ~~Publish to PyPI~~ ✅ Done (v1.2025.12.5)
+6. Consider adding E2E tests for Control Plane dashboard
+7. Add visual regression testing capability
+8. Increase test coverage (currently ~19% in CI, target 60%+)
 
 ## Contacts & Resources
 
 - **Repository:** https://github.com/RemmyCH3CK/fastband-mcp
+- **PyPI:** https://pypi.org/project/fastband-mcp/
 - **Docs:** `docs/` directory
 - **Changelog:** `CHANGELOG.md`
