@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Github, Mail, Loader2, Zap, ArrowRight, Eye, EyeOff } from 'lucide-react'
+import { Mail, Loader2, Zap, ArrowRight, Eye, EyeOff } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAuthStore } from '../stores/auth'
 
@@ -13,7 +13,7 @@ export function Login() {
   const [showPassword, setShowPassword] = useState(false)
 
   const navigate = useNavigate()
-  const { signInWithEmail, signInWithGoogle, signInWithGithub, signUp } = useAuthStore()
+  const { signInWithEmail, signInWithGoogle, signUp } = useAuthStore()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -34,18 +34,14 @@ export function Login() {
     }
   }
 
-  const handleOAuth = async (provider: 'google' | 'github') => {
+  const handleGoogleSignIn = async () => {
     setLoading(true)
     setError('')
 
     try {
-      if (provider === 'google') {
-        await signInWithGoogle()
-      } else {
-        await signInWithGithub()
-      }
+      await signInWithGoogle()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'OAuth failed')
+      setError(err instanceof Error ? err.message : 'Google sign-in failed')
       setLoading(false)
     }
   }
@@ -98,10 +94,10 @@ export function Login() {
             </div>
           )}
 
-          {/* OAuth Buttons */}
-          <div className="space-y-3 mb-6">
+          {/* Google Sign In */}
+          <div className="mb-6">
             <button
-              onClick={() => handleOAuth('google')}
+              onClick={handleGoogleSignIn}
               disabled={loading}
               className={clsx(
                 'w-full flex items-center justify-center gap-3 px-4 py-3.5 rounded-xl',
@@ -130,21 +126,6 @@ export function Login() {
                 />
               </svg>
               Continue with Google
-            </button>
-
-            <button
-              onClick={() => handleOAuth('github')}
-              disabled={loading}
-              className={clsx(
-                'w-full flex items-center justify-center gap-3 px-4 py-3.5 rounded-xl',
-                'bg-void-700 text-slate-100 font-medium border border-void-600',
-                'hover:bg-void-600 hover:border-slate-500 transition-all duration-200',
-                'hover:shadow-lg hover:-translate-y-0.5',
-                'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none'
-              )}
-            >
-              <Github className="w-5 h-5" />
-              Continue with GitHub
             </button>
           </div>
 
