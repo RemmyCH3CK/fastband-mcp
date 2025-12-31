@@ -1,7 +1,7 @@
 # Fastband Agent Control - Handoff Document
 
 **Version:** 1.2025.12.8 (dev)
-**Last Updated:** 2025-12-31 (Session 7)
+**Last Updated:** 2025-12-31 (Session 8)
 **Branch:** main
 **CI Status:** ✅ Passing
 **PyPI:** ✅ Published (v1.2025.12.7)
@@ -34,9 +34,10 @@ pip install fastband-agent-control==1.2025.12.7
 - **PyPI Publishing** - Automated releases via GitHub Actions
 - **AI Provider Settings** - Dashboard UI for configuring API keys
 - **Platform Analyzer** - Codebase analysis with unified `/api/analyze` endpoint
-- **Auto-Port Selection** - Hub automatically finds available port if 8080 is busy (NEW)
-- **Tickets Page** - Full ticket management UI in dashboard (NEW)
-- **Backups Page** - Backup management UI in dashboard (NEW)
+- **Auto-Port Selection** - Hub automatically finds available port if 8080 is busy
+- **Tickets Page** - Full ticket management UI in dashboard
+- **Backups Page** - Backup management UI in dashboard
+- **One-Command Setup** - `fastband setup` auto-configures Claude Code MCP (NEW)
 
 ### Architecture Overview
 
@@ -61,6 +62,31 @@ src/fastband/
 ```
 
 ## Recent Session Work (2025-12-31)
+
+### Session 8 - One-Command Setup
+
+1. **`fastband setup` Command** (MAJOR UX IMPROVEMENT)
+   - Single command to configure Claude Code MCP integration
+   - Auto-detects installation method (pipx, pip, uv, source)
+   - Creates `.claude/mcp.json` with correct command/args
+   - Initializes `.fastband/` config if not present
+   - Validates MCP server starts correctly
+   - Cross-platform support (macOS, Linux, Windows)
+   - 35 comprehensive unit tests
+
+2. **Installation Detection**
+   - Detects pipx installations at `~/.local/bin/`
+   - Detects pip/venv installations
+   - Detects uv tool installations
+   - Detects development/source installations
+   - Generates correct command for each method
+
+3. **Improved UX**
+   - Step-by-step progress output
+   - Clear success/failure indicators
+   - Helpful next steps after setup
+   - `--verbose` mode for debugging
+   - `--show` option to view current config
 
 ### Session 7 - Multi-Project Support & Dashboard Features
 

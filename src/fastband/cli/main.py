@@ -162,11 +162,9 @@ def init(
 
     # Show next steps
     console.print("\n[bold]Next steps:[/bold]")
-    console.print(
-        "  1. Configure AI providers: [dim]fastband config set ai.default_provider claude[/dim]"
-    )
+    console.print("  1. Run [bold]fastband setup[/bold] to configure Claude Code automatically")
     console.print("  2. Set API key: [dim]export ANTHROPIC_API_KEY=your-key[/dim]")
-    console.print("  3. Start server: [dim]fastband serve[/dim]")
+    console.print("  3. Restart Claude Code and start using Fastband!")
 
 
 def _display_project_info(info: ProjectInfo) -> None:
@@ -201,6 +199,77 @@ def _display_project_info(info: ProjectInfo) -> None:
 
 
 # =============================================================================
+# SETUP COMMAND
+# =============================================================================
+
+
+@app.command()
+def setup(
+    path: Path | None = typer.Argument(
+        None,
+        help="Project path to set up (default: current directory)",
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        "-f",
+        help="Overwrite existing configuration",
+    ),
+    skip_validation: bool = typer.Option(
+        False,
+        "--skip-validation",
+        help="Skip MCP server validation",
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Show verbose output",
+    ),
+    show_config: bool = typer.Option(
+        False,
+        "--show",
+        "-s",
+        help="Show current MCP configuration instead of setting up",
+    ),
+):
+    """
+    Set up Fastband for Claude Code (one-command setup).
+
+    This command automatically:
+    - Initializes .fastband/ configuration if not present
+    - Detects how fastband was installed (pipx, pip, etc.)
+    - Creates .claude/mcp.json with the correct MCP server config
+    - Validates the setup works
+
+    After running this command, just restart Claude Code and
+    Fastband tools will be available automatically.
+
+    Example:
+        cd /path/to/your/project
+        fastband setup
+        # Restart Claude Code - done!
+    """
+    from fastband.cli.setup import run_setup, show_mcp_config
+
+    project_path = (path or Path.cwd()).resolve()
+
+    if show_config:
+        show_mcp_config(project_path)
+        return
+
+    success = run_setup(
+        project_path=project_path,
+        force=force,
+        skip_validation=skip_validation,
+        verbose=verbose,
+    )
+
+    if not success:
+        raise typer.Exit(1)
+
+
+# =============================================================================
 # STATUS COMMAND
 # =============================================================================
 
@@ -229,7 +298,6 @@ def status(
 
     # Check if initialized
     fastband_dir = project_path / ".fastband"
-    fastband_dir / "config.yaml"
 
     if not fastband_dir.exists():
         console.print(f"[red]Fastband not initialized in {project_path}[/red]")
