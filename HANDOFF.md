@@ -29,7 +29,7 @@ pip install fastband-agent-control==1.2025.12.7
 - **Plugin System** - Entry point discovery with async lifecycle
 - **CLI** - `fastband serve --hub` to run server with dashboard
 - **CI/CD** - GitHub Actions for testing and PyPI releases (all passing)
-- **Tests** - 1781+ tests passing across Python 3.10, 3.11, 3.12
+- **Tests** - 1838+ tests passing across Python 3.10, 3.11, 3.12
 - **Vision Screenshot Analysis** - Claude Vision API integration for UI verification
 - **PyPI Publishing** - Automated releases via GitHub Actions
 - **AI Provider Settings** - Dashboard UI for configuring API keys
@@ -63,7 +63,7 @@ src/fastband/
 
 ## Recent Session Work (2025-12-31)
 
-### Session 8 - One-Command Setup
+### Session 8 - One-Command Setup + WebSocket Fix
 
 1. **`fastband setup` Command** (MAJOR UX IMPROVEMENT)
    - Single command to configure Claude Code MCP integration
@@ -72,7 +72,7 @@ src/fastband/
    - Initializes `.fastband/` config if not present
    - Validates MCP server starts correctly
    - Cross-platform support (macOS, Linux, Windows)
-   - 35 comprehensive unit tests
+   - 48 comprehensive unit tests (security hardened)
 
 2. **Installation Detection**
    - Detects pipx installations at `~/.local/bin/`
@@ -87,6 +87,13 @@ src/fastband/
    - Helpful next steps after setup
    - `--verbose` mode for debugging
    - `--show` option to view current config
+
+4. **WebSocket CORS Fix** (BUG FIX)
+   - Fixed WebSocket connection failures (error 1006)
+   - CORS origins now include Hub ports (8080-8085)
+   - Dashboard WebSocket connects reliably
+   - Added 9 WebSocket integration tests
+   - Fixed datetime.utcnow() deprecation warnings
 
 ### Session 7 - Multi-Project Support & Dashboard Features
 

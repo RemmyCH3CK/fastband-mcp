@@ -137,7 +137,24 @@ def create_app(
     )
 
     # Add CORS middleware
+    # Include Hub ports (8080-8099 for auto-port selection), dev ports (3000, 5173)
+    # When dashboard is served from same origin, browser won't enforce CORS anyway
+    # but we include Hub ports for completeness and cross-origin API access
     origins = cors_origins or [
+        # Hub server ports (auto-port range)
+        "http://localhost:8080",
+        "http://localhost:8081",
+        "http://localhost:8082",
+        "http://localhost:8083",
+        "http://localhost:8084",
+        "http://localhost:8085",
+        "http://127.0.0.1:8080",
+        "http://127.0.0.1:8081",
+        "http://127.0.0.1:8082",
+        "http://127.0.0.1:8083",
+        "http://127.0.0.1:8084",
+        "http://127.0.0.1:8085",
+        # Dev server ports (Vite, CRA)
         "http://localhost:3000",
         "http://localhost:5173",
         "http://127.0.0.1:3000",

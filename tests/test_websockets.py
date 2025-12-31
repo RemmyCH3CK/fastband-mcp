@@ -834,3 +834,159 @@ class TestWebSocketManagerIntegration:
         # Disconnect all concurrently
         await asyncio.gather(*[manager.disconnect(f"conn-{i}") for i in range(10)])
         assert manager.get_connection_count() == 0
+
+
+# =============================================================================
+# WebSocket Endpoint Integration Tests
+# =============================================================================
+
+
+class TestWebSocketEndpointIntegration:
+    """Integration tests for the actual WebSocket endpoint."""
+
+    @pytest.fixture
+    def app(self):
+        """Create a fresh FastAPI app for testing."""
+        from fastapi import FastAPI
+
+        from fastband.hub.control_plane.routes import router as control_plane_router
+
+        # Reset global websocket manager for clean tests
+        import fastband.hub.websockets.manager as ws_module
+
+        ws_module._websocket_manager = None
+
+        app = FastAPI()
+        app.include_router(control_plane_router, prefix="/api")
+        return app
+
+    @pytest.fixture
+    def client(self, app):
+        """Create a test client."""
+        from starlette.testclient import TestClient
+
+        return TestClient(app)
+
+    def test_websocket_connects_successfully(self, client):
+        """Test that WebSocket endpoint accepts connections."""
+        with client.websocket_connect("/api/control-plane/ws") as websocket:
+            # Should receive connected message
+            data = websocket.receive_json()
+            assert data["type"] == "system:connected"
+            assert "connection_id" in data["data"]
+            assert "subscriptions" in data["data"]
+
+    def test_websocket_with_subscriptions(self, client):
+        """Test WebSocket with specific subscriptions."""
+        with client.websocket_connect("/api/control-plane/ws?subscriptions=agents,tickets") as websocket:
+            data = websocket.receive_json()
+            assert data["type"] == "system:connected"
+            assert "agents" in data["data"]["subscriptions"]
+            assert "tickets" in data["data"]["subscriptions"]
+
+    def test_websocket_default_subscription(self, client):
+        """Test WebSocket defaults to 'all' subscription."""
+        with client.websocket_connect("/api/control-plane/ws") as websocket:
+            data = websocket.receive_json()
+            assert data["type"] == "system:connected"
+            assert "all" in data["data"]["subscriptions"]
+
+    def test_websocket_ping_pong(self, client):
+        """Test WebSocket ping/pong functionality."""
+        with client.websocket_connect("/api/control-plane/ws") as websocket:
+            # Consume connected message
+            websocket.receive_json()
+
+            # Send ping
+            websocket.send_json({"type": "system:ping", "data": {}})
+
+            # Should receive pong
+            data = websocket.receive_json()
+            assert data["type"] == "system:pong"
+
+    def test_websocket_invalid_json_sends_error(self, client):
+        """Test WebSocket handles invalid JSON gracefully."""
+        with client.websocket_connect("/api/control-plane/ws") as websocket:
+            # Consume connected message
+            websocket.receive_json()
+
+            # Send invalid JSON
+            websocket.send_text("not valid json")
+
+            # Should receive error message
+            data = websocket.receive_json()
+            assert data["type"] == "system:error"
+            assert "Invalid JSON" in data["data"]["error"]
+
+    def test_multiple_websocket_connections(self, client):
+        """Test multiple simultaneous WebSocket connections."""
+        with client.websocket_connect("/api/control-plane/ws") as ws1:
+            data1 = ws1.receive_json()
+            conn_id1 = data1["data"]["connection_id"]
+
+            with client.websocket_connect("/api/control-plane/ws") as ws2:
+                data2 = ws2.receive_json()
+                conn_id2 = data2["data"]["connection_id"]
+
+                # Connection IDs should be different
+                assert conn_id1 != conn_id2
+
+    def test_websocket_invalid_subscription_uses_default(self, client):
+        """Test invalid subscriptions fall back to default."""
+        with client.websocket_connect("/api/control-plane/ws?subscriptions=invalid") as websocket:
+            data = websocket.receive_json()
+            assert data["type"] == "system:connected"
+            # Should fall back to 'all' when invalid
+            assert "all" in data["data"]["subscriptions"]
+
+
+class TestCORSConfiguration:
+    """Tests for CORS configuration."""
+
+    def test_cors_includes_hub_ports(self):
+        """Test CORS configuration includes Hub ports."""
+        from fastband.hub.api.app import create_app
+
+        # Reset global app
+        import fastband.hub.api.app as app_module
+
+        app_module._app = None
+
+        app = create_app()
+
+        # Check middleware is configured
+        cors_middleware = None
+        for middleware in app.user_middleware:
+            if middleware.cls.__name__ == "CORSMiddleware":
+                cors_middleware = middleware
+                break
+
+        assert cors_middleware is not None
+        origins = cors_middleware.kwargs.get("allow_origins", [])
+
+        # Should include Hub ports
+        assert "http://localhost:8080" in origins
+        assert "http://127.0.0.1:8080" in origins
+
+    def test_cors_includes_dev_ports(self):
+        """Test CORS configuration includes development ports."""
+        from fastband.hub.api.app import create_app
+
+        import fastband.hub.api.app as app_module
+
+        app_module._app = None
+
+        app = create_app()
+
+        cors_middleware = None
+        for middleware in app.user_middleware:
+            if middleware.cls.__name__ == "CORSMiddleware":
+                cors_middleware = middleware
+                break
+
+        assert cors_middleware is not None
+        origins = cors_middleware.kwargs.get("allow_origins", [])
+
+        # Should include dev ports
+        assert "http://localhost:5173" in origins
+        assert "http://localhost:3000" in origins
