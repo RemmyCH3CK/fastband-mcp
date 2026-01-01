@@ -1,14 +1,14 @@
 # Fastband Agent Control - Handoff Document
 
-**Version:** 1.2025.12.27
-**Last Updated:** 2025-12-31 (Session 11)
+**Version:** 1.2025.12.28
+**Last Updated:** 2025-12-31 (Session 12)
 **Branch:** main
 **CI Status:** ✅ Passing
-**PyPI:** ⏳ Pending (v1.2025.12.27)
+**PyPI:** ⏳ Pending (v1.2025.12.28)
 
 ## Current State
 
-Fastband Agent Control is a universal platform for AI agent coordination. The project is in a **stable release state** with v1.2025.12.27 pending release. All CI checks are passing.
+Fastband Agent Control is a universal platform for AI agent coordination. The project is in a **stable release state** with v1.2025.12.28 pending release. All CI checks are passing.
 
 ### Installation
 
@@ -69,6 +69,36 @@ src/fastband/
 ```
 
 ## Recent Session Work (2025-12-31)
+
+### Session 12 - Hub Bug Fixes (Post User Testing)
+
+Based on user testing feedback, fixed multiple issues:
+
+1. **Double Navigation Sidebar** (CRITICAL UI FIX)
+   - Removed duplicate Layout wrappers in App.tsx for /backups and /tickets
+   - Pages now properly use their own Layout components
+
+2. **Wizard Overflow** (UI FIX)
+   - Added max-h-[90vh] and flex-col to modal container
+   - Content area now scrolls with overflow-y-auto
+   - Steps no longer overflow browser window
+
+3. **Password Fields** (DOM FIX)
+   - Wrapped API key inputs in <form> elements in ApiKeysStep
+   - Added autoComplete="off" attribute
+
+4. **API Endpoint Fixes** (BACKEND)
+   - Added /api/providers/validate POST endpoint
+   - Fixed /api/analyze/generate-bible 422 error (Pydantic model)
+
+5. **Usage Page** (UI FIX)
+   - Fixed infinite loading when no sessionId
+   - Now shows mock data immediately
+
+6. **Full Project Backup** (FEATURE FIX)
+   - Backups now include entire project folder
+   - Added more exclude patterns (.git, node_modules, etc.)
+   - .fastband/backups directory excluded from backups
 
 ### Session 11 - Pre-Release Bug Fixes
 
