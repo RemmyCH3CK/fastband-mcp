@@ -150,14 +150,23 @@ class ControlPlaneService:
     def ops_log(self) -> OpsLog:
         """Get the OpsLog instance."""
         if self._ops_log is None:
-            self._ops_log = get_ops_log(project_path=self.project_path)
+            try:
+                self._ops_log = get_ops_log(project_path=self.project_path)
+            except Exception as e:
+                logger.error(f"Failed to initialize ops_log: {e}")
+                # Create a minimal in-memory ops log as fallback
+                self._ops_log = get_ops_log(project_path=self.project_path)
         return self._ops_log
 
     @property
-    def ticket_store(self) -> TicketStore:
-        """Get the ticket store."""
+    def ticket_store(self) -> TicketStore | None:
+        """Get the ticket store. Returns None if initialization fails."""
         if self._ticket_store is None:
-            self._ticket_store = get_store(path=self.project_path / ".fastband" / "tickets.json")
+            try:
+                self._ticket_store = get_store(path=self.project_path / ".fastband" / "tickets.json")
+            except Exception as e:
+                logger.error(f"Failed to initialize ticket_store: {e}")
+                return None
         return self._ticket_store
 
     @property
@@ -173,13 +182,22 @@ class ControlPlaneService:
             return
 
         self._running = True
-        self._last_entry_count = self.ops_log.count()
+
+        # Initialize entry count with error handling
+        try:
+            self._last_entry_count = self.ops_log.count()
+        except Exception as e:
+            logger.error(f"Failed to get initial ops_log count: {e}")
+            self._last_entry_count = 0
 
         # Start polling task
         self._poll_task = asyncio.create_task(self._poll_ops_log())
 
         # Start WebSocket heartbeat
-        await self.ws_manager.start_heartbeat()
+        try:
+            await self.ws_manager.start_heartbeat()
+        except Exception as e:
+            logger.error(f"Failed to start WebSocket heartbeat: {e}")
 
         logger.info("Control Plane service started")
 
@@ -201,6 +219,9 @@ class ControlPlaneService:
 
     async def _poll_ops_log(self) -> None:
         """Poll the ops log for new entries and broadcast."""
+        consecutive_errors = 0
+        max_consecutive_errors = 5
+
         while self._running:
             try:
                 await asyncio.sleep(self._poll_interval)
@@ -213,14 +234,27 @@ class ControlPlaneService:
                     )
 
                     for entry in reversed(new_entries):  # Broadcast oldest first
-                        await self._broadcast_ops_log_entry(entry)
+                        try:
+                            await self._broadcast_ops_log_entry(entry)
+                        except Exception as broadcast_err:
+                            logger.error(f"Error broadcasting entry: {broadcast_err}")
 
                     self._last_entry_count = current_count
+
+                # Reset error counter on success
+                consecutive_errors = 0
 
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Error polling ops log: {e}")
+                consecutive_errors += 1
+                logger.error(f"Error polling ops log ({consecutive_errors}/{max_consecutive_errors}): {e}")
+
+                # Back off if too many errors
+                if consecutive_errors >= max_consecutive_errors:
+                    logger.warning("Too many consecutive polling errors, increasing interval")
+                    await asyncio.sleep(self._poll_interval * 5)
+                    consecutive_errors = 0
 
     async def _broadcast_ops_log_entry(self, entry: LogEntry) -> None:
         """Broadcast an ops log entry to subscribed clients."""
@@ -248,21 +282,44 @@ class ControlPlaneService:
         Returns:
             ControlPlaneDashboard with all current data
         """
-        # Get agents
-        agents = await self.get_active_agents()
+        # Get agents with error handling
+        try:
+            agents = await self.get_active_agents()
+        except Exception as e:
+            logger.error(f"Error getting active agents: {e}")
+            agents = []
 
-        # Get ops log entries
-        entries = self.ops_log.read_entries(limit=100)
-        ops_log_data = [e.to_dict() for e in entries]
+        # Get ops log entries with error handling
+        try:
+            entries = self.ops_log.read_entries(limit=100)
+            ops_log_data = [e.to_dict() for e in entries]
+        except Exception as e:
+            logger.error(f"Error reading ops log: {e}")
+            entries = []
+            ops_log_data = []
 
-        # Get active tickets
+        # Get active tickets (already has error handling)
         tickets = await self.get_active_tickets()
 
-        # Get directive state
-        directive = await self.get_directive_state()
+        # Get directive state with error handling
+        try:
+            directive = await self.get_directive_state()
+        except Exception as e:
+            logger.error(f"Error getting directive state: {e}")
+            directive = DirectiveState()
 
-        # Compute metrics
-        metrics = self._compute_metrics(agents, tickets, entries)
+        # Compute metrics with error handling
+        try:
+            metrics = self._compute_metrics(agents, tickets, entries)
+        except Exception as e:
+            logger.error(f"Error computing metrics: {e}")
+            metrics = {
+                "total_agents": 0,
+                "active_agents": 0,
+                "total_tickets": 0,
+                "open_tickets": 0,
+                "in_progress_tickets": 0,
+            }
 
         return ControlPlaneDashboard(
             agents=agents,
@@ -353,6 +410,12 @@ class ControlPlaneService:
         Returns:
             List of TicketSummary objects
         """
+        # Handle case where ticket store failed to initialize
+        store = self.ticket_store
+        if store is None:
+            logger.warning("Ticket store not available, returning empty list")
+            return []
+
         # Get tickets that are not closed
         active_statuses = [
             TicketStatus.OPEN,
@@ -362,9 +425,13 @@ class ControlPlaneService:
         ]
 
         tickets = []
-        for status in active_statuses:
-            status_tickets = self.ticket_store.list(status=status, limit=50)
-            tickets.extend(status_tickets)
+        try:
+            for status in active_statuses:
+                status_tickets = store.list(status=status, limit=50)
+                tickets.extend(status_tickets)
+        except Exception as e:
+            logger.error(f"Error fetching tickets: {e}")
+            return []
 
         return [TicketSummary.from_ticket(t) for t in tickets]
 

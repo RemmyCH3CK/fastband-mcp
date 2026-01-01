@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from './stores/auth'
+import { useCallback } from 'react'
 import { Backups } from './pages/Backups'
 import { Chat } from './pages/Chat'
 import { ControlPlane } from './pages/ControlPlane'
@@ -26,6 +27,16 @@ const queryClient = new QueryClient({
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, onboardingCompleted, completeOnboarding } = useAuthStore()
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  const handleOnboardingComplete = useCallback((data: Parameters<typeof completeOnboarding>[0]) => {
+    completeOnboarding(data)
+    // Navigate to Control Plane after onboarding
+    if (location.pathname !== '/') {
+      navigate('/', { replace: true })
+    }
+  }, [completeOnboarding, navigate, location.pathname])
 
   if (loading) {
     return (
@@ -44,7 +55,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return (
       <OnboardingModal
         isOpen={true}
-        onComplete={completeOnboarding}
+        onComplete={handleOnboardingComplete}
         initialProjectPath=""
       />
     )

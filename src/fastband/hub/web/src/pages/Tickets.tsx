@@ -15,6 +15,7 @@ import {
   Clock,
   Tag,
 } from 'lucide-react'
+import { Layout } from '../components/Layout'
 
 interface TicketData {
   id: string
@@ -252,19 +253,20 @@ export function Tickets() {
   }
 
   return (
-    <div className="h-full overflow-auto p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-              <Ticket className="w-6 h-6 text-cyan" />
-              Ticket Manager
-            </h1>
-            <p className="text-slate-400 mt-1">
-              Create, track, and manage development tickets
-            </p>
-          </div>
+    <Layout showConversationSidebar={false}>
+      <div className="h-full overflow-auto p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                <Ticket className="w-6 h-6 text-cyan" />
+                Ticket Manager
+              </h1>
+              <p className="text-slate-400 mt-1">
+                Create, track, and manage development tickets
+              </p>
+            </div>
           <div className="flex items-center gap-3">
             <button
               onClick={refresh}
@@ -655,6 +657,7 @@ export function Tickets() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </Layout>
   )
 }

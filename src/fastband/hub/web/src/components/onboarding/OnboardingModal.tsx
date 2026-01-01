@@ -5,7 +5,7 @@
  * initial setup with Terminal Noir aesthetics.
  */
 
-import { useState, useEffect, useCallback, ReactNode } from 'react'
+import { useState, useEffect, useCallback, useRef, ReactNode } from 'react'
 import { clsx } from 'clsx'
 import { ChevronLeft, ChevronRight, Sparkles, Check } from 'lucide-react'
 import { StepProgress } from './StepProgress'
@@ -88,6 +88,7 @@ export function OnboardingModal({
   const [stepValid, setStepValid] = useState(false)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [direction, setDirection] = useState<'forward' | 'back'>('forward')
+  const modalRef = useRef<HTMLDivElement>(null)
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -98,6 +99,48 @@ export function OnboardingModal({
       document.body.style.overflow = 'unset'
     }
   }, [isOpen])
+
+  // Focus trap - keep focus within modal for accessibility
+  useEffect(() => {
+    if (!isOpen || !modalRef.current) return
+
+    const modal = modalRef.current
+    const focusableSelector = 'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+    // Focus first focusable element when modal opens
+    const focusableElements = modal.querySelectorAll<HTMLElement>(focusableSelector)
+    if (focusableElements.length > 0) {
+      focusableElements[0].focus()
+    }
+
+    // Handle Tab key for focus trapping
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return
+
+      const focusables = modal.querySelectorAll<HTMLElement>(focusableSelector)
+      if (focusables.length === 0) return
+
+      const firstFocusable = focusables[0]
+      const lastFocusable = focusables[focusables.length - 1]
+
+      if (e.shiftKey) {
+        // Shift+Tab - go backwards
+        if (document.activeElement === firstFocusable) {
+          e.preventDefault()
+          lastFocusable.focus()
+        }
+      } else {
+        // Tab - go forwards
+        if (document.activeElement === lastFocusable) {
+          e.preventDefault()
+          firstFocusable.focus()
+        }
+      }
+    }
+
+    modal.addEventListener('keydown', handleKeyDown)
+    return () => modal.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, currentStep])
 
   const updateData = useCallback((updates: Partial<OnboardingData>) => {
     setData(prev => ({ ...prev, ...updates }))
@@ -157,7 +200,14 @@ export function OnboardingModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div
+      ref={modalRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="onboarding-title"
+      aria-describedby="onboarding-description"
+      className="fixed inset-0 z-50 flex items-center justify-center"
+    >
       {/* Backdrop with animated grid */}
       <div className="absolute inset-0 bg-void-950/95 backdrop-blur-md">
         {/* Animated grid pattern */}
@@ -208,10 +258,16 @@ export function OnboardingModal({
               <Sparkles className="w-5 h-5 text-cyan" />
             </div>
             <div>
-              <h1 className="text-xl font-display font-bold text-slate-100">
+              <h1
+                id="onboarding-title"
+                className="text-xl font-display font-bold text-slate-100"
+              >
                 Welcome to Fastband
               </h1>
-              <p className="text-sm text-slate-400">
+              <p
+                id="onboarding-description"
+                className="text-sm text-slate-400"
+              >
                 Let's configure your AI-powered development environment
               </p>
             </div>
@@ -256,6 +312,7 @@ export function OnboardingModal({
           <button
             onClick={handleBack}
             disabled={isFirstStep}
+            aria-label={`Go back to step ${currentStep}: ${currentStep > 0 ? STEPS[currentStep - 1].title : ''}`}
             className={clsx(
               'flex items-center gap-2 px-4 py-2.5 rounded-lg',
               'text-slate-300 font-medium',
@@ -265,7 +322,7 @@ export function OnboardingModal({
                 : 'hover:bg-void-700 hover:text-cyan'
             )}
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-4 h-4" aria-hidden="true" />
             Back
           </button>
 
@@ -274,6 +331,7 @@ export function OnboardingModal({
               <button
                 onClick={handleComplete}
                 disabled={!stepValid}
+                aria-label="Complete onboarding setup"
                 className={clsx(
                   'flex items-center gap-2 px-6 py-2.5 rounded-lg font-medium',
                   'transition-all duration-200',
@@ -282,13 +340,14 @@ export function OnboardingModal({
                     : 'bg-void-700 text-slate-500 cursor-not-allowed'
                 )}
               >
-                <Check className="w-4 h-4" />
+                <Check className="w-4 h-4" aria-hidden="true" />
                 Complete Setup
               </button>
             ) : (
               <button
                 onClick={handleNext}
                 disabled={!stepValid}
+                aria-label={`Continue to step ${currentStep + 2}: ${currentStep < STEPS.length - 1 ? STEPS[currentStep + 1].title : ''}`}
                 className={clsx(
                   'flex items-center gap-2 px-6 py-2.5 rounded-lg font-medium',
                   'transition-all duration-200',
@@ -298,7 +357,7 @@ export function OnboardingModal({
                 )}
               >
                 Continue
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="w-4 h-4" aria-hidden="true" />
               </button>
             )}
           </div>

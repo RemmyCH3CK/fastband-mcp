@@ -16,10 +16,12 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
+  RefreshCw,
 } from 'lucide-react'
 import { useAuthStore } from '../stores/auth'
 import { useSessionStore } from '../stores/session'
 import { Layout } from '../components/Layout'
+import { toast } from '../stores/toast'
 
 type Tab = 'profile' | 'ai-providers' | 'billing' | 'notifications' | 'security'
 
@@ -92,7 +94,7 @@ export function Settings() {
   })
   const [savingProvider, setSavingProvider] = useState<string | null>(null)
 
-  const { user } = useAuthStore()
+  const { user, resetOnboarding } = useAuthStore()
   const { tier } = useSessionStore()
 
   // Check provider status on mount
@@ -155,14 +157,14 @@ export function Settings() {
           ...prev,
           [provider]: { configured: false, valid: false, checking: false }
         }))
-        alert(error.detail || 'Failed to save API key')
+        toast.error('Failed to save API key', error.detail || 'Please check your key and try again')
       }
     } catch {
       setProviders(prev => ({
         ...prev,
         [provider]: { ...prev[provider], checking: false }
       }))
-      alert('Failed to connect to server')
+      toast.error('Connection Error', 'Failed to connect to server')
     } finally {
       setSavingProvider(null)
     }
@@ -273,16 +275,50 @@ export function Settings() {
                 <h2 className="text-lg font-semibold text-white mb-4">
                   Danger Zone
                 </h2>
-                <button
-                  className={clsx(
-                    'flex items-center gap-2 px-4 py-2 rounded-lg',
-                    'bg-red-600/20 text-red-400 border border-red-600/50',
-                    'hover:bg-red-600/30 transition-colors'
-                  )}
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Delete Account
-                </button>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-4 bg-gray-700/50 rounded-lg border border-amber-600/30">
+                    <div>
+                      <p className="font-medium text-amber-400">Reset Onboarding</p>
+                      <p className="text-sm text-gray-400">
+                        Re-run the setup wizard on next visit
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (confirm('Reset onboarding? You will need to complete the setup wizard again.')) {
+                          resetOnboarding()
+                          window.location.href = '/'
+                        }
+                      }}
+                      className={clsx(
+                        'flex items-center gap-2 px-4 py-2 rounded-lg',
+                        'bg-amber-600/20 text-amber-400 border border-amber-600/50',
+                        'hover:bg-amber-600/30 transition-colors'
+                      )}
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Reset
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-gray-700/50 rounded-lg border border-red-600/30">
+                    <div>
+                      <p className="font-medium text-red-400">Delete Account</p>
+                      <p className="text-sm text-gray-400">
+                        Permanently delete your account and all data
+                      </p>
+                    </div>
+                    <button
+                      className={clsx(
+                        'flex items-center gap-2 px-4 py-2 rounded-lg',
+                        'bg-red-600/20 text-red-400 border border-red-600/50',
+                        'hover:bg-red-600/30 transition-colors'
+                      )}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -334,13 +370,15 @@ export function Settings() {
                   )}
                 </div>
 
-                <div className="space-y-3">
+                <form onSubmit={(e) => { e.preventDefault(); if (anthropicKey.trim()) saveProviderKey('anthropic', anthropicKey); }} className="space-y-3">
                   <div className="relative">
                     <input
                       type={showAnthropicKey ? 'text' : 'password'}
                       value={anthropicKey}
                       onChange={(e) => setAnthropicKey(e.target.value)}
                       placeholder={providers.anthropic.configured ? '••••••••••••••••' : 'sk-ant-...'}
+                      aria-label="Anthropic API key"
+                      autoComplete="off"
                       className={clsx(
                         'w-full px-4 py-3 pr-20 rounded-lg',
                         'bg-gray-700 border border-gray-600 text-white',
@@ -351,9 +389,11 @@ export function Settings() {
                     <button
                       type="button"
                       onClick={() => setShowAnthropicKey(!showAnthropicKey)}
+                      aria-label={showAnthropicKey ? 'Hide Anthropic API key' : 'Show Anthropic API key'}
+                      aria-pressed={showAnthropicKey}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
                     >
-                      {showAnthropicKey ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      {showAnthropicKey ? <EyeOff className="w-5 h-5" aria-hidden="true" /> : <Eye className="w-5 h-5" aria-hidden="true" />}
                     </button>
                   </div>
 
@@ -367,7 +407,7 @@ export function Settings() {
                       Get an API key <ExternalLink className="w-3 h-3" />
                     </a>
                     <button
-                      onClick={() => saveProviderKey('anthropic', anthropicKey)}
+                      type="submit"
                       disabled={!anthropicKey.trim() || savingProvider === 'anthropic'}
                       className={clsx(
                         'flex items-center gap-2 px-4 py-2 rounded-lg',
@@ -389,7 +429,7 @@ export function Settings() {
                       )}
                     </button>
                   </div>
-                </div>
+                </form>
               </div>
 
               {/* OpenAI */}
@@ -425,13 +465,15 @@ export function Settings() {
                   )}
                 </div>
 
-                <div className="space-y-3">
+                <form onSubmit={(e) => { e.preventDefault(); if (openaiKey.trim()) saveProviderKey('openai', openaiKey); }} className="space-y-3">
                   <div className="relative">
                     <input
                       type={showOpenaiKey ? 'text' : 'password'}
                       value={openaiKey}
                       onChange={(e) => setOpenaiKey(e.target.value)}
                       placeholder={providers.openai.configured ? '••••••••••••••••' : 'sk-...'}
+                      aria-label="OpenAI API key"
+                      autoComplete="off"
                       className={clsx(
                         'w-full px-4 py-3 pr-20 rounded-lg',
                         'bg-gray-700 border border-gray-600 text-white',
@@ -442,9 +484,11 @@ export function Settings() {
                     <button
                       type="button"
                       onClick={() => setShowOpenaiKey(!showOpenaiKey)}
+                      aria-label={showOpenaiKey ? 'Hide OpenAI API key' : 'Show OpenAI API key'}
+                      aria-pressed={showOpenaiKey}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
                     >
-                      {showOpenaiKey ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      {showOpenaiKey ? <EyeOff className="w-5 h-5" aria-hidden="true" /> : <Eye className="w-5 h-5" aria-hidden="true" />}
                     </button>
                   </div>
 
@@ -458,7 +502,7 @@ export function Settings() {
                       Get an API key <ExternalLink className="w-3 h-3" />
                     </a>
                     <button
-                      onClick={() => saveProviderKey('openai', openaiKey)}
+                      type="submit"
                       disabled={!openaiKey.trim() || savingProvider === 'openai'}
                       className={clsx(
                         'flex items-center gap-2 px-4 py-2 rounded-lg',
@@ -480,7 +524,7 @@ export function Settings() {
                       )}
                     </button>
                   </div>
-                </div>
+                </form>
               </div>
 
               {/* Help text */}

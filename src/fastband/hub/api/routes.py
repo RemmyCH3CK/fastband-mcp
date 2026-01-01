@@ -1348,7 +1348,7 @@ async def update_ticket(ticket_id: str, request: TicketUpdateRequest) -> TicketR
     if request.resolution is not None:
         ticket.resolution = request.resolution
 
-    ticket.updated_at = datetime.now()
+    ticket.updated_at = datetime.now(timezone.utc)
     store.update(ticket)
 
     return TicketResponse(
@@ -1411,8 +1411,8 @@ async def claim_ticket(ticket_id: str, agent_name: str = "dashboard") -> TicketR
 
     ticket.assigned_to = agent_name
     ticket.status = TicketStatus.IN_PROGRESS
-    ticket.started_at = datetime.now()
-    ticket.updated_at = datetime.now()
+    ticket.started_at = datetime.now(timezone.utc)
+    ticket.updated_at = datetime.now(timezone.utc)
     store.update(ticket)
 
     return TicketResponse(
@@ -1549,7 +1549,7 @@ async def get_onboarding_status() -> dict:
 
 
 @router.post("/onboarding/complete")
-async def complete_onboarding(data: OnboardingDataRequest) -> dict:
+async def complete_onboarding(data: OnboardingDataRequest, request: Request) -> dict:
     """Mark onboarding complete and save configuration."""
     from pathlib import Path
 
@@ -1586,7 +1586,62 @@ async def complete_onboarding(data: OnboardingDataRequest) -> dict:
     with open(config_path, "w") as f:
         yaml.safe_dump(config, f, default_flow_style=False)
 
-    return {"success": True, "message": "Onboarding complete"}
+    # Attempt to sync onboarding data to Supabase profile (optional)
+    supabase_synced = False
+    try:
+        supabase_url = os.environ.get("SUPABASE_URL", "")
+        supabase_key = os.environ.get("SUPABASE_KEY", "")
+
+        if supabase_url and supabase_key:
+            # Get user token from Authorization header if available
+            auth_header = request.headers.get("Authorization", "")
+            if auth_header.startswith("Bearer "):
+                access_token = auth_header.split(" ", 1)[1]
+
+                # Import supabase client
+                try:
+                    from supabase import create_client
+
+                    client = create_client(supabase_url, supabase_key)
+
+                    # Get user from token
+                    user_response = client.auth.get_user(access_token)
+                    if user_response and user_response.user:
+                        user_id = user_response.user.id
+
+                        # Update profiles table
+                        profile_data = {
+                            "id": user_id,
+                            "onboarding_completed": True,
+                            "operation_mode": data.operationMode,
+                            "onboarding_data": {
+                                "projectPath": data.projectPath,
+                                "githubUrl": data.githubUrl,
+                                "backupEnabled": data.backupEnabled,
+                                "ticketsEnabled": data.ticketsEnabled,
+                                "techStack": data.techStack,
+                                "selectedTools": data.selectedTools,
+                                "maxRecommendedTools": data.maxRecommendedTools,
+                            },
+                            "updated_at": datetime.now(timezone.utc).isoformat(),
+                        }
+
+                        # Upsert profile
+                        client.table("profiles").upsert(profile_data).execute()
+                        supabase_synced = True
+                        logger.info(f"Synced onboarding data to Supabase for user {user_id}")
+                except ImportError:
+                    logger.debug("supabase-py not installed - skipping cloud sync")
+                except Exception as e:
+                    logger.warning(f"Failed to sync to Supabase: {e}")
+    except Exception as e:
+        logger.warning(f"Supabase sync error: {e}")
+
+    return {
+        "success": True,
+        "message": "Onboarding complete",
+        "cloudSynced": supabase_synced,
+    }
 
 
 @router.get("/bible")

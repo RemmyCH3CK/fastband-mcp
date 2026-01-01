@@ -16,16 +16,20 @@ def get_default_steps() -> list[WizardStep]:
     Returns:
         List of wizard steps for standard setup flow
     """
+    from fastband.wizard.steps.auth import AuthStep
     from fastband.wizard.steps.backup import BackupConfigurationStep
     from fastband.wizard.steps.bible import AgentBibleStep
     from fastband.wizard.steps.github import GitHubIntegrationStep
+    from fastband.wizard.steps.operation_mode import OperationModeStep
     from fastband.wizard.steps.project import ProjectDetectionStep
     from fastband.wizard.steps.provider import ProviderSelectionStep
     from fastband.wizard.steps.tickets import TicketManagerStep
     from fastband.wizard.steps.tools import ToolSelectionStep
 
     return [
+        AuthStep(),  # Optional account linking
         ProjectDetectionStep(),
+        OperationModeStep(),  # Manual vs YOLO mode
         ProviderSelectionStep(),
         ToolSelectionStep(),
         GitHubIntegrationStep(),

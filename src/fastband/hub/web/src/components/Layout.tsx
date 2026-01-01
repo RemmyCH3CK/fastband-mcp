@@ -15,6 +15,7 @@ import {
   Shield,
   Archive,
   Ticket,
+  BookOpen,
 } from 'lucide-react'
 import { useAuthStore } from '../stores/auth'
 import { useSessionStore } from '../stores/session'
@@ -31,6 +32,7 @@ const navigation = [
   { name: 'Chat', href: '/chat', icon: MessageSquare },
   { name: 'Analyze', href: '/analyze', icon: FileCode },
   { name: 'Backups', href: '/backups', icon: Archive },
+  { name: 'Agent Bible', href: '/bible', icon: BookOpen },
   { name: 'Usage', href: '/usage', icon: BarChart3 },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]

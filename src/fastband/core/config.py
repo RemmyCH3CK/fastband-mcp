@@ -105,6 +105,11 @@ class FastbandConfig:
     project_type: str | None = None
     primary_language: str | None = None
 
+    # Operation mode: 'manual' or 'yolo'
+    # - manual: Agents confirm all actions via chat/CLI
+    # - yolo: Full automation following Agent Bible laws
+    operation_mode: str = "manual"
+
     # AI Providers
     default_provider: str = "claude"
     providers: dict[str, AIProviderConfig] = field(default_factory=dict)
@@ -144,6 +149,10 @@ class FastbandConfig:
             config.project_name = p.get("name")
             config.project_type = p.get("type")
             config.primary_language = p.get("language")
+
+        # Operation mode
+        if "operation_mode" in data:
+            config.operation_mode = data["operation_mode"]
 
         if "ai" in data:
             ai = data["ai"]
@@ -222,6 +231,7 @@ class FastbandConfig:
         result: dict[str, Any] = {
             "fastband": {
                 "version": self.version,
+                "operation_mode": self.operation_mode,
             }
         }
 

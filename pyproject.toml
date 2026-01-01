@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fastband-agent-control"
-version = "1.2025.12.26"
+version = "1.2025.12.27"
 description = "Fastband Agent Control - Universal platform for AI agent coordination, multi-agent orchestration, and autonomous development workflows"
 readme = "README.md"
 license = "MIT"
@@ -88,6 +88,15 @@ postgres = [
 mysql = [
     "pymysql>=1.1.0",
 ]
+auth = [
+    "keyring>=24.0.0",  # Secure credential storage (macOS Keychain, Windows Credential Locker)
+]
+system = [
+    "psutil>=5.9.0",  # System resource detection (RAM, CPU, disk)
+]
+cloud = [
+    "supabase>=2.0.0",  # Supabase client for cloud sync and profiles
+]
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
@@ -99,7 +108,7 @@ dev = [
     "flask>=2.0.0",
 ]
 full = [
-    "fastband-agent-control[all-providers,web,screenshots,postgres,mysql,dev]",
+    "fastband-agent-control[all-providers,web,screenshots,postgres,mysql,auth,system,cloud,dev]",
 ]
 
 [project.scripts]

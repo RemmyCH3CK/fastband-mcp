@@ -3,6 +3,7 @@
  */
 
 import { clsx } from 'clsx'
+import { useNavigate } from 'react-router-dom'
 import {
   Ticket,
   User,
@@ -27,6 +28,8 @@ export function TicketDetailModal({
   onClose,
   ticket,
 }: TicketDetailModalProps) {
+  const navigate = useNavigate()
+
   if (!ticket) return null
 
   const formatDate = (timestamp: string | null | undefined) => {
@@ -164,7 +167,8 @@ export function TicketDetailModal({
           <button
             onClick={() => {
               // Navigate to ticket manager with ticket ID in query params
-              window.open(`/tickets?id=${ticket.id}`, '_blank')
+              onClose()
+              navigate(`/tickets?id=${ticket.id}`)
             }}
             className="btn-secondary flex items-center gap-2 py-2"
           >

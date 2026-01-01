@@ -56,10 +56,19 @@ interface AuthStore {
   resetOnboarding: () => void
 }
 
-// Helper to get onboarding status from localStorage
-const getStoredOnboardingStatus = (): { completed: boolean; data: OnboardingData | null } => {
+// Helper to get localStorage key for a user (per-user isolation)
+const getOnboardingKey = (userId?: string): string => {
+  if (userId) {
+    return `fastband_onboarding_${userId}`
+  }
+  return 'fastband_onboarding'
+}
+
+// Helper to get onboarding status from localStorage for a specific user
+const getStoredOnboardingStatus = (userId?: string): { completed: boolean; data: OnboardingData | null } => {
   try {
-    const stored = localStorage.getItem('fastband_onboarding')
+    const key = getOnboardingKey(userId)
+    const stored = localStorage.getItem(key)
     if (stored) {
       const parsed = JSON.parse(stored)
       return { completed: true, data: parsed }
@@ -70,13 +79,14 @@ const getStoredOnboardingStatus = (): { completed: boolean; data: OnboardingData
   return { completed: false, data: null }
 }
 
-export const useAuthStore = create<AuthStore>((set) => ({
+export const useAuthStore = create<AuthStore>((set, get) => ({
   user: null,
   session: null,
   loading: true,
   devMode: DEV_MODE,
-  onboardingCompleted: getStoredOnboardingStatus().completed,
-  onboardingData: getStoredOnboardingStatus().data,
+  // Initially false - will be set properly in initialize() after we know the user
+  onboardingCompleted: false,
+  onboardingData: null,
 
   signInWithEmail: async (email, password) => {
     if (DEV_MODE) {
@@ -167,23 +177,40 @@ export const useAuthStore = create<AuthStore>((set) => ({
     if (DEV_MODE) {
       // Auto-login in dev mode
       console.log('🔧 Dev Mode: Auth bypassed - auto-logged in as dev@fastband.local')
-      set({ user: DEV_USER, session: null, loading: false })
+      const devStatus = getStoredOnboardingStatus(DEV_USER.id)
+      set({
+        user: DEV_USER,
+        session: null,
+        loading: false,
+        onboardingCompleted: devStatus.completed,
+        onboardingData: devStatus.data,
+      })
       return
     }
 
     try {
       const { data: { session } } = await supabase!.auth.getSession()
+      const userId = session?.user?.id
+      const onboardingStatus = getStoredOnboardingStatus(userId)
+
       set({
         user: session?.user ?? null,
         session,
         loading: false,
+        onboardingCompleted: onboardingStatus.completed,
+        onboardingData: onboardingStatus.data,
       })
 
-      // Listen for auth changes
+      // Listen for auth changes and update onboarding status per-user
       supabase!.auth.onAuthStateChange((_event, session) => {
+        const newUserId = session?.user?.id
+        const newOnboardingStatus = getStoredOnboardingStatus(newUserId)
+
         set({
           user: session?.user ?? null,
           session,
+          onboardingCompleted: newOnboardingStatus.completed,
+          onboardingData: newOnboardingStatus.data,
         })
       })
     } catch (error) {
@@ -193,8 +220,11 @@ export const useAuthStore = create<AuthStore>((set) => ({
   },
 
   completeOnboarding: (data: OnboardingData) => {
-    // Store in localStorage
-    localStorage.setItem('fastband_onboarding', JSON.stringify(data))
+    const userId = get().user?.id
+    const key = getOnboardingKey(userId)
+
+    // Store in localStorage with user-specific key
+    localStorage.setItem(key, JSON.stringify(data))
 
     // Also send to backend to save configuration
     fetch('/api/onboarding/complete', {
@@ -209,7 +239,10 @@ export const useAuthStore = create<AuthStore>((set) => ({
   },
 
   resetOnboarding: () => {
-    localStorage.removeItem('fastband_onboarding')
+    const userId = get().user?.id
+    const key = getOnboardingKey(userId)
+
+    localStorage.removeItem(key)
     set({ onboardingCompleted: false, onboardingData: null })
   },
 }))

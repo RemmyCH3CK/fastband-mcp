@@ -9,6 +9,7 @@ import asyncio
 import http.server
 import json
 import os
+import secrets
 import socketserver
 import threading
 import urllib.parse
@@ -165,6 +166,61 @@ class OAuthCallbackHandler(http.server.BaseHTTPRequestHandler):
         params = urllib.parse.parse_qs(parsed.query)
 
         if parsed.path == "/auth/callback":
+            # Verify CSRF state parameter
+            received_state = params.get("state", [""])[0]
+            expected_state = getattr(self.server, "expected_state", None)
+
+            if expected_state and received_state != expected_state:
+                # State mismatch - potential CSRF attack
+                self.server.oauth_result = {
+                    "success": False,
+                    "error": "csrf_error",
+                    "error_description": "State parameter mismatch. Request may have been tampered with.",
+                }
+
+                self.send_response(400)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+
+                csrf_error_html = """
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Fastband - Security Error</title>
+                    <style>
+                        body {
+                            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                            background: #0a0a0f;
+                            color: #e2e8f0;
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                            height: 100vh;
+                            margin: 0;
+                        }
+                        .container {
+                            text-align: center;
+                            padding: 40px;
+                            background: #1a1a2e;
+                            border-radius: 16px;
+                            border: 1px solid #ff006e33;
+                        }
+                        h1 { color: #ff006e; }
+                        p { color: #94a3b8; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h1>Security Error</h1>
+                        <p>Authentication request was tampered with.</p>
+                        <p>Please try again from the terminal.</p>
+                    </div>
+                </body>
+                </html>
+                """
+                self.wfile.write(csrf_error_html.encode())
+                return
+
             # Extract tokens from callback
             access_token = params.get("access_token", [""])[0]
             refresh_token = params.get("refresh_token", [""])[0]
@@ -295,16 +351,26 @@ class OAuthCallbackHandler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
 
 
-def run_oauth_server(port: int = OAUTH_CALLBACK_PORT) -> dict | None:
-    """Run temporary OAuth callback server."""
+def run_oauth_server(port: int = OAUTH_CALLBACK_PORT, expected_state: str | None = None) -> dict | None:
+    """Run temporary OAuth callback server.
+
+    Args:
+        port: Port to listen on for OAuth callback
+        expected_state: CSRF state token to verify (prevents CSRF attacks)
+
+    Returns:
+        OAuth result dict or None on error
+    """
 
     class ReusableServer(socketserver.TCPServer):
         allow_reuse_address = True
         oauth_result: dict | None = None
+        expected_state: str | None = None
 
     try:
         with ReusableServer(("", port), OAuthCallbackHandler) as httpd:
             httpd.oauth_result = None
+            httpd.expected_state = expected_state
             httpd.timeout = 120  # 2 minute timeout
 
             # Handle one request
@@ -368,16 +434,18 @@ def register():
         border_style="cyan",
     ))
 
-    # Build OAuth URL
+    # Generate CSRF state token for security
+    csrf_state = secrets.token_urlsafe(32)
+
+    # Build OAuth URL with state parameter
     redirect_uri = f"http://localhost:{OAUTH_CALLBACK_PORT}/auth/callback"
     oauth_url = (
         f"{supabase_url}/auth/v1/authorize?"
         f"provider=google&"
-        f"redirect_to={urllib.parse.quote(redirect_uri)}"
+        f"redirect_to={urllib.parse.quote(redirect_uri)}&"
+        f"state={urllib.parse.quote(csrf_state)}"
     )
 
-    # Start OAuth server in background
-    server_thread = threading.Thread(target=lambda: None)
     oauth_result = None
 
     with Progress(
@@ -390,8 +458,8 @@ def register():
         # Open browser
         webbrowser.open(oauth_url)
 
-        # Run OAuth server
-        oauth_result = run_oauth_server()
+        # Run OAuth server with CSRF state verification
+        oauth_result = run_oauth_server(expected_state=csrf_state)
 
         progress.update(task, description="Processing...")
 

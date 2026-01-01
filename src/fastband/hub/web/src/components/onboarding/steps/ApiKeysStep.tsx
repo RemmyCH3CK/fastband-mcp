@@ -226,6 +226,8 @@ export function ApiKeysStep({ data, updateData, setStepValid }: StepProps) {
                       value={value}
                       onChange={(e) => updateProvider(provider.id, e.target.value)}
                       placeholder={provider.placeholder}
+                      aria-label={`${provider.name} ${provider.isHost ? 'host URL' : 'API key'}`}
+                      aria-describedby={`${provider.id}-status`}
                       className="input-field font-mono text-sm pr-24"
                     />
 
@@ -234,12 +236,14 @@ export function ApiKeysStep({ data, updateData, setStepValid }: StepProps) {
                         <button
                           type="button"
                           onClick={() => toggleShowKey(provider.id)}
+                          aria-label={isShown ? `Hide ${provider.name} API key` : `Show ${provider.name} API key`}
+                          aria-pressed={isShown}
                           className="p-1.5 rounded hover:bg-void-600 text-slate-400 hover:text-slate-200 transition-colors"
                         >
                           {isShown ? (
-                            <EyeOff className="w-4 h-4" />
+                            <EyeOff className="w-4 h-4" aria-hidden="true" />
                           ) : (
-                            <Eye className="w-4 h-4" />
+                            <Eye className="w-4 h-4" aria-hidden="true" />
                           )}
                         </button>
                       )}
@@ -248,6 +252,7 @@ export function ApiKeysStep({ data, updateData, setStepValid }: StepProps) {
                         type="button"
                         onClick={() => validateProvider(provider.id)}
                         disabled={!value || isValidating}
+                        aria-label={isValidating ? `Validating ${provider.name}` : `Test ${provider.name} connection`}
                         className={clsx(
                           'px-2 py-1 rounded text-xs font-medium transition-all',
                           value && !isValidating
@@ -256,14 +261,18 @@ export function ApiKeysStep({ data, updateData, setStepValid }: StepProps) {
                         )}
                       >
                         {isValidating ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
                         ) : isValid ? (
-                          <Check className="w-3 h-3" />
+                          <Check className="w-3 h-3" aria-hidden="true" />
                         ) : (
                           'Test'
                         )}
                       </button>
                     </div>
+                    {/* Hidden status for screen readers */}
+                    <span id={`${provider.id}-status`} className="sr-only">
+                      {isValid ? `${provider.name} connected` : isValidating ? `Validating ${provider.name}` : `${provider.name} not configured`}
+                    </span>
                   </div>
 
                   {/* Help link */}

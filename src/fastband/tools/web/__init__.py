@@ -358,6 +358,13 @@ class HttpRequestTool(Tool):
                     required=False,
                     default=True,
                 ),
+                ToolParameter(
+                    name="verify_ssl",
+                    type="boolean",
+                    description="Verify SSL certificates (default: true). Set to false only for local development with self-signed certs.",
+                    required=False,
+                    default=True,
+                ),
             ],
         )
 
@@ -370,6 +377,7 @@ class HttpRequestTool(Tool):
         json_body: dict[str, Any] = None,
         timeout: int = 30,
         follow_redirects: bool = True,
+        verify_ssl: bool = True,
         **kwargs,
     ) -> ToolResult:
         """Make HTTP request."""
@@ -398,7 +406,7 @@ class HttpRequestTool(Tool):
             async with httpx.AsyncClient(
                 timeout=httpx.Timeout(timeout),
                 follow_redirects=follow_redirects,
-                verify=False,  # Equivalent to ssl=False
+                verify=verify_ssl,
             ) as client:
                 response = await client.request(
                     method=method.upper(),

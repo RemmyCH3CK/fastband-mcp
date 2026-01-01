@@ -1,14 +1,14 @@
 # Fastband Agent Control - Handoff Document
 
-**Version:** 1.2025.12.13
-**Last Updated:** 2025-12-31 (Session 9)
+**Version:** 1.2025.12.27
+**Last Updated:** 2025-12-31 (Session 11)
 **Branch:** main
 **CI Status:** ✅ Passing
-**PyPI:** ⏳ Pending (v1.2025.12.13)
+**PyPI:** ⏳ Pending (v1.2025.12.27)
 
 ## Current State
 
-Fastband Agent Control is a universal platform for AI agent coordination. The project is in a **stable release state** with v1.2025.12.11 published to PyPI. All CI checks are passing.
+Fastband Agent Control is a universal platform for AI agent coordination. The project is in a **stable release state** with v1.2025.12.27 pending release. All CI checks are passing.
 
 ### Installation
 
@@ -38,10 +38,13 @@ pip install fastband-agent-control==1.2025.12.11
 - **Tickets Page** - Full ticket management UI in dashboard
 - **Backups Page** - Backup management UI in dashboard
 - **One-Command Setup** - `fastband setup` auto-configures Claude Code MCP
-- **Admin Onboarding** - 6-step wizard for first-time Hub setup (NEW)
-- **CLI Authentication** - `fastband auth register/login/logout` with OAuth (NEW)
-- **Bible Editor** - View/edit AGENT_BIBLE.md from Hub at `/bible` (NEW)
-- **Performance Meter** - System-aware tool recommendations (NEW)
+- **Admin Onboarding** - 6-step wizard for first-time Hub setup
+- **CLI Authentication** - `fastband auth register/login/logout` with OAuth
+- **Bible Editor** - View/edit AGENT_BIBLE.md from Hub at `/bible`
+- **Performance Meter** - System-aware tool recommendations
+- **CLI Wizard Auth** - Browser OAuth integration in setup wizard (NEW)
+- **Operation Mode** - Manual vs YOLO agent automation levels (NEW)
+- **Supabase Sync** - Cloud profile sync for onboarding data (NEW)
 
 ### Architecture Overview
 
@@ -66,6 +69,68 @@ src/fastband/
 ```
 
 ## Recent Session Work (2025-12-31)
+
+### Session 11 - Pre-Release Bug Fixes
+
+1. **Per-User Data Isolation** (CRITICAL FIX)
+   - Fixed onboarding data leaking between users
+   - Changed localStorage keys from global to per-user
+   - Keys now use format `fastband_onboarding_{userId}`
+   - Auth state listener updates on user change
+
+2. **Ticket Manager Navigation** (BUG FIX)
+   - Fixed "View in Ticket Manager" not working
+   - Changed from `window.open()` to React Router `navigate()`
+   - Modal now closes before navigation
+
+3. **Control Plane Error Handling** (STABILITY)
+   - Added comprehensive try/catch to polling task
+   - Graceful fallbacks when ticket_store/ops_log unavailable
+   - Properties handle initialization failures
+   - Backoff on consecutive errors in polling
+
+4. **Password Field DOM Warnings** (FIX)
+   - Wrapped password inputs in `<form>` elements
+   - Settings page API key inputs now properly contained
+   - Fixes browser autocomplete warnings
+
+5. **Backups.tsx JSX Fix** (BUILD FIX)
+   - Fixed inconsistent indentation causing build failure
+   - All cards now properly indented within Layout wrapper
+
+### Session 10 - CLI Wizard & Polish
+
+1. **CLI Wizard AuthStep** (NEW)
+   - OAuth authentication integration in CLI setup wizard
+   - Supports existing credentials detection
+   - Graceful fallback if Supabase not configured
+   - Browser-based OAuth flow option
+
+2. **CLI Wizard OperationModeStep** (NEW)
+   - Manual vs YOLO mode selection in CLI wizard
+   - Comparison table showing differences
+   - YOLO mode warning with confirmation
+   - Saves to FastbandConfig
+
+3. **Configuration Updates**
+   - Added `operation_mode` field to FastbandConfig
+   - Persists to `.fastband/config.yaml`
+   - Supports YAML serialization/deserialization
+
+4. **Hub Navigation Improvements**
+   - Agent Bible link added to sidebar navigation
+   - Navigate to Control Plane after onboarding completion
+   - Reset Onboarding button in Settings → Danger Zone
+
+5. **Supabase Profile Sync** (NEW)
+   - Onboarding data syncs to Supabase profiles table
+   - Optional - works when Supabase configured
+   - Stores operation_mode, onboarding_data JSONB
+
+6. **Optional Dependencies**
+   - Added `[cloud]` extra for Supabase client
+   - Updated `[full]` to include cloud, auth, system
+   - keyring, psutil, supabase all optional
 
 ### Session 9 - Comprehensive Onboarding System
 
@@ -325,6 +390,7 @@ cp -r dist ../static
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| v1.2025.12.27 | 2025-12-31 | **Critical fix**: Per-user data isolation, ticket navigation, Control Plane stability |
 | v1.2025.12.12 | 2025-12-31 | **Major fixes**: backup routes, scheduler routes, all API endpoints verified |
 | v1.2025.12.11 | 2025-12-31 | Fix project_path AttributeError in ticket routes |
 | v1.2025.12.10 | 2025-12-31 | Fix /api/tickets 500 error, system event handlers |
