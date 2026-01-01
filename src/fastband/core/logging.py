@@ -592,6 +592,98 @@ def _patch_logger_handlers(logger: logging.Logger) -> None:
     logger.handlers = new_handlers
 
 
+# =============================================================================
+# AUDIT LOGGING
+# =============================================================================
+
+# Audit event types for categorization
+class AuditEventType:
+    """Audit event type constants."""
+
+    AUTH = "auth"
+    CONFIG = "config"
+    SESSION = "session"
+    API_KEY = "api_key"
+    BACKUP = "backup"
+    SERVER = "server"
+    SECURITY = "security"
+
+
+_audit_logger: logging.Logger | None = None
+
+
+def get_audit_logger() -> logging.Logger:
+    """Get the audit logger instance."""
+    global _audit_logger
+
+    if _audit_logger is None:
+        _audit_logger = logging.getLogger("fastband.audit")
+        _audit_logger.setLevel(logging.INFO)
+
+        # Add a file handler specifically for audit logs
+        try:
+            log_dir = Path.cwd() / ".fastband" / "logs"
+            log_dir.mkdir(parents=True, exist_ok=True)
+
+            handler = RotatingFileHandler(
+                filename=str(log_dir / "audit.log"),
+                maxBytes=10 * 1024 * 1024,  # 10MB
+                backupCount=10,  # Keep more audit logs
+                encoding="utf-8",
+            )
+            handler.setLevel(logging.INFO)
+            handler.setFormatter(JsonFormatter(include_module=False))
+            _audit_logger.addHandler(handler)
+        except Exception:
+            # Fallback to standard logger if file handler fails
+            pass
+
+    return _audit_logger
+
+
+def audit_log(
+    event_type: str,
+    action: str,
+    user_id: str | None = None,
+    resource: str | None = None,
+    details: dict | None = None,
+    success: bool = True,
+    ip_address: str | None = None,
+) -> None:
+    """
+    Log an audit event for security-sensitive operations.
+
+    Args:
+        event_type: Type of event (use AuditEventType constants)
+        action: Action performed (e.g., "configure", "restart", "delete")
+        user_id: User who performed the action
+        resource: Resource affected (e.g., "anthropic_api_key", "backup_123")
+        details: Additional details (DO NOT include sensitive data)
+        success: Whether the action succeeded
+        ip_address: Client IP address if available
+    """
+    logger = get_audit_logger()
+
+    audit_record = {
+        "event_type": event_type,
+        "action": action,
+        "success": success,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+    if user_id:
+        audit_record["user_id"] = user_id
+    if resource:
+        audit_record["resource"] = resource
+    if details:
+        audit_record["details"] = details
+    if ip_address:
+        audit_record["ip_address"] = ip_address
+
+    # Log as JSON for easy parsing
+    logger.info(json.dumps(audit_record))
+
+
 def get_uvicorn_log_config() -> dict:
     """
     Get uvicorn log configuration that uses SafeStreamHandler.

@@ -187,6 +187,13 @@ class UsageStats:
 # =============================================================================
 
 
+class ModelMode(str, Enum):
+    """Model selection mode."""
+
+    FIXED = "fixed"  # Use the specified model always
+    AUTO = "auto"  # Auto-select model based on task type
+
+
 @dataclass(slots=True)
 class SessionConfig:
     """Configuration for a hub session.
@@ -195,21 +202,25 @@ class SessionConfig:
         user_id: Authenticated user ID
         tier: Subscription tier
         project_path: Path to connected project (if any)
-        model: AI model to use
+        model: AI model to use (when model_mode is FIXED)
+        model_mode: Whether to auto-select models based on task type
         temperature: Model temperature
         max_tokens: Max response tokens
         tools_enabled: List of enabled tool categories
         memory_enabled: Whether RAG memory is enabled
+        task_type: Current task type for auto model selection
     """
 
     user_id: str
     tier: SubscriptionTier = SubscriptionTier.FREE
     project_path: str | None = None
     model: str = "claude-sonnet-4-20250514"
+    model_mode: ModelMode = ModelMode.AUTO  # Default to auto model selection
     temperature: float = 0.7
     max_tokens: int = 4096
     tools_enabled: list[str] = field(default_factory=list)
     memory_enabled: bool = True
+    task_type: str = "chat"  # Default task type for auto model
 
 
 @dataclass(slots=True)
@@ -407,10 +418,24 @@ class Conversation:
             title=title or "New Conversation",
         )
 
+    # Maximum messages per conversation to prevent unbounded memory growth
+    MAX_MESSAGES = 500
+
     def add_message(self, message: ChatMessage) -> None:
-        """Add a message to the conversation."""
+        """Add a message to the conversation.
+
+        Enforces MAX_MESSAGES limit by removing oldest messages when exceeded.
+        This prevents unbounded memory growth in long-running conversations.
+        """
         self.messages.append(message)
         self.updated_at = _utc_now()
+
+        # Enforce max messages limit - remove oldest messages
+        if len(self.messages) > self.MAX_MESSAGES:
+            # Keep the most recent MAX_MESSAGES messages
+            overflow = len(self.messages) - self.MAX_MESSAGES
+            self.messages = self.messages[overflow:]
+            logger.debug(f"Trimmed {overflow} old messages from conversation {self.conversation_id}")
 
     def get_context_messages(self, max_tokens: int = 8000) -> list[ChatMessage]:
         """Get messages that fit within token budget.

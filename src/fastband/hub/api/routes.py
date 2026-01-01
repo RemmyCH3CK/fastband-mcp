@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+
+from fastband.core.logging import AuditEventType, audit_log
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -1027,6 +1029,15 @@ async def configure_provider(request: ProviderConfigRequest):
     # Try to validate the key by making a simple API call
     valid, validation_msg = await _validate_provider_key(provider, api_key)
 
+    # Audit log the API key configuration (never log the actual key!)
+    audit_log(
+        event_type=AuditEventType.API_KEY,
+        action="configure",
+        resource=f"{provider}_api_key",
+        success=valid,
+        details={"provider": provider, "validation_result": validation_msg},
+    )
+
     return {
         "provider": provider,
         "configured": True,
@@ -1449,6 +1460,18 @@ async def create_backup(request: BackupCreateRequest) -> BackupResponse:
         backup = manager.create_backup(
             backup_type=backup_type,
             description=request.description,
+        )
+
+        # Audit log backup creation
+        audit_log(
+            event_type=AuditEventType.BACKUP,
+            action="create",
+            resource=backup.id,
+            details={
+                "type": backup.backup_type.value,
+                "size_bytes": backup.size_bytes,
+                "files_count": backup.files_count,
+            },
         )
 
         return BackupResponse(
@@ -2264,8 +2287,16 @@ async def restart_server(request: Request) -> dict:
     # Update rate limit timestamp
     _last_restart_time = current_time
 
+    # Audit log the restart request
+    audit_log(
+        event_type=AuditEventType.SERVER,
+        action="restart",
+        ip_address=client_host,
+        details={"authenticated": is_authenticated, "localhost": is_localhost},
+    )
+
     # Log the restart request
-    logger.info(f"Server restart requested by {client_host} (auth: {has_auth})")
+    logger.info(f"Server restart requested by {client_host} (auth: {is_authenticated})")
 
     def delayed_restart():
         """Perform restart after a short delay to allow response to be sent."""

@@ -7,6 +7,29 @@ and this project adheres to a hybrid versioning scheme: `vMAJOR.YYYY.MM.PATCH[-p
 
 ## [Unreleased]
 
+### Security
+
+#### Fixed (Critical)
+- **Exposed API keys** - Removed committed credentials from `.env`, added `.env.example` template
+- **SQL injection** - Added `_validate_identifier()` for PRAGMA queries in database connectors
+- **Path traversal** - Pre-resolution validation in static file serving with symlink detection
+- **Auth bypass** - Added `_validate_restart_token()` with secure token generation for `/server/restart`
+- **Async generator leak** - Moved cleanup to `finally` block in chat streaming pipeline
+
+#### Added (High Priority)
+- **Rate limiting** - Token bucket rate limiter (100 req/min per IP) with `X-RateLimit-*` headers
+- **Security headers** - CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy
+- **CSRF protection** - Double-submit cookie pattern for state-changing requests
+- **Request size limits** - 10MB max request body with 413 response
+- **Audit logging** - JSON audit log for sensitive operations (API keys, backups, restarts)
+- **Browse path restrictions** - Limited filesystem browsing to home/cwd/Volumes only
+- **Conversation memory limits** - MAX_MESSAGES=500 to prevent unbounded growth
+
+#### Changed
+- Error messages no longer leak internal paths or exception details
+- Session timeout enforcement already implemented (30 min idle cleanup)
+- Health check endpoint already exists at `/api/health`
+
 ## [1.2025.12.6] - 2025-12-30
 
 ### Changed

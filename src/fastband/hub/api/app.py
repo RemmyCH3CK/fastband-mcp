@@ -13,6 +13,7 @@ Security Features:
 
 import logging
 import os
+import secrets
 import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
@@ -164,6 +165,68 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
                 content={
                     "error": f"Request body too large. Maximum size is {self.max_size // (1024*1024)}MB."
                 },
+            )
+
+        return await call_next(request)
+
+
+class CSRFMiddleware(BaseHTTPMiddleware):
+    """CSRF protection using double-submit cookie pattern.
+
+    For state-changing requests (POST, PUT, DELETE, PATCH):
+    - Checks for X-CSRF-Token header matching the csrf_token cookie
+    - Skips CSRF for API endpoints with Bearer auth (machine-to-machine)
+    - Skips CSRF for safe methods (GET, HEAD, OPTIONS)
+    """
+
+    # Endpoints that don't require CSRF (use Bearer auth instead)
+    EXEMPT_PATHS = {
+        "/api/health",
+        "/api/docs",
+        "/api/redoc",
+        "/api/openapi.json",
+    }
+
+    async def dispatch(self, request: Request, call_next: Callable):
+        # Safe methods don't need CSRF protection
+        if request.method in ("GET", "HEAD", "OPTIONS"):
+            response = await call_next(request)
+            # Set CSRF cookie on GET requests if not present
+            if "csrf_token" not in request.cookies:
+                csrf_token = secrets.token_urlsafe(32)
+                response.set_cookie(
+                    key="csrf_token",
+                    value=csrf_token,
+                    httponly=False,  # JS needs to read this
+                    samesite="strict",
+                    secure=request.url.scheme == "https",
+                    max_age=3600 * 24,  # 24 hours
+                )
+            return response
+
+        # Skip CSRF for exempt paths
+        if request.url.path in self.EXEMPT_PATHS:
+            return await call_next(request)
+
+        # Skip CSRF if Bearer auth is present (API/machine access)
+        auth_header = request.headers.get("authorization", "")
+        if auth_header.startswith("Bearer "):
+            return await call_next(request)
+
+        # Validate CSRF token for state-changing requests
+        cookie_token = request.cookies.get("csrf_token")
+        header_token = request.headers.get("x-csrf-token")
+
+        if not cookie_token or not header_token:
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"error": "CSRF token missing"},
+            )
+
+        if not secrets.compare_digest(cookie_token, header_token):
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"error": "CSRF token mismatch"},
             )
 
         return await call_next(request)
@@ -341,6 +404,7 @@ def create_app(
 
     # Add security middleware (order matters - first added = last executed)
     _app.add_middleware(SecurityHeadersMiddleware)
+    _app.add_middleware(CSRFMiddleware)
     _app.add_middleware(RateLimitMiddleware, limiter=_rate_limiter)
     _app.add_middleware(RequestSizeLimitMiddleware)
 
