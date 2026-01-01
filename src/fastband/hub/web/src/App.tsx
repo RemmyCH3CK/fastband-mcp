@@ -12,6 +12,7 @@ import { Tickets } from './pages/Tickets'
 import { Usage } from './pages/Usage'
 import { Layout } from './components/Layout'
 import { ToastContainer } from './components/Toast'
+import { OnboardingModal } from './components/onboarding/OnboardingModal'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,7 +24,7 @@ const queryClient = new QueryClient({
 })
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuthStore()
+  const { user, loading, onboardingCompleted, completeOnboarding } = useAuthStore()
 
   if (loading) {
     return (
@@ -35,6 +36,17 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (!user) {
     return <Navigate to="/login" replace />
+  }
+
+  // Show onboarding modal for first-time users
+  if (!onboardingCompleted) {
+    return (
+      <OnboardingModal
+        isOpen={true}
+        onComplete={completeOnboarding}
+        initialProjectPath=""
+      />
+    )
   }
 
   return <>{children}</>

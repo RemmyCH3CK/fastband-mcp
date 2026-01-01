@@ -1463,3 +1463,335 @@ async def get_ticket_stats() -> dict:
         stats["by_type"][ticket_type] = stats["by_type"].get(ticket_type, 0) + 1
 
     return stats
+
+
+# =============================================================================
+# ONBOARDING & SYSTEM ENDPOINTS
+# =============================================================================
+
+
+class OnboardingDataRequest(BaseModel):
+    """Onboarding configuration data."""
+
+    projectPath: str = ""
+    githubUrl: str = ""
+    operationMode: str = "manual"
+    backupEnabled: bool = True
+    ticketsEnabled: bool = True
+    providers: dict = Field(default_factory=dict)
+    analysisComplete: bool = False
+    bibleGenerated: bool = False
+    techStack: list[str] = Field(default_factory=list)
+    selectedTools: list[str] = Field(default_factory=list)
+    maxRecommendedTools: int = 60
+
+
+class SystemCapabilitiesResponse(BaseModel):
+    """System capabilities for performance meter."""
+
+    platform: str
+    cpuCores: int
+    totalRamGB: float
+    availableRamGB: float
+    diskFreeGB: float
+    pythonVersion: str
+    aiProvider: str | None
+    aiModel: str | None
+    contextWindow: int
+    maxRecommendedTools: int
+    hasPsutil: bool
+
+
+@router.get("/system/capabilities")
+async def get_system_capabilities() -> SystemCapabilitiesResponse:
+    """Get system resource info for performance meter."""
+    from fastband.core.system_capabilities import get_system_capabilities
+
+    caps = get_system_capabilities()
+    data = caps.to_dict()
+
+    return SystemCapabilitiesResponse(
+        platform=data["platform"],
+        cpuCores=data["cpuCores"],
+        totalRamGB=data["totalRamGB"],
+        availableRamGB=data["availableRamGB"],
+        diskFreeGB=data["diskFreeGB"],
+        pythonVersion=data["pythonVersion"],
+        aiProvider=data["aiProvider"],
+        aiModel=data["aiModel"],
+        contextWindow=data["contextWindow"],
+        maxRecommendedTools=data["maxRecommendedTools"],
+        hasPsutil=data["hasPsutil"],
+    )
+
+
+@router.get("/onboarding/status")
+async def get_onboarding_status() -> dict:
+    """Check if onboarding is complete."""
+    from pathlib import Path
+
+    # Check if fastband.yaml exists with onboarding flag
+    config_path = Path.cwd() / ".fastband" / "config.yaml"
+    if config_path.exists():
+        try:
+            import yaml
+
+            with open(config_path) as f:
+                config = yaml.safe_load(f) or {}
+                return {
+                    "completed": config.get("onboarding_completed", False),
+                    "operationMode": config.get("operation_mode", "manual"),
+                }
+        except Exception:
+            pass
+
+    return {"completed": False, "operationMode": "manual"}
+
+
+@router.post("/onboarding/complete")
+async def complete_onboarding(data: OnboardingDataRequest) -> dict:
+    """Mark onboarding complete and save configuration."""
+    from pathlib import Path
+
+    import yaml
+
+    # Ensure .fastband directory exists
+    fastband_dir = Path.cwd() / ".fastband"
+    fastband_dir.mkdir(parents=True, exist_ok=True)
+
+    # Load or create config
+    config_path = fastband_dir / "config.yaml"
+    config = {}
+    if config_path.exists():
+        try:
+            with open(config_path) as f:
+                config = yaml.safe_load(f) or {}
+        except Exception:
+            pass
+
+    # Update config with onboarding data
+    config["onboarding_completed"] = True
+    config["operation_mode"] = data.operationMode
+    config["backup_enabled"] = data.backupEnabled
+    config["tickets_enabled"] = data.ticketsEnabled
+    config["github_url"] = data.githubUrl
+    config["project_path"] = data.projectPath
+    config["tech_stack"] = data.techStack
+    config["selected_tools"] = data.selectedTools
+
+    # Save provider keys to environment (don't store in config file)
+    # The keys should be stored securely in .env or environment
+
+    # Save config
+    with open(config_path, "w") as f:
+        yaml.safe_dump(config, f, default_flow_style=False)
+
+    return {"success": True, "message": "Onboarding complete"}
+
+
+@router.get("/bible")
+async def get_bible() -> dict:
+    """Get current AGENT_BIBLE.md content."""
+    from pathlib import Path
+
+    bible_path = Path.cwd() / "AGENT_BIBLE.md"
+    if not bible_path.exists():
+        return {"exists": False, "content": ""}
+
+    content = bible_path.read_text()
+    return {"exists": True, "content": content}
+
+
+@router.put("/bible")
+async def update_bible(content: str = "") -> dict:
+    """Update AGENT_BIBLE.md content."""
+    from pathlib import Path
+
+    bible_path = Path.cwd() / "AGENT_BIBLE.md"
+    bible_path.write_text(content)
+
+    return {"success": True, "message": "Bible updated"}
+
+
+class BibleRuleRequest(BaseModel):
+    """Structured rule for Agent Bible."""
+
+    category: str = "custom"
+    severity: str = "SHOULD"
+    description: str
+
+
+@router.post("/bible/rules")
+async def add_bible_rule(rule: BibleRuleRequest) -> dict:
+    """Add structured rule to Bible."""
+    from pathlib import Path
+    import re
+
+    bible_path = Path.cwd() / "AGENT_BIBLE.md"
+
+    # Read existing content
+    content = ""
+    if bible_path.exists():
+        content = bible_path.read_text()
+
+    # Check if structured rules section exists
+    rules_start = "<!-- BEGIN_STRUCTURED_RULES -->"
+    rules_end = "<!-- END_STRUCTURED_RULES -->"
+
+    if rules_start not in content:
+        # Add structured rules section
+        rules_section = f"""
+## Agent Laws
+
+{rules_start}
+| Severity | Category | Rule |
+|----------|----------|------|
+| {rule.severity} | {rule.category} | {rule.description} |
+{rules_end}
+"""
+        content = content + "\n" + rules_section
+    else:
+        # Insert new rule into existing table
+        new_row = f"| {rule.severity} | {rule.category} | {rule.description} |"
+        content = content.replace(
+            rules_end,
+            f"{new_row}\n{rules_end}"
+        )
+
+    bible_path.write_text(content)
+    return {"success": True, "message": "Rule added"}
+
+
+@router.post("/analyze/generate-bible")
+async def generate_bible(
+    projectPath: str = "",
+    operationMode: str = "manual",
+    techStack: list[str] = [],
+    regenerate: bool = False,
+) -> dict:
+    """Generate AGENT_BIBLE.md using AI."""
+    from pathlib import Path
+
+    # Default Bible content if AI generation fails
+    mode_rules = (
+        "## Automation Level: YOLO\nAgents have full autonomy within these guardrails."
+        if operationMode == "yolo"
+        else "## Automation Level: Manual\nAgents must confirm all actions before execution."
+    )
+
+    tech_list = "\n".join([f"- {t}" for t in techStack]) if techStack else "- Auto-detected"
+
+    content = f"""# Agent Bible
+
+{mode_rules}
+
+## Core Laws
+
+<!-- BEGIN_STRUCTURED_RULES -->
+| Severity | Category | Rule |
+|----------|----------|------|
+| MUST | security | Never commit secrets or API keys |
+| MUST | workflow | Always create feature branches for changes |
+| SHOULD | testing | Write tests for new features |
+| SHOULD | code_style | Follow existing code conventions |
+| MUST_NOT | workflow | Never force push to main branch |
+| MUST_NOT | security | Never disable security features |
+<!-- END_STRUCTURED_RULES -->
+
+## Tech Stack
+{tech_list}
+
+## Guidelines
+- Keep changes focused and atomic
+- Write clear commit messages
+- Document significant changes
+- Respect existing architecture patterns
+- Ask for clarification when requirements are unclear
+"""
+
+    # Try to use AI to generate a better Bible (if available)
+    try:
+        # Check if we have Anthropic key
+        import os
+        if os.environ.get("ANTHROPIC_API_KEY") and not DEV_MODE:
+            from anthropic import Anthropic
+
+            client = Anthropic()
+
+            prompt = f"""Generate an AGENT_BIBLE.md file for a software project with:
+- Tech stack: {', '.join(techStack) if techStack else 'unknown'}
+- Operation mode: {operationMode}
+
+The bible should include:
+1. Automation level header based on mode
+2. Core laws table with MUST/SHOULD/MUST_NOT rules
+3. Guidelines specific to the tech stack
+
+Keep it concise but comprehensive. Use markdown format."""
+
+            response = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=2000,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            content = response.content[0].text
+    except Exception as e:
+        logger.warning(f"AI Bible generation failed, using default: {e}")
+
+    # Save if regenerating or if file doesn't exist
+    project_path = Path(projectPath) if projectPath else Path.cwd()
+    bible_path = project_path / "AGENT_BIBLE.md"
+
+    if regenerate or not bible_path.exists():
+        bible_path.write_text(content)
+
+    return {"success": True, "content": content}
+
+
+@router.post("/analyze/tech-stack")
+async def detect_tech_stack(projectPath: str = "") -> dict:
+    """Detect tech stack from project files."""
+    from pathlib import Path
+
+    project = Path(projectPath) if projectPath else Path.cwd()
+    stack = []
+
+    # Check for common tech markers
+    markers = {
+        "package.json": ["Node.js", "JavaScript"],
+        "tsconfig.json": ["TypeScript"],
+        "pyproject.toml": ["Python"],
+        "requirements.txt": ["Python"],
+        "Cargo.toml": ["Rust"],
+        "go.mod": ["Go"],
+        "pom.xml": ["Java", "Maven"],
+        "build.gradle": ["Java", "Gradle"],
+        "Gemfile": ["Ruby"],
+        "composer.json": ["PHP"],
+        ".next": ["Next.js"],
+        "vite.config.ts": ["Vite"],
+        "tailwind.config.js": ["Tailwind CSS"],
+        "docker-compose.yml": ["Docker"],
+        "Dockerfile": ["Docker"],
+    }
+
+    for file, techs in markers.items():
+        if (project / file).exists():
+            stack.extend(techs)
+
+    # Check for framework-specific files
+    if (project / "src" / "App.tsx").exists() or (project / "src" / "App.jsx").exists():
+        stack.append("React")
+    if (project / "angular.json").exists():
+        stack.append("Angular")
+    if (project / "vue.config.js").exists():
+        stack.append("Vue.js")
+    if (project / "fastapi").exists() or any(project.glob("**/fastapi*.py")):
+        stack.append("FastAPI")
+    if (project / "flask").exists() or any(project.glob("**/flask*.py")):
+        stack.append("Flask")
+
+    # Deduplicate and return
+    stack = list(dict.fromkeys(stack))
+
+    return {"stack": stack}

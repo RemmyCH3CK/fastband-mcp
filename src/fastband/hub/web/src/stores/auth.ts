@@ -19,11 +19,32 @@ const DEV_USER: User = {
   created_at: new Date().toISOString(),
 }
 
+interface OnboardingData {
+  projectPath: string
+  githubUrl: string
+  operationMode: 'manual' | 'yolo'
+  backupEnabled: boolean
+  ticketsEnabled: boolean
+  providers: {
+    anthropic: { key: string; valid: boolean }
+    openai: { key: string; valid: boolean }
+    gemini: { key: string; valid: boolean }
+    ollama: { host: string; valid: boolean }
+  }
+  analysisComplete: boolean
+  bibleGenerated: boolean
+  techStack: string[]
+  selectedTools: string[]
+  maxRecommendedTools: number
+}
+
 interface AuthStore {
   user: User | null
   session: Session | null
   loading: boolean
   devMode: boolean
+  onboardingCompleted: boolean
+  onboardingData: OnboardingData | null
   signInWithEmail: (email: string, password: string) => Promise<void>
   signInWithGoogle: () => Promise<void>
   signInWithApple: () => Promise<void>
@@ -31,6 +52,22 @@ interface AuthStore {
   signUp: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
   initialize: () => Promise<void>
+  completeOnboarding: (data: OnboardingData) => void
+  resetOnboarding: () => void
+}
+
+// Helper to get onboarding status from localStorage
+const getStoredOnboardingStatus = (): { completed: boolean; data: OnboardingData | null } => {
+  try {
+    const stored = localStorage.getItem('fastband_onboarding')
+    if (stored) {
+      const parsed = JSON.parse(stored)
+      return { completed: true, data: parsed }
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return { completed: false, data: null }
 }
 
 export const useAuthStore = create<AuthStore>((set) => ({
@@ -38,6 +75,8 @@ export const useAuthStore = create<AuthStore>((set) => ({
   session: null,
   loading: true,
   devMode: DEV_MODE,
+  onboardingCompleted: getStoredOnboardingStatus().completed,
+  onboardingData: getStoredOnboardingStatus().data,
 
   signInWithEmail: async (email, password) => {
     if (DEV_MODE) {
@@ -151,6 +190,27 @@ export const useAuthStore = create<AuthStore>((set) => ({
       console.error('Auth init error:', error)
       set({ loading: false })
     }
+  },
+
+  completeOnboarding: (data: OnboardingData) => {
+    // Store in localStorage
+    localStorage.setItem('fastband_onboarding', JSON.stringify(data))
+
+    // Also send to backend to save configuration
+    fetch('/api/onboarding/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).catch(err => {
+      console.warn('Failed to save onboarding to backend:', err)
+    })
+
+    set({ onboardingCompleted: true, onboardingData: data })
+  },
+
+  resetOnboarding: () => {
+    localStorage.removeItem('fastband_onboarding')
+    set({ onboardingCompleted: false, onboardingData: null })
   },
 }))
 
