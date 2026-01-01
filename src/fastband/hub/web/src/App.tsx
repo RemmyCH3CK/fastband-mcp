@@ -10,6 +10,7 @@ import { Settings } from './pages/Settings'
 import { Analyze } from './pages/Analyze'
 import { Tickets } from './pages/Tickets'
 import { Usage } from './pages/Usage'
+import { BibleEditor } from './pages/BibleEditor'
 import { Layout } from './components/Layout'
 import { ToastContainer } from './components/Toast'
 import { OnboardingModal } from './components/onboarding/OnboardingModal'
@@ -132,6 +133,14 @@ export default function App() {
               <Layout>
                 <Chat />
               </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/bible"
+          element={
+            <ProtectedRoute>
+              <BibleEditor />
             </ProtectedRoute>
           }
         />

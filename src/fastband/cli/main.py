@@ -15,6 +15,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from fastband import __version__
+from fastband.cli.auth import auth_app
 from fastband.cli.backup import backup_app
 from fastband.cli.plugins import plugins_app
 from fastband.cli.tickets import tickets_app
@@ -49,6 +50,9 @@ app.add_typer(backup_app, name="backup")
 
 # Plugins subcommand group
 app.add_typer(plugins_app, name="plugins")
+
+# Auth subcommand group
+app.add_typer(auth_app, name="auth")
 
 # Rich console for output
 console = Console()
