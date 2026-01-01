@@ -220,60 +220,62 @@ export function ApiKeysStep({ data, updateData, setStepValid }: StepProps) {
                   </div>
 
                   {/* Input */}
-                  <div className="relative">
-                    <input
-                      type={isShown || provider.isHost ? 'text' : 'password'}
-                      value={value}
-                      onChange={(e) => updateProvider(provider.id, e.target.value)}
-                      placeholder={provider.placeholder}
-                      aria-label={`${provider.name} ${provider.isHost ? 'host URL' : 'API key'}`}
-                      aria-describedby={`${provider.id}-status`}
-                      className="input-field font-mono text-sm pr-24"
-                    />
+                  <form onSubmit={(e) => { e.preventDefault(); validateProvider(provider.id); }}>
+                    <div className="relative">
+                      <input
+                        type={isShown || provider.isHost ? 'text' : 'password'}
+                        value={value}
+                        onChange={(e) => updateProvider(provider.id, e.target.value)}
+                        placeholder={provider.placeholder}
+                        aria-label={`${provider.name} ${provider.isHost ? 'host URL' : 'API key'}`}
+                        aria-describedby={`${provider.id}-status`}
+                        autoComplete={provider.isHost ? 'url' : 'off'}
+                        className="input-field font-mono text-sm pr-24"
+                      />
 
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                      {!provider.isHost && (
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                        {!provider.isHost && (
+                          <button
+                            type="button"
+                            onClick={() => toggleShowKey(provider.id)}
+                            aria-label={isShown ? `Hide ${provider.name} API key` : `Show ${provider.name} API key`}
+                            aria-pressed={isShown}
+                            className="p-1.5 rounded hover:bg-void-600 text-slate-400 hover:text-slate-200 transition-colors"
+                          >
+                            {isShown ? (
+                              <EyeOff className="w-4 h-4" aria-hidden="true" />
+                            ) : (
+                              <Eye className="w-4 h-4" aria-hidden="true" />
+                            )}
+                          </button>
+                        )}
+
                         <button
-                          type="button"
-                          onClick={() => toggleShowKey(provider.id)}
-                          aria-label={isShown ? `Hide ${provider.name} API key` : `Show ${provider.name} API key`}
-                          aria-pressed={isShown}
-                          className="p-1.5 rounded hover:bg-void-600 text-slate-400 hover:text-slate-200 transition-colors"
+                          type="submit"
+                          disabled={!value || isValidating}
+                          aria-label={isValidating ? `Validating ${provider.name}` : `Test ${provider.name} connection`}
+                          className={clsx(
+                            'px-2 py-1 rounded text-xs font-medium transition-all',
+                            value && !isValidating
+                              ? 'bg-cyan/20 text-cyan hover:bg-cyan/30'
+                              : 'bg-void-700 text-slate-500 cursor-not-allowed',
+                          )}
                         >
-                          {isShown ? (
-                            <EyeOff className="w-4 h-4" aria-hidden="true" />
+                          {isValidating ? (
+                            <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
+                          ) : isValid ? (
+                            <Check className="w-3 h-3" aria-hidden="true" />
                           ) : (
-                            <Eye className="w-4 h-4" aria-hidden="true" />
+                            'Test'
                           )}
                         </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => validateProvider(provider.id)}
-                        disabled={!value || isValidating}
-                        aria-label={isValidating ? `Validating ${provider.name}` : `Test ${provider.name} connection`}
-                        className={clsx(
-                          'px-2 py-1 rounded text-xs font-medium transition-all',
-                          value && !isValidating
-                            ? 'bg-cyan/20 text-cyan hover:bg-cyan/30'
-                            : 'bg-void-700 text-slate-500 cursor-not-allowed',
-                        )}
-                      >
-                        {isValidating ? (
-                          <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
-                        ) : isValid ? (
-                          <Check className="w-3 h-3" aria-hidden="true" />
-                        ) : (
-                          'Test'
-                        )}
-                      </button>
+                      </div>
+                      {/* Hidden status for screen readers */}
+                      <span id={`${provider.id}-status`} className="sr-only">
+                        {isValid ? `${provider.name} connected` : isValidating ? `Validating ${provider.name}` : `${provider.name} not configured`}
+                      </span>
                     </div>
-                    {/* Hidden status for screen readers */}
-                    <span id={`${provider.id}-status`} className="sr-only">
-                      {isValid ? `${provider.name} connected` : isValidating ? `Validating ${provider.name}` : `${provider.name} not configured`}
-                    </span>
-                  </div>
+                  </form>
 
                   {/* Help link */}
                   <a

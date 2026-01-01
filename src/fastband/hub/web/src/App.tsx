@@ -121,9 +121,7 @@ export default function App() {
           path="/backups"
           element={
             <ProtectedRoute>
-              <Layout showConversationSidebar={false}>
-                <Backups />
-              </Layout>
+              <Backups />
             </ProtectedRoute>
           }
         />
@@ -131,9 +129,7 @@ export default function App() {
           path="/tickets"
           element={
             <ProtectedRoute>
-              <Layout showConversationSidebar={false}>
-                <Tickets />
-              </Layout>
+              <Tickets />
             </ProtectedRoute>
           }
         />

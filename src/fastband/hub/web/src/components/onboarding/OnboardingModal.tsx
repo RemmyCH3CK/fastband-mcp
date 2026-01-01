@@ -234,7 +234,7 @@ export function OnboardingModal({
       {/* Modal Container */}
       <div
         className={clsx(
-          'relative w-full max-w-3xl mx-4',
+          'relative w-full max-w-3xl mx-4 max-h-[90vh] flex flex-col',
           'bg-void-800/95 backdrop-blur-xl border border-void-600/50 rounded-2xl',
           'shadow-[0_0_100px_rgba(0,0,0,0.8),0_0_60px_rgba(0,212,255,0.08)]',
         )}
@@ -299,7 +299,7 @@ export function OnboardingModal({
         {/* Content */}
         <div
           className={clsx(
-            'px-8 py-6 min-h-[320px] transition-all duration-200',
+            'px-8 py-6 min-h-[280px] flex-1 overflow-y-auto transition-all duration-200',
             isTransitioning && direction === 'forward' && 'opacity-0 translate-x-4',
             isTransitioning && direction === 'back' && 'opacity-0 -translate-x-4',
           )}

@@ -113,7 +113,7 @@ class BackupManager:
     - Restore operations
     """
 
-    # Files/directories to always back up
+    # Files/directories to always back up (for internal/config-only backups)
     BACKUP_TARGETS = [
         ".fastband/config.yaml",
         ".fastband/tickets.json",
@@ -121,7 +121,7 @@ class BackupManager:
         ".fastband/ops_log.json",
     ]
 
-    # Directories to back up (if they exist)
+    # Directories to back up (if they exist) for internal backups
     BACKUP_DIRS = [
         ".fastband/memory",
         ".fastband/cache",
@@ -137,6 +137,15 @@ class BackupManager:
         "venv",
         "*.log",
         ".DS_Store",
+        ".fastband/backups",  # Don't backup backups
+        "*.egg-info",
+        "dist",
+        "build",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".ruff_cache",
+        "*.sqlite3",
+        "*.db",
     ]
 
     def __init__(
@@ -279,26 +288,56 @@ class BackupManager:
             # Create temp directory for staging
             temp_dir.mkdir(parents=True, exist_ok=True)
 
-            # Copy files to temp directory
-            for target in self.BACKUP_TARGETS:
-                source = self.project_path / target
-                if source.exists():
-                    dest = temp_dir / target
-                    dest.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(source, dest)
-                    files_count += 1
+            # Full project backup - copy entire project with exclusions
+            def should_exclude(path: Path, names: list[str]) -> set[str]:
+                """Return set of names to exclude."""
+                excluded = set()
+                for name in names:
+                    full_path = path / name
+                    rel_path = full_path.relative_to(self.project_path)
+                    # Check if matches any exclude pattern
+                    for pattern in self.EXCLUDE_PATTERNS:
+                        if pattern.startswith("*"):
+                            if name.endswith(pattern[1:]):
+                                excluded.add(name)
+                                break
+                        elif pattern.startswith("."):
+                            # Match path components
+                            if name == pattern or str(rel_path).startswith(pattern):
+                                excluded.add(name)
+                                break
+                        elif name == pattern:
+                            excluded.add(name)
+                            break
+                return excluded
 
-            # Copy directories
-            for dir_name in self.BACKUP_DIRS:
-                source_dir = self.project_path / dir_name
-                if source_dir.exists() and source_dir.is_dir():
-                    dest_dir = temp_dir / dir_name
+            # Copy entire project directory
+            for item in self.project_path.iterdir():
+                # Skip excluded items at root level
+                if self._should_exclude(item):
+                    continue
+                # Skip backups directory
+                if item.name == ".fastband" and (item / "backups").exists():
+                    # Copy .fastband but exclude backups subdirectory
+                    dest_dir = temp_dir / item.name
                     shutil.copytree(
-                        source_dir,
+                        item,
                         dest_dir,
-                        ignore=shutil.ignore_patterns(*self.EXCLUDE_PATTERNS),
+                        ignore=lambda d, n: {"backups"} if Path(d).name == ".fastband" else should_exclude(Path(d), n),
                     )
                     files_count += sum(1 for _ in dest_dir.rglob("*") if _.is_file())
+                elif item.is_dir():
+                    dest_dir = temp_dir / item.name
+                    shutil.copytree(
+                        item,
+                        dest_dir,
+                        ignore=should_exclude,
+                    )
+                    files_count += sum(1 for _ in dest_dir.rglob("*") if _.is_file())
+                elif item.is_file():
+                    dest = temp_dir / item.name
+                    shutil.copy2(item, dest)
+                    files_count += 1
 
             # Create compressed archive
             with tarfile.open(backup_path, "w:gz") as tar:

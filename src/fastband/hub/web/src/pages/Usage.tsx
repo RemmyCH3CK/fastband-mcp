@@ -48,6 +48,9 @@ export function Usage() {
 
     if (sessionId) {
       fetchUsage()
+    } else {
+      // No session - just use mock data
+      setLoading(false)
     }
   }, [sessionId])
 

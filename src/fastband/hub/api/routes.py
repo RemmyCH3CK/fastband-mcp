@@ -874,6 +874,45 @@ async def configure_provider(request: ProviderConfigRequest):
     }
 
 
+class ProviderValidateRequest(BaseModel):
+    """Request to validate a provider API key."""
+
+    provider: str
+    key: str | None = None
+    host: str | None = None
+
+
+@router.post("/providers/validate")
+async def validate_provider(request: ProviderValidateRequest):
+    """Validate an AI provider API key without saving it.
+
+    Returns whether the key is valid.
+    """
+    provider = request.provider.lower()
+    value = request.key or request.host or ""
+
+    if not value:
+        return {"valid": False, "message": "No key or host provided"}
+
+    # For Ollama, just check if host is reachable
+    if provider == "ollama":
+        try:
+            import httpx
+
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(f"{value}/api/tags")
+                return {"valid": response.status_code == 200}
+        except Exception:
+            return {"valid": False, "message": "Could not connect to Ollama"}
+
+    # For other providers, validate the key
+    if provider in ("anthropic", "openai", "gemini"):
+        valid = await _validate_provider_key(provider, value)
+        return {"valid": valid}
+
+    return {"valid": False, "message": f"Unknown provider: {provider}"}
+
+
 async def _validate_provider_key(provider: str, api_key: str) -> bool:
     """Validate an API key by making a test request."""
     try:
@@ -1717,15 +1756,24 @@ async def add_bible_rule(rule: BibleRuleRequest) -> dict:
     return {"success": True, "message": "Rule added"}
 
 
+class GenerateBibleRequest(BaseModel):
+    """Request to generate AGENT_BIBLE.md."""
+
+    projectPath: str = ""
+    operationMode: str = "manual"
+    techStack: list[str] = Field(default_factory=list)
+    regenerate: bool = False
+
+
 @router.post("/analyze/generate-bible")
-async def generate_bible(
-    projectPath: str = "",
-    operationMode: str = "manual",
-    techStack: list[str] = [],
-    regenerate: bool = False,
-) -> dict:
+async def generate_bible(request: GenerateBibleRequest) -> dict:
     """Generate AGENT_BIBLE.md using AI."""
     from pathlib import Path
+
+    projectPath = request.projectPath
+    operationMode = request.operationMode
+    techStack = request.techStack
+    regenerate = request.regenerate
 
     # Default Bible content if AI generation fails
     mode_rules = (
