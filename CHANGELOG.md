@@ -7,6 +7,8 @@ and this project adheres to a hybrid versioning scheme: `vMAJOR.YYYY.MM.PATCH[-p
 
 ## [Unreleased]
 
+## [1.2026.01.02] - 2026-01-01
+
 ### Security
 
 #### Fixed (Critical)
