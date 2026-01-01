@@ -1,10 +1,10 @@
 # Fastband Agent Control - Handoff Document
 
-**Version:** 1.2025.12.12
-**Last Updated:** 2025-12-31 (Session 8)
+**Version:** 1.2025.12.13
+**Last Updated:** 2025-12-31 (Session 9)
 **Branch:** main
 **CI Status:** ✅ Passing
-**PyPI:** ⏳ Pending (v1.2025.12.12)
+**PyPI:** ⏳ Pending (v1.2025.12.13)
 
 ## Current State
 
@@ -37,7 +37,11 @@ pip install fastband-agent-control==1.2025.12.11
 - **Auto-Port Selection** - Hub automatically finds available port if 8080 is busy
 - **Tickets Page** - Full ticket management UI in dashboard
 - **Backups Page** - Backup management UI in dashboard
-- **One-Command Setup** - `fastband setup` auto-configures Claude Code MCP (NEW)
+- **One-Command Setup** - `fastband setup` auto-configures Claude Code MCP
+- **Admin Onboarding** - 6-step wizard for first-time Hub setup (NEW)
+- **CLI Authentication** - `fastband auth register/login/logout` with OAuth (NEW)
+- **Bible Editor** - View/edit AGENT_BIBLE.md from Hub at `/bible` (NEW)
+- **Performance Meter** - System-aware tool recommendations (NEW)
 
 ### Architecture Overview
 
@@ -62,6 +66,51 @@ src/fastband/
 ```
 
 ## Recent Session Work (2025-12-31)
+
+### Session 9 - Comprehensive Onboarding System
+
+1. **Hub Admin Onboarding Modal** (MAJOR FEATURE)
+   - 6-step wizard for first-time admin setup
+   - Terminal Noir aesthetic with cyan/magenta accents
+   - Non-dismissible modal (must complete all steps)
+   - Steps:
+     1. EnvironmentStep - Project path + GitHub URL
+     2. OperationModeStep - Manual vs YOLO mode
+     3. FeaturesStep - Backup/Tickets toggles
+     4. ApiKeysStep - AI provider key validation
+     5. AnalyzeStep - Codebase analysis + Bible generation
+     6. ToolsStep - MCP tool selection with performance meter
+
+2. **System Capabilities Module**
+   - `core/system_capabilities.py` - RAM/CPU/disk detection
+   - AI provider context limits for tool recommendations
+   - Hybrid calculation: system resources + AI provider limits
+   - API endpoint: `/api/system/capabilities`
+
+3. **CLI Authentication Commands**
+   - `fastband auth register` - Browser-based OAuth with Google
+   - `fastband auth login` - Login existing accounts
+   - `fastband auth logout` - Clear credentials
+   - `fastband auth whoami` - Show current user
+   - `fastband auth status` - Check connectivity
+   - Secure storage via system keyring (macOS Keychain)
+   - Fallback to `~/.fastband/credentials.json`
+
+4. **Bible Editor Page** (`/bible`)
+   - View and edit AGENT_BIBLE.md from Hub UI
+   - Structured rules editor with severity levels
+   - Categories: security, code_style, testing, workflow, architecture
+   - Add/delete rules with instant feedback
+   - Regenerate Bible with AI button
+   - Raw markdown editor toggle
+
+5. **New API Endpoints**
+   - `/api/onboarding/status` - Check onboarding completion
+   - `/api/onboarding/complete` - Save onboarding config
+   - `/api/bible` - GET/PUT Bible content
+   - `/api/bible/rules` - Add structured rules
+   - `/api/analyze/generate-bible` - AI Bible generation
+   - `/api/analyze/tech-stack` - Detect project tech stack
 
 ### Session 8 - One-Command Setup + WebSocket Fix
 
