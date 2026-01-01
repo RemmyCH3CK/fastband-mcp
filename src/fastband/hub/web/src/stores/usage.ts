@@ -93,7 +93,7 @@ export const useUsageStore = create<UsageStore>((set, get) => ({
 
       set({ usage: data, loading: false })
     } catch (err) {
-      console.error('Failed to fetch usage:', err)
+      if (import.meta.env.DEV) console.error('Failed to fetch usage:', err)
       set({
         error: err instanceof Error ? err.message : 'Failed to fetch usage',
         loading: false
@@ -128,7 +128,7 @@ export const useUsageStore = create<UsageStore>((set, get) => ({
 
       set({ usage: { ...usage, tokens_used: usage.tokens_used + count } })
     } catch (err) {
-      console.error('Failed to increment tokens:', err)
+      if (import.meta.env.DEV) console.error('Failed to increment tokens:', err)
     }
   },
 
@@ -169,7 +169,7 @@ export const useUsageStore = create<UsageStore>((set, get) => ({
         }
       })
     } catch (err) {
-      console.error('Failed to increment messages:', err)
+      if (import.meta.env.DEV) console.error('Failed to increment messages:', err)
     }
   },
 }))

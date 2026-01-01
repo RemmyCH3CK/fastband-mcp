@@ -214,7 +214,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         })
       })
     } catch (error) {
-      console.error('Auth init error:', error)
+      if (import.meta.env.DEV) console.error('Auth init error:', error)
       set({ loading: false })
     }
   },
@@ -232,7 +232,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     }).catch(err => {
-      console.warn('Failed to save onboarding to backend:', err)
+      if (import.meta.env.DEV) console.warn('Failed to save onboarding to backend:', err)
     })
 
     set({ onboardingCompleted: true, onboardingData: data })

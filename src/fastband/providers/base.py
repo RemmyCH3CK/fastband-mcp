@@ -49,6 +49,13 @@ class CompletionResponse:
     finish_reason: str
     raw_response: dict | None = None
 
+    @property
+    def tool_calls(self) -> list:
+        """Extract tool calls from raw response."""
+        if self.raw_response and "tool_calls" in self.raw_response:
+            return self.raw_response["tool_calls"]
+        return []
+
 
 class AIProvider(ABC):
     """

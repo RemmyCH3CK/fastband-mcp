@@ -107,7 +107,8 @@ class ToolExecutor:
 
         try:
             registry = self._get_registry()
-            tool = registry.get(tool_name)
+            # Use get_available instead of get - tools may be registered but not active
+            tool = registry.get_available(tool_name)
 
             if not tool:
                 return {
@@ -596,9 +597,8 @@ class ChatManager:
         else:
             conversation = self._session_manager.create_conversation(session_id)
 
-        # Create user message
+        # Create user message (don't add to conversation yet - _build_messages will include it)
         user_message = ChatMessage.user(content)
-        conversation.add_message(user_message)
 
         # Create pipeline context
         context = PipelineContext(
@@ -613,6 +613,8 @@ class ChatManager:
         else:
             async for response in self._pipeline.process(context, stream=False):
                 if isinstance(response, ChatMessage):
+                    # Add both user message and response to conversation for history
+                    conversation.add_message(user_message)
                     conversation.add_message(response)
                     self._session_manager.record_message(
                         session.config.user_id,
@@ -626,13 +628,17 @@ class ChatManager:
     ) -> AsyncGenerator[str, None]:
         """Stream response chunks."""
         content_parts = []
+        user_message_added = False
 
         async for chunk in self._pipeline.process(context, stream=True):
             if isinstance(chunk, str):
                 content_parts.append(chunk)
                 yield chunk
             elif isinstance(chunk, ChatMessage):
-                # Final message
+                # Add user message first, then response
+                if not user_message_added:
+                    context.conversation.add_message(context.user_message)
+                    user_message_added = True
                 context.conversation.add_message(chunk)
 
         # Record usage after streaming completes

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { clsx } from 'clsx'
 import {
   Ticket,
@@ -73,7 +73,7 @@ export function Tickets() {
   const [editingTicket, setEditingTicket] = useState<TicketData | null>(null)
   const [saving, setSaving] = useState(false)
 
-  const fetchTickets = async () => {
+  const fetchTickets = useCallback(async () => {
     try {
       const params = new URLSearchParams()
       if (statusFilter) params.set('status', statusFilter)
@@ -85,32 +85,32 @@ export function Tickets() {
         const data = await response.json()
         setTickets(data)
       }
-    } catch (err) {
-      console.error('Failed to fetch tickets:', err)
+    } catch {
+      // Silently handle fetch errors - user sees loading state
     }
-  }
+  }, [statusFilter, priorityFilter, typeFilter])
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       const response = await fetch('/api/tickets/stats/summary')
       if (response.ok) {
         const data = await response.json()
         setStats(data)
       }
-    } catch (err) {
-      console.error('Failed to fetch stats:', err)
+    } catch {
+      // Silently handle fetch errors
     }
-  }
+  }, [])
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     setLoading(true)
     await Promise.all([fetchTickets(), fetchStats()])
     setLoading(false)
-  }
+  }, [fetchTickets, fetchStats])
 
   useEffect(() => {
     refresh()
-  }, [statusFilter, priorityFilter, typeFilter])
+  }, [refresh])
 
   const createTicket = async () => {
     if (!newTicket.title.trim()) {
@@ -483,7 +483,7 @@ export function Tickets() {
           <div className="bg-void-800 rounded-xl border border-void-600/50 w-full max-w-lg">
             <div className="flex items-center justify-between p-4 border-b border-void-600/50">
               <h2 className="text-lg font-semibold text-white">Create New Ticket</h2>
-              <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-white">
+              <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-white" aria-label="Close modal">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -569,7 +569,7 @@ export function Tickets() {
           <div className="bg-void-800 rounded-xl border border-void-600/50 w-full max-w-lg">
             <div className="flex items-center justify-between p-4 border-b border-void-600/50">
               <h2 className="text-lg font-semibold text-white">Edit Ticket</h2>
-              <button onClick={() => setEditingTicket(null)} className="text-slate-400 hover:text-white">
+              <button onClick={() => setEditingTicket(null)} className="text-slate-400 hover:text-white" aria-label="Close modal">
                 <X className="w-5 h-5" />
               </button>
             </div>

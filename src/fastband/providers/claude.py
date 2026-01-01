@@ -138,31 +138,106 @@ class ClaudeProvider(AIProvider):
         )
 
     async def complete_with_tools(
-        self, prompt: str, tools: list[dict[str, Any]], system_prompt: str | None = None, **kwargs
+        self,
+        prompt: str | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        system_prompt: str | None = None,
+        messages: list[dict[str, Any]] | None = None,
+        **kwargs,
     ) -> CompletionResponse:
         """
         Complete with tool/function calling support.
 
         Args:
-            prompt: The user prompt
+            prompt: The user prompt (used if messages not provided)
             tools: List of tool definitions (OpenAI format, will be converted)
             system_prompt: Optional system prompt
+            messages: Full message history (overrides prompt if provided)
 
         Returns:
             Response with potential tool calls
         """
         # Convert OpenAI tool format to Claude format
-        claude_tools = self._convert_tools(tools)
+        claude_tools = self._convert_tools(tools or [])
 
-        messages = [{"role": "user", "content": prompt}]
+        # Use provided messages or create from prompt
+        if messages is not None:
+            api_messages = messages
+        elif prompt is not None:
+            api_messages = [{"role": "user", "content": prompt}]
+        else:
+            api_messages = [{"role": "user", "content": "Hello"}]
+
+        # Convert messages from OpenAI format to Claude format
+        system_parts = []
+        claude_messages = []
+        pending_tool_results = []
+
+        for msg in api_messages:
+            role = msg.get("role")
+
+            if role == "system":
+                # Extract system messages
+                system_parts.append(msg.get("content", ""))
+
+            elif role == "assistant":
+                # Flush pending tool results BEFORE adding assistant message
+                if pending_tool_results:
+                    claude_messages.append({"role": "user", "content": pending_tool_results})
+                    pending_tool_results = []
+
+                # Check if this has tool_calls (OpenAI format)
+                if msg.get("tool_calls"):
+                    # Convert to Claude tool_use content blocks
+                    content_blocks = []
+                    if msg.get("content"):
+                        content_blocks.append({"type": "text", "text": msg["content"]})
+                    for tc in msg["tool_calls"]:
+                        import json as json_mod
+                        content_blocks.append({
+                            "type": "tool_use",
+                            "id": tc["id"],
+                            "name": tc["function"]["name"],
+                            "input": json_mod.loads(tc["function"]["arguments"]) if isinstance(tc["function"]["arguments"], str) else tc["function"]["arguments"],
+                        })
+                    claude_messages.append({"role": "assistant", "content": content_blocks})
+                else:
+                    claude_messages.append(msg)
+
+            elif role == "tool":
+                # Collect tool results to send as user message with tool_result blocks
+                pending_tool_results.append({
+                    "type": "tool_result",
+                    "tool_use_id": msg.get("tool_call_id"),
+                    "content": msg.get("content", ""),
+                })
+
+            elif role == "user":
+                # Flush any pending tool results before user message
+                if pending_tool_results:
+                    claude_messages.append({"role": "user", "content": pending_tool_results})
+                    pending_tool_results = []
+                claude_messages.append(msg)
+
+            else:
+                claude_messages.append(msg)
+
+        # Flush remaining tool results
+        if pending_tool_results:
+            claude_messages.append({"role": "user", "content": pending_tool_results})
+
+        # Combine system prompts
+        combined_system = system_prompt or ""
+        if system_parts:
+            combined_system = "\n\n".join(filter(None, [combined_system] + system_parts))
 
         response = await self.client.messages.create(
             model=kwargs.get("model", self.config.model),
             max_tokens=kwargs.get("max_tokens", self.config.max_tokens),
             temperature=kwargs.get("temperature", self.config.temperature),
-            system=system_prompt or "",
-            messages=messages,
-            tools=claude_tools,
+            system=combined_system,
+            messages=claude_messages,
+            tools=claude_tools if claude_tools else None,
         )
 
         # Extract content (may include tool_use blocks)
@@ -173,11 +248,15 @@ class ClaudeProvider(AIProvider):
             if block.type == "text":
                 content_parts.append(block.text)
             elif block.type == "tool_use":
+                # Use OpenAI-compatible format for tool calls
+                import json as json_module
                 tool_calls.append(
                     {
                         "id": block.id,
-                        "name": block.name,
-                        "arguments": block.input,
+                        "function": {
+                            "name": block.name,
+                            "arguments": json_module.dumps(block.input),
+                        },
                     }
                 )
 

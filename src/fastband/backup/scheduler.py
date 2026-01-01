@@ -570,3 +570,37 @@ def trigger_backup_hook(
     else:
         scheduler._safe_log("warning", f"Unknown hook type: {hook_type}")
         return None
+
+
+# CLI entry point for running scheduler as subprocess
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Fastband Backup Scheduler")
+    parser.add_argument("--start", action="store_true", help="Start the scheduler daemon")
+    parser.add_argument("--stop", action="store_true", help="Stop the scheduler daemon")
+    parser.add_argument("--status", action="store_true", help="Check scheduler status")
+    parser.add_argument("--foreground", action="store_true", help="Run in foreground (don't daemonize)")
+    args = parser.parse_args()
+
+    scheduler = get_scheduler()
+
+    if args.start:
+        if args.foreground:
+            success = scheduler.start_daemon(foreground=True)
+        else:
+            success = scheduler.start_daemon(foreground=False)
+        exit(0 if success else 1)
+    elif args.stop:
+        success = scheduler.stop_daemon()
+        exit(0 if success else 1)
+    elif args.status:
+        if scheduler.is_running():
+            print(f"Scheduler is running (PID: {scheduler._read_pid()})")
+            exit(0)
+        else:
+            print("Scheduler is not running")
+            exit(1)
+    else:
+        parser.print_help()
+        exit(1)

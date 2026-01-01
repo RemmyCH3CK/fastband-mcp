@@ -162,16 +162,31 @@ class BackupManager:
         """
         self.project_path = Path(project_path or Path.cwd()).resolve()
         self.fastband_dir = self.project_path / ".fastband"
-        self.backup_dir = self.fastband_dir / "backups"
-        self.manifest_path = self.backup_dir / "manifest.json"
-        self.checksum_cache_path = self.backup_dir / ".checksums"
 
-        # Load config
+        # Load config first so we can use backup_path
         if config:
             self.config = config
         else:
             full_config = get_config(self.project_path)
             self.config = full_config.backup
+
+        # Determine backup directory from config
+        # If backup_path is set and not the default, use it
+        configured_path = self.config.backup_path
+        if configured_path and configured_path != ".fastband/backups":
+            # Check if it's an absolute path
+            backup_path = Path(configured_path)
+            if backup_path.is_absolute():
+                self.backup_dir = backup_path
+            else:
+                # Relative path - resolve from project root
+                self.backup_dir = (self.project_path / configured_path).resolve()
+        else:
+            # Default to .fastband/backups
+            self.backup_dir = self.fastband_dir / "backups"
+
+        self.manifest_path = self.backup_dir / "manifest.json"
+        self.checksum_cache_path = self.backup_dir / ".checksums"
 
         # Ensure backup directory exists
         self.backup_dir.mkdir(parents=True, exist_ok=True)
@@ -331,7 +346,8 @@ class BackupManager:
                     shutil.copytree(
                         item,
                         dest_dir,
-                        ignore=should_exclude,
+                        # shutil passes string dir path, convert to Path for should_exclude
+                        ignore=lambda d, n: should_exclude(Path(d), n),
                     )
                     files_count += sum(1 for _ in dest_dir.rglob("*") if _.is_file())
                 elif item.is_file():

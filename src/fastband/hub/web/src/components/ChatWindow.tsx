@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { Send, Bot, User, Wrench, Sparkles, Zap, Copy, Check } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
@@ -27,7 +27,19 @@ export function ChatWindow() {
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
   const { messages, addMessage } = useChatStore()
-  const { sessionId, conversationId } = useSessionStore()
+  const { sessionId: storeSessionId, conversationId } = useSessionStore()
+
+  // Ensure we always have a session ID - generate one if store doesn't have one
+  const sessionId = useMemo(() => {
+    if (storeSessionId) return storeSessionId
+    // Check sessionStorage for a persisted session
+    const storedSession = sessionStorage.getItem('fastband_chat_session_id')
+    if (storedSession) return storedSession
+    // Generate a new session ID
+    const newSessionId = `chat-${crypto.randomUUID()}`
+    sessionStorage.setItem('fastband_chat_session_id', newSessionId)
+    return newSessionId
+  }, [storeSessionId])
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })

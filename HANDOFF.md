@@ -1,7 +1,7 @@
 # Fastband Agent Control - Handoff Document
 
 **Version:** 1.2025.12.28
-**Last Updated:** 2025-12-31 (Session 12)
+**Last Updated:** 2026-01-01 (Session 13)
 **Branch:** main
 **CI Status:** ✅ Passing
 **PyPI:** ⏳ Pending (v1.2025.12.28)
@@ -42,9 +42,12 @@ pip install fastband-agent-control==1.2025.12.11
 - **CLI Authentication** - `fastband auth register/login/logout` with OAuth
 - **Bible Editor** - View/edit AGENT_BIBLE.md from Hub at `/bible`
 - **Performance Meter** - System-aware tool recommendations
-- **CLI Wizard Auth** - Browser OAuth integration in setup wizard (NEW)
-- **Operation Mode** - Manual vs YOLO agent automation levels (NEW)
-- **Supabase Sync** - Cloud profile sync for onboarding data (NEW)
+- **CLI Wizard Auth** - Browser OAuth integration in setup wizard
+- **Operation Mode** - Manual vs YOLO agent automation levels
+- **Supabase Sync** - Cloud profile sync for onboarding data
+- **CLI Chat** - Fully working natural language chat with tool execution (NEW)
+- **Backup Settings** - Configurable backup path with native folder picker (NEW)
+- **Chat Persistence** - CLI chat persists across page navigation (NEW)
 
 ### Architecture Overview
 
@@ -68,9 +71,54 @@ src/fastband/
 └── wizard/          # Setup wizard system
 ```
 
-## Recent Session Work (2025-12-31)
+## Recent Session Work
 
-### Session 12 - Hub Bug Fixes (Post User Testing)
+### Session 13 - CLI Chat Complete Overhaul (2026-01-01)
+
+Major fixes to make the Hub CLI Chat fully functional with Claude API:
+
+1. **Backup Settings Tab** (NEW FEATURE)
+   - Added Backup tab to Settings page with path configuration
+   - Native macOS Finder folder picker via osascript
+   - Backup path, retention days, interval, max count settings
+   - BackupManager now uses configured path instead of hardcoded `.fastband/backups`
+
+2. **API Key Persistence** (CRITICAL FIX)
+   - `/providers/configure` now saves keys to `.fastband/.env`
+   - Multi-location .env search (cwd, project root, home directory)
+   - Keys persist across server restarts
+
+3. **Claude API Message Format** (CRITICAL FIX)
+   - System role extracted and passed via `system` parameter (Claude doesn't accept role="system")
+   - Tool results flushed BEFORE next assistant message (Claude requires tool_use → tool_result pairing)
+   - OpenAI format `{function: {name, arguments}}` converted to Claude format
+   - Added `tool_calls` property to `CompletionResponse`
+
+4. **Tool Execution Fix** (CRITICAL FIX)
+   - Changed `registry.get()` to `registry.get_available()` in ToolExecutor
+   - Tools were registered but not "active" - get_available() finds all registered tools
+   - All 20 tools now execute correctly (git, onboarding, tickets, codebase, etc.)
+
+5. **Duplicate User Message** (BUG FIX)
+   - User message was added to conversation twice (before and during _build_messages)
+   - Fixed: Now only added after processing completes
+
+6. **Chat Persistence** (NEW FEATURE)
+   - CLI chat messages persist to localStorage
+   - Session ID persists across page navigation
+   - Conversation survives page refresh and navigation
+   - Clear button properly resets localStorage
+
+**Files Modified:**
+- `src/fastband/hub/api/routes.py` - .env persistence, multi-path search, backup config endpoints
+- `src/fastband/hub/chat.py` - get_available() fix, message deduplication
+- `src/fastband/providers/claude.py` - Full OpenAI→Claude message format conversion
+- `src/fastband/providers/base.py` - tool_calls property on CompletionResponse
+- `src/fastband/backup/manager.py` - Use configured backup path
+- `src/fastband/hub/web/src/pages/Settings.tsx` - Backup tab with folder browser
+- `src/fastband/hub/web/src/components/control-plane/CLIChatPanel.tsx` - localStorage persistence
+
+### Session 12 - Hub Bug Fixes (Post User Testing) (2025-12-31)
 
 Based on user testing feedback, fixed multiple issues:
 
@@ -346,14 +394,16 @@ a85a22a fix(hub): Fix TypeScript strict mode errors in dashboard
 
 1. **Consider `fastband doctor` CLI command** for self-diagnosis
 
-2. **Chat Feature**
-   - Chat requires AI API keys to function
-   - Settings > AI Providers UI for configuration
-   - Keys only persist for session (env vars for permanent)
+2. ~~**Chat Feature**~~ ✅ COMPLETED (Session 13)
+   - CLI Chat fully functional with Claude API
+   - API keys persist to `.fastband/.env`
+   - All 20 tools execute correctly
+   - Chat persists across navigation
 
 3. **Test Coverage**
    - Currently at ~64%, target 80%+
    - Hub components need more integration tests
+   - Add tests for claude.py message format conversion
 
 ### Open Issues
 

@@ -78,20 +78,20 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
     }
 
     const url = getWebSocketUrl()
-    console.log('[WebSocket] Connecting to:', url)
+    if (import.meta.env.DEV) console.log('[WebSocket] Connecting to:', url)
 
     const ws = new WebSocket(url)
     wsRef.current = ws
 
     ws.onopen = () => {
-      console.log('[WebSocket] Connected')
+      if (import.meta.env.DEV) console.log('[WebSocket] Connected')
       setIsConnected(true)
       reconnectAttempts.current = 0
       onConnectRef.current?.()
     }
 
     ws.onclose = (event) => {
-      console.log('[WebSocket] Disconnected:', event.code, event.reason)
+      if (import.meta.env.DEV) console.log('[WebSocket] Disconnected:', event.code, event.reason)
       setIsConnected(false)
       setConnectionId(null)
       onDisconnectRef.current?.()
@@ -102,7 +102,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
           reconnectInterval * Math.pow(2, reconnectAttempts.current),
           30000 // Max 30 seconds
         )
-        console.log(`[WebSocket] Reconnecting in ${delay}ms...`)
+        if (import.meta.env.DEV) console.log(`[WebSocket] Reconnecting in ${delay}ms...`)
         reconnectTimeout.current = setTimeout(() => {
           reconnectAttempts.current++
           connect()
@@ -111,13 +111,13 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
     }
 
     ws.onerror = (error) => {
-      console.error('[WebSocket] Error:', error)
+      if (import.meta.env.DEV) console.error('[WebSocket] Error:', error)
     }
 
     ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data) as WSMessage
-        console.log('[WebSocket] Message:', message.type)
+        if (import.meta.env.DEV) console.log('[WebSocket] Message:', message.type)
 
         // Handle system messages
         if (message.type === 'system:connected') {
@@ -139,7 +139,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
         // Forward to handler (use ref to avoid reconnect on callback change)
         onMessageRef.current?.(message)
       } catch (error) {
-        console.error('[WebSocket] Failed to parse message:', error)
+        if (import.meta.env.DEV) console.error('[WebSocket] Failed to parse message:', error)
       }
     }
   }, [
@@ -167,7 +167,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
   const send = useCallback((message: WSMessage) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(message))
-    } else {
+    } else if (import.meta.env.DEV) {
       console.warn('[WebSocket] Cannot send - not connected')
     }
   }, [])

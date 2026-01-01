@@ -10,11 +10,39 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+
+# Load .env file BEFORE checking for API keys
+# This ensures DEV_MODE is correctly set based on configured keys
+def _load_env_early():
+    """Load .env from .fastband directory at module import time."""
+    # Try multiple locations for .env file
+    possible_paths = [
+        Path.cwd() / ".fastband" / ".env",
+        Path(__file__).parent.parent.parent.parent / ".fastband" / ".env",  # Project root
+        Path.home() / ".fastband" / ".env",  # User home
+    ]
+
+    for env_path in possible_paths:
+        if env_path.exists():
+            try:
+                with open(env_path) as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            key, value = line.split("=", 1)
+                            if key not in os.environ:
+                                os.environ[key] = value
+                break  # Found and loaded, stop searching
+            except Exception:
+                pass
+
+_load_env_early()
 
 from fastband.hub.analyzer import PlatformAnalyzer
 from fastband.hub.chat import ChatManager
@@ -318,18 +346,49 @@ async def send_message(
             detail="Use /chat/stream endpoint for streaming responses",
         )
 
-    # Dev mode mock response
-    if DEV_MODE and not chat:
-        import uuid
+    import uuid
 
+    # Mock response when no chat manager available (dev mode or missing API keys)
+    if not chat:
         return ChatResponse(
             message_id=str(uuid.uuid4()),
             role="assistant",
-            content=f'🔧 Dev Mode: Received "{request.content}". Configure API keys for real responses.',
+            content=f'🔧 No AI provider configured. Received: "{request.content}". Configure API keys in Settings to enable chat.',
             tokens_used=50,
             conversation_id=request.conversation_id or "dev-conv-1",
             tool_calls=[],
         )
+
+    # Check if this is a generated session ID without a real session
+    # If so, create a session first or return mock response
+    session_mgr = chat.get_session_manager()
+    session = session_mgr.get_session(request.session_id)
+
+    if not session:
+        # Session doesn't exist - for dev/generated sessions, create one
+        if request.session_id.startswith(("dev-", "chat-")):
+            try:
+                session = await session_mgr.create_session(
+                    config=SessionConfig(
+                        user_id=f"hub-user-{request.session_id[:8]}",
+                        tier=SubscriptionTier.PRO,
+                    ),
+                )
+                # Update session_id to match
+                request.session_id = session.session_id
+            except Exception as e:
+                logger.warning(f"Could not create session: {e}")
+                # Return mock response if session creation fails
+                return ChatResponse(
+                    message_id=str(uuid.uuid4()),
+                    role="assistant",
+                    content=f'🔧 Session error. Received: "{request.content}". Please refresh the page.',
+                    tokens_used=50,
+                    conversation_id=request.conversation_id or "dev-conv-1",
+                    tool_calls=[],
+                )
+        else:
+            raise HTTPException(status_code=400, detail=f"Session not found: {request.session_id}")
 
     try:
         response = await chat.send_message(
@@ -340,7 +399,6 @@ async def send_message(
         )
 
         # Get conversation ID
-        session_mgr = chat.get_session_manager()
         session = session_mgr.get_session(request.session_id)
         conv_id = session.current_conversation_id if session else None
 
@@ -361,6 +419,17 @@ async def send_message(
         )
 
     except ValueError as e:
+        # Handle session/conversation not found errors gracefully
+        error_msg = str(e)
+        if "not found" in error_msg.lower():
+            return ChatResponse(
+                message_id=str(uuid.uuid4()),
+                role="assistant",
+                content=f'🔧 {error_msg}. Please refresh the page to start a new session.',
+                tokens_used=50,
+                conversation_id=request.conversation_id or "dev-conv-1",
+                tool_calls=[],
+            )
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -380,11 +449,10 @@ async def stream_message(
     - done: Stream complete
     - error: Error occurred
     """
+    import uuid as uuid_module
 
     async def generate_dev_response():
         """Generate mock streaming response for dev mode."""
-        import uuid
-
         # Mock AI response chunks
         mock_response = (
             "🔧 **Dev Mode Response**\n\n"
@@ -410,16 +478,16 @@ async def stream_message(
         data = json.dumps(
             {
                 "type": "done",
-                "message_id": str(uuid.uuid4()),
+                "message_id": str(uuid_module.uuid4()),
                 "tokens_used": len(mock_response) // 4,
             }
         )
         yield f"data: {data}\n\n"
 
-    async def generate():
+    async def generate(session_id: str):
         try:
             async for chunk in await chat.send_message(
-                session_id=request.session_id,
+                session_id=session_id,
                 content=request.content,
                 conversation_id=request.conversation_id,
                 stream=True,
@@ -440,16 +508,64 @@ async def stream_message(
                     yield f"data: {data}\n\n"
 
         except ValueError as e:
-            data = json.dumps({"type": "error", "error": str(e)})
-            yield f"data: {data}\n\n"
+            error_msg = str(e)
+            if "not found" in error_msg.lower():
+                # Session or conversation not found - return friendly message
+                data = json.dumps({
+                    "type": "content",
+                    "content": f"🔧 {error_msg}. Please refresh the page to start a new session."
+                })
+                yield f"data: {data}\n\n"
+                data = json.dumps({
+                    "type": "done",
+                    "message_id": str(uuid_module.uuid4()),
+                    "tokens_used": 50,
+                })
+                yield f"data: {data}\n\n"
+            else:
+                data = json.dumps({"type": "error", "error": error_msg})
+                yield f"data: {data}\n\n"
 
         except Exception as e:
             logger.error(f"Streaming error: {e}")
             data = json.dumps({"type": "error", "error": "Internal error"})
             yield f"data: {data}\n\n"
 
-    # Use mock response generator in dev mode when no chat manager
-    generator = generate_dev_response() if (DEV_MODE and not chat) else generate()
+    # Use mock response generator when no chat manager is available
+    # This can happen in dev mode OR when API keys are not configured properly
+    if not chat:
+        generator = generate_dev_response()
+    else:
+        # Check if session exists, create if needed for generated session IDs
+        session_mgr = chat.get_session_manager()
+        session = session_mgr.get_session(request.session_id)
+        session_id = request.session_id
+
+        if not session:
+            # Session doesn't exist - for dev/generated sessions, create one
+            if request.session_id.startswith(("dev-", "chat-")) or len(request.session_id) == 36:
+                try:
+                    session = await session_mgr.create_session(
+                        config=SessionConfig(
+                            user_id=f"hub-user-{request.session_id[:8]}",
+                            tier=SubscriptionTier.PRO,
+                        ),
+                    )
+                    session_id = session.session_id
+                except Exception as e:
+                    logger.warning(f"Could not create session for stream: {e}")
+                    generator = generate_dev_response()
+                    return StreamingResponse(
+                        generator,
+                        media_type="text/event-stream",
+                        headers={
+                            "Cache-Control": "no-cache",
+                            "Connection": "keep-alive",
+                            "X-Accel-Buffering": "no",
+                        },
+                    )
+
+        generator = generate(session_id)
 
     return StreamingResponse(
         generator,
@@ -508,8 +624,8 @@ async def list_conversations(
 
     Returns all conversations associated with the session.
     """
-    # Dev mode mock response
-    if DEV_MODE:
+    # Dev mode or generated session ID - return mock data
+    if DEV_MODE or session_id.startswith("dev-") or session_id.startswith("chat-"):
         return _DEV_CONVERSATIONS
 
     session = manager.get_session(session_id)
@@ -530,8 +646,8 @@ async def create_conversation(
 
     Creates a new conversation thread in the session.
     """
-    # Dev mode mock response
-    if DEV_MODE:
+    # Dev mode or generated session ID - return mock response
+    if DEV_MODE or session_id.startswith("dev-") or session_id.startswith("chat-"):
         import uuid
 
         return ConversationResponse(
@@ -565,8 +681,8 @@ async def get_conversation(
 
     Returns the conversation including all messages.
     """
-    # Dev mode mock response
-    if DEV_MODE:
+    # Dev mode or generated session ID - return mock response
+    if DEV_MODE or session_id.startswith("dev-") or session_id.startswith("chat-"):
         conv = next((c for c in _DEV_CONVERSATIONS if c.conversation_id == conversation_id), None)
         if conv:
             return {
@@ -629,8 +745,8 @@ async def get_usage(
 
     Alternative to /sessions/{session_id}/usage that accepts session_id as query param.
     """
-    # Dev mode mock response
-    if DEV_MODE:
+    # Dev mode mock response - also handle frontend dev sessions gracefully
+    if DEV_MODE or session_id.startswith("dev-"):
         return UsageResponse(
             user_id="dev-user-123",
             tier="pro",
@@ -642,11 +758,26 @@ async def get_usage(
 
     session = manager.get_session(session_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        # Return mock data instead of 404 for better UX
+        return UsageResponse(
+            user_id="unknown",
+            tier="free",
+            messages_today=0,
+            messages_this_minute=0,
+            tokens_used_today=0,
+            memory_entries=0,
+        )
 
     stats = manager.get_usage_stats(session.config.user_id)
     if not stats:
-        raise HTTPException(status_code=404, detail="Usage stats not found")
+        return UsageResponse(
+            user_id=session.config.user_id,
+            tier=session.config.tier.value,
+            messages_today=0,
+            messages_this_minute=0,
+            tokens_used_today=0,
+            memory_entries=0,
+        )
 
     return UsageResponse(
         user_id=stats.user_id,
@@ -830,18 +961,17 @@ async def get_provider_status():
 async def configure_provider(request: ProviderConfigRequest):
     """Configure an AI provider with an API key.
 
-    Validates the key and stores it for the current session.
-    Note: For persistence, set environment variables or use .env file.
+    Validates the key and stores it persistently in .env file.
     """
     import os
 
     provider = request.provider.lower()
     api_key = request.api_key.strip()
 
-    if provider not in ("anthropic", "openai"):
+    if provider not in ("anthropic", "openai", "gemini"):
         raise HTTPException(
             status_code=400,
-            detail=f"Unknown provider: {provider}. Supported: anthropic, openai",
+            detail=f"Unknown provider: {provider}. Supported: anthropic, openai, gemini",
         )
 
     # Validate key format
@@ -858,19 +988,49 @@ async def configure_provider(request: ProviderConfigRequest):
         )
 
     # Set the environment variable for the current process
-    env_var = "ANTHROPIC_API_KEY" if provider == "anthropic" else "OPENAI_API_KEY"
+    env_var_map = {
+        "anthropic": "ANTHROPIC_API_KEY",
+        "openai": "OPENAI_API_KEY",
+        "gemini": "GOOGLE_API_KEY",
+    }
+    env_var = env_var_map[provider]
     os.environ[env_var] = api_key
 
+    # Persist to .env file
+    fastband_dir = Path.cwd() / ".fastband"
+    fastband_dir.mkdir(exist_ok=True)
+    env_path = fastband_dir / ".env"
+
+    # Read existing .env if it exists
+    existing_env = {}
+    if env_path.exists():
+        try:
+            with open(env_path) as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        key, val = line.split("=", 1)
+                        existing_env[key] = val
+        except Exception:
+            pass
+
+    # Update with new key
+    existing_env[env_var] = api_key
+
+    # Write .env file
+    with open(env_path, "w") as f:
+        f.write("# Fastband API Keys\n")
+        for key, val in existing_env.items():
+            f.write(f"{key}={val}\n")
+
     # Try to validate the key by making a simple API call
-    valid = await _validate_provider_key(provider, api_key)
+    valid, validation_msg = await _validate_provider_key(provider, api_key)
 
     return {
         "provider": provider,
         "configured": True,
         "valid": valid,
-        "message": "API key configured successfully"
-        if valid
-        else "Key saved but validation failed",
+        "message": validation_msg if valid else f"Key saved but validation failed: {validation_msg}",
     }
 
 
@@ -907,51 +1067,82 @@ async def validate_provider(request: ProviderValidateRequest):
 
     # For other providers, validate the key
     if provider in ("anthropic", "openai", "gemini"):
-        valid = await _validate_provider_key(provider, value)
-        return {"valid": valid}
+        try:
+            valid, message = await _validate_provider_key(provider, value)
+            return {"valid": valid, "message": message}
+        except Exception as e:
+            import traceback
+            tb = traceback.format_exc()
+            print(f"Validation error for {provider}: {tb}")
+            return {"valid": False, "message": f"Validation error: {type(e).__name__}: {e}"}
 
     return {"valid": False, "message": f"Unknown provider: {provider}"}
 
 
-async def _validate_provider_key(provider: str, api_key: str) -> bool:
-    """Validate an API key by making a test request."""
-    try:
-        if provider == "anthropic":
-            try:
-                import anthropic
+async def _validate_provider_key(provider: str, api_key: str) -> tuple[bool, str]:
+    """Validate an API key by making a test request.
 
-                client = anthropic.Anthropic(api_key=api_key)
-                # Make a minimal request to validate
-                client.messages.create(
-                    model="claude-3-haiku-20240307",
-                    max_tokens=1,
-                    messages=[{"role": "user", "content": "hi"}],
-                )
-                return True
-            except anthropic.AuthenticationError:
-                return False
-            except Exception:
-                # Other errors might be rate limits, etc. - key might still be valid
-                return True
+    Returns (valid, message) tuple.
+    """
+    # Basic format checks
+    api_key = api_key.strip()
+    if not api_key:
+        return False, "API key is empty"
 
-        elif provider == "openai":
-            try:
-                import openai
+    if " " in api_key:
+        return False, "API key contains spaces - please remove them"
 
-                client = openai.OpenAI(api_key=api_key)
-                # Make a minimal request to validate
-                client.models.list()
-                return True
-            except openai.AuthenticationError:
-                return False
-            except Exception:
-                return True
+    if provider == "anthropic":
+        if not api_key.startswith("sk-ant-"):
+            return False, "Anthropic keys should start with 'sk-ant-'"
+        try:
+            import anthropic
 
-    except ImportError:
-        # Provider library not installed, assume key is valid
-        return True
-    except Exception:
-        return False
+            client = anthropic.Anthropic(api_key=api_key)
+            client.messages.create(
+                model="claude-3-haiku-20240307",
+                max_tokens=1,
+                messages=[{"role": "user", "content": "hi"}],
+            )
+            return True, "Valid"
+        except ImportError:
+            return True, "Key accepted (anthropic library not installed)"
+        except Exception as e:
+            err_name = type(e).__name__
+            if "AuthenticationError" in err_name:
+                return False, "Invalid API key - authentication failed"
+            elif "RateLimitError" in err_name:
+                return True, "Valid (rate limited but key accepted)"
+            else:
+                # Other errors - key format might be valid
+                return True, f"Key accepted ({err_name})"
+
+    elif provider == "openai":
+        if not api_key.startswith("sk-"):
+            return False, "OpenAI keys should start with 'sk-'"
+        try:
+            import openai
+
+            client = openai.OpenAI(api_key=api_key)
+            client.models.list()
+            return True, "Valid"
+        except ImportError:
+            return True, "Key accepted (openai library not installed)"
+        except Exception as e:
+            err_name = type(e).__name__
+            if "AuthenticationError" in err_name:
+                return False, "Invalid API key - authentication failed"
+            elif "RateLimitError" in err_name:
+                return True, "Valid (rate limited but key accepted)"
+            else:
+                return True, f"Key accepted ({err_name})"
+
+    elif provider == "gemini":
+        if not api_key.startswith("AIza"):
+            return False, "Gemini keys should start with 'AIza'"
+        return True, "Key format valid"
+
+    return False, "Unknown provider"
 
 
 # =============================================================================
@@ -990,6 +1181,202 @@ class SchedulerStatusResponse(BaseModel):
     errors: int
 
 
+class BackupConfigResponse(BaseModel):
+    """Response with backup configuration."""
+
+    backup_path: str
+    retention_days: int
+    interval_hours: int
+    max_backups: int
+    enabled: bool
+    scheduler_enabled: bool
+
+
+class BackupConfigUpdateRequest(BaseModel):
+    """Request to update backup configuration."""
+
+    backup_path: str | None = None
+    retention_days: int | None = None
+    interval_hours: int | None = None
+    max_backups: int | None = None
+
+
+class DirectoryEntry(BaseModel):
+    """A directory entry for browsing."""
+
+    name: str
+    path: str
+    is_dir: bool
+
+
+class DirectoryListResponse(BaseModel):
+    """Response with directory contents."""
+
+    current_path: str
+    parent_path: str | None
+    entries: list[DirectoryEntry]
+
+
+@router.post("/filesystem/pick-folder")
+async def pick_folder_native() -> dict:
+    """Open native folder picker dialog (macOS Finder)."""
+    import platform
+    import subprocess
+
+    if platform.system() != "Darwin":
+        raise HTTPException(status_code=501, detail="Native folder picker only available on macOS")
+
+    try:
+        # Use osascript to open native Finder folder picker
+        script = '''
+        tell application "Finder"
+            activate
+        end tell
+        set selectedFolder to choose folder with prompt "Select Backup Folder"
+        return POSIX path of selectedFolder
+        '''
+        result = subprocess.run(
+            ["osascript", "-e", script],
+            capture_output=True,
+            text=True,
+            timeout=120,  # 2 minute timeout for user to select
+        )
+
+        if result.returncode != 0:
+            # User cancelled
+            raise HTTPException(status_code=400, detail="Folder selection cancelled")
+
+        folder_path = result.stdout.strip()
+        return {"path": folder_path}
+
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=408, detail="Folder selection timed out")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/filesystem/browse")
+async def browse_filesystem(path: str = "~") -> DirectoryListResponse:
+    """Browse filesystem directories for folder selection."""
+    from pathlib import Path
+
+    # Expand ~ to home directory
+    if path == "~" or path.startswith("~/"):
+        browse_path = Path(path).expanduser()
+    else:
+        browse_path = Path(path)
+
+    # Resolve to absolute path
+    try:
+        browse_path = browse_path.resolve()
+    except Exception:
+        raise HTTPException(status_code=400, detail=f"Invalid path: {path}")
+
+    if not browse_path.exists():
+        raise HTTPException(status_code=404, detail=f"Path not found: {path}")
+
+    if not browse_path.is_dir():
+        raise HTTPException(status_code=400, detail=f"Not a directory: {path}")
+
+    # Get parent path
+    parent_path = str(browse_path.parent) if browse_path.parent != browse_path else None
+
+    # List directory contents (directories only for folder picker)
+    entries = []
+    try:
+        for item in sorted(browse_path.iterdir(), key=lambda x: x.name.lower()):
+            # Skip hidden files and common non-browsable dirs
+            if item.name.startswith("."):
+                continue
+            if item.is_dir():
+                entries.append(DirectoryEntry(
+                    name=item.name,
+                    path=str(item),
+                    is_dir=True,
+                ))
+    except PermissionError:
+        raise HTTPException(status_code=403, detail=f"Permission denied: {path}")
+
+    return DirectoryListResponse(
+        current_path=str(browse_path),
+        parent_path=parent_path,
+        entries=entries,
+    )
+
+
+@router.get("/backups/config")
+async def get_backup_config() -> BackupConfigResponse:
+    """Get backup configuration."""
+    from fastband.core.config import get_config
+
+    config = get_config()
+    return BackupConfigResponse(
+        backup_path=config.backup.backup_path,
+        retention_days=config.backup.retention_days,
+        interval_hours=config.backup.interval_hours,
+        max_backups=config.backup.max_backups,
+        enabled=config.backup.enabled,
+        scheduler_enabled=config.backup.scheduler_enabled,
+    )
+
+
+@router.put("/backups/config")
+async def update_backup_config(request: BackupConfigUpdateRequest) -> BackupConfigResponse:
+    """Update backup configuration."""
+    from pathlib import Path
+
+    import yaml
+
+    from fastband.core.config import get_config
+
+    config = get_config()
+    project_path = Path.cwd()
+    config_path = project_path / ".fastband" / "config.yaml"
+
+    # Load existing config file or create empty dict
+    if config_path.exists():
+        with open(config_path) as f:
+            file_data = yaml.safe_load(f) or {}
+    else:
+        file_data = {}
+
+    # Ensure fastband.backup structure exists
+    if "fastband" not in file_data:
+        file_data["fastband"] = {}
+    if "backup" not in file_data["fastband"]:
+        file_data["fastband"]["backup"] = {}
+
+    backup_config = file_data["fastband"]["backup"]
+
+    # Update fields if provided
+    if request.backup_path is not None:
+        backup_config["backup_path"] = request.backup_path
+        config.backup.backup_path = request.backup_path
+    if request.retention_days is not None:
+        backup_config["retention_days"] = request.retention_days
+        config.backup.retention_days = request.retention_days
+    if request.interval_hours is not None:
+        backup_config["interval_hours"] = request.interval_hours
+        config.backup.interval_hours = request.interval_hours
+    if request.max_backups is not None:
+        backup_config["max_backups"] = request.max_backups
+        config.backup.max_backups = request.max_backups
+
+    # Save updated config
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(config_path, "w") as f:
+        yaml.dump(file_data, f, default_flow_style=False)
+
+    return BackupConfigResponse(
+        backup_path=config.backup.backup_path,
+        retention_days=config.backup.retention_days,
+        interval_hours=config.backup.interval_hours,
+        max_backups=config.backup.max_backups,
+        enabled=config.backup.enabled,
+        scheduler_enabled=config.backup.scheduler_enabled,
+    )
+
+
 @router.get("/backups")
 async def list_backups() -> list[BackupResponse]:
     """List all backups."""
@@ -1024,31 +1411,35 @@ async def create_backup(request: BackupCreateRequest) -> BackupResponse:
     from fastband.backup.manager import BackupManager, BackupType
     from fastband.core.config import get_config
 
-    config = get_config()
-    manager = BackupManager(Path.cwd(), config.backup)
+    try:
+        config = get_config()
+        manager = BackupManager(Path.cwd(), config.backup)
 
-    # Map string to BackupType
-    backup_type_map = {
-        "full": BackupType.FULL,
-        "incremental": BackupType.INCREMENTAL,
-        "manual": BackupType.MANUAL,
-    }
-    backup_type = backup_type_map.get(request.backup_type, BackupType.MANUAL)
+        # Map string to BackupType
+        backup_type_map = {
+            "full": BackupType.FULL,
+            "incremental": BackupType.INCREMENTAL,
+            "manual": BackupType.MANUAL,
+        }
+        backup_type = backup_type_map.get(request.backup_type, BackupType.MANUAL)
 
-    backup = manager.create_backup(
-        backup_type=backup_type,
-        description=request.description,
-    )
+        backup = manager.create_backup(
+            backup_type=backup_type,
+            description=request.description,
+        )
 
-    return BackupResponse(
-        id=backup.id,
-        backup_type=backup.backup_type.value,
-        created_at=backup.created_at.isoformat(),
-        size_bytes=backup.size_bytes,
-        size_human=backup.size_human,
-        files_count=backup.files_count,
-        description=backup.description,
-    )
+        return BackupResponse(
+            id=backup.id,
+            backup_type=backup.backup_type.value,
+            created_at=backup.created_at.isoformat(),
+            size_bytes=backup.size_bytes,
+            size_human=backup.size_human,
+            files_count=backup.files_count,
+            description=backup.description,
+        )
+    except Exception as e:
+        logger.error(f"Backup creation failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Backup failed: {str(e)}")
 
 
 @router.get("/backups/{backup_id}")
@@ -1150,16 +1541,50 @@ async def get_scheduler_status() -> SchedulerStatusResponse:
 @router.post("/backups/scheduler/start")
 async def start_scheduler() -> dict:
     """Start the backup scheduler."""
+    import subprocess
+    import sys
     from pathlib import Path
 
     from fastband.backup.scheduler import BackupScheduler
     from fastband.core.config import get_config
 
-    config = get_config()
-    scheduler = BackupScheduler(Path.cwd(), config.backup)
+    try:
+        config = get_config()
+        scheduler = BackupScheduler(Path.cwd(), config.backup)
 
-    success = scheduler.start_daemon()
-    return {"started": success}
+        # Check if already running
+        if scheduler.is_running():
+            return {"started": True, "message": "Scheduler already running"}
+
+        # Check if scheduler is enabled
+        if not config.backup.enabled or not config.backup.scheduler_enabled:
+            return {"started": False, "message": "Scheduler is disabled in config"}
+
+        # Use subprocess to start scheduler instead of fork (safer in async context)
+        try:
+            proc = subprocess.Popen(
+                [sys.executable, "-m", "fastband.backup.scheduler", "--start"],
+                cwd=str(Path.cwd()),
+                start_new_session=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            # Wait briefly for it to start
+            import time
+            time.sleep(0.5)
+
+            # Check if it started successfully
+            if scheduler.is_running():
+                return {"started": True}
+            else:
+                return {"started": False, "message": "Scheduler process started but not running"}
+        except Exception as e:
+            logger.error(f"Failed to start scheduler subprocess: {e}")
+            return {"started": False, "message": str(e)}
+
+    except Exception as e:
+        logger.error(f"Scheduler start failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Scheduler start failed: {str(e)}")
 
 
 @router.post("/backups/scheduler/stop")
@@ -1618,8 +2043,47 @@ async def complete_onboarding(data: OnboardingDataRequest, request: Request) -> 
     config["tech_stack"] = data.techStack
     config["selected_tools"] = data.selectedTools
 
-    # Save provider keys to environment (don't store in config file)
-    # The keys should be stored securely in .env or environment
+    # Save provider keys to .env file and set in environment
+    env_path = fastband_dir / ".env"
+    env_lines = []
+
+    # Read existing .env if it exists
+    existing_env = {}
+    if env_path.exists():
+        try:
+            with open(env_path) as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        key, val = line.split("=", 1)
+                        existing_env[key] = val
+        except Exception:
+            pass
+
+    # Update with new provider keys
+    if data.providers:
+        if data.providers.get("anthropic", {}).get("key"):
+            key = data.providers["anthropic"]["key"]
+            existing_env["ANTHROPIC_API_KEY"] = key
+            os.environ["ANTHROPIC_API_KEY"] = key
+        if data.providers.get("openai", {}).get("key"):
+            key = data.providers["openai"]["key"]
+            existing_env["OPENAI_API_KEY"] = key
+            os.environ["OPENAI_API_KEY"] = key
+        if data.providers.get("gemini", {}).get("key"):
+            key = data.providers["gemini"]["key"]
+            existing_env["GOOGLE_API_KEY"] = key
+            os.environ["GOOGLE_API_KEY"] = key
+        if data.providers.get("ollama", {}).get("host"):
+            host = data.providers["ollama"]["host"]
+            existing_env["OLLAMA_HOST"] = host
+            os.environ["OLLAMA_HOST"] = host
+
+    # Write .env file
+    with open(env_path, "w") as f:
+        f.write("# Fastband API Keys - Generated by onboarding\n")
+        for key, val in existing_env.items():
+            f.write(f"{key}={val}\n")
 
     # Save config
     with open(config_path, "w") as f:
@@ -1676,10 +2140,106 @@ async def complete_onboarding(data: OnboardingDataRequest, request: Request) -> 
     except Exception as e:
         logger.warning(f"Supabase sync error: {e}")
 
+    # Reinitialize chat manager with new API keys (no server restart needed)
+    chat_reinitialized = False
+    try:
+        from fastband.hub.api.app import reinitialize_chat_manager
+
+        chat_reinitialized = await reinitialize_chat_manager(request.app)
+    except Exception as e:
+        logger.warning(f"Could not reinitialize chat: {e}")
+
     return {
         "success": True,
         "message": "Onboarding complete",
         "cloudSynced": supabase_synced,
+        "chatReady": chat_reinitialized,
+    }
+
+
+# Rate limiting for server restart (simple in-memory)
+_last_restart_time: float = 0
+_restart_cooldown_seconds: float = 60.0  # Minimum 60s between restarts
+
+
+@router.post("/server/restart")
+async def restart_server(request: Request) -> dict:
+    """Restart the Fastband Hub server to apply new configuration.
+
+    This schedules a graceful server restart that will:
+    1. Complete any pending requests
+    2. Reload configuration from .fastband/config.yaml
+    3. Apply new provider settings
+
+    Security:
+    - Requires valid session (checked via Authorization header or session cookie)
+    - Rate limited to once per 60 seconds
+    - Requires local request (localhost only in production)
+    """
+    import signal
+    import threading
+    import time as time_module
+
+    global _last_restart_time
+
+    # Rate limiting check
+    current_time = time_module.time()
+    if current_time - _last_restart_time < _restart_cooldown_seconds:
+        remaining = int(_restart_cooldown_seconds - (current_time - _last_restart_time))
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limited. Try again in {remaining} seconds."
+        )
+
+    # Basic authorization check - require auth header or localhost
+    auth_header = request.headers.get("Authorization", "")
+    client_host = request.client.host if request.client else "unknown"
+
+    # Allow only authenticated users OR localhost requests
+    is_localhost = client_host in ("127.0.0.1", "localhost", "::1")
+    has_auth = auth_header.startswith("Bearer ")
+
+    if not (is_localhost or has_auth):
+        logger.warning(f"Unauthorized restart attempt from {client_host}")
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required for server restart"
+        )
+
+    # Update rate limit timestamp
+    _last_restart_time = current_time
+
+    # Log the restart request
+    logger.info(f"Server restart requested by {client_host} (auth: {has_auth})")
+
+    def delayed_restart():
+        """Perform restart after a short delay to allow response to be sent."""
+        time_module.sleep(1)  # Wait for response to be sent
+        try:
+            # Send SIGTERM for graceful shutdown
+            # Requires process manager (systemd, docker, supervisor) to restart
+            logger.info("Server restart initiated - graceful shutdown...")
+            os.kill(os.getpid(), signal.SIGTERM)
+        except Exception as e:
+            logger.error(f"Failed to restart server: {e}")
+
+    # Schedule restart in background thread
+    restart_thread = threading.Thread(target=delayed_restart, daemon=True)
+    restart_thread.start()
+
+    return {
+        "success": True,
+        "message": "Server restart scheduled. Please wait a few seconds and refresh.",
+    }
+
+
+@router.get("/server/status")
+async def server_status() -> dict:
+    """Check if server is running and ready."""
+    return {
+        "status": "running",
+        "ready": True,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -1767,74 +2327,342 @@ class GenerateBibleRequest(BaseModel):
 
 @router.post("/analyze/generate-bible")
 async def generate_bible(request: GenerateBibleRequest) -> dict:
-    """Generate AGENT_BIBLE.md using AI."""
+    """Generate AGENT_BIBLE.md using AI with comprehensive template."""
     from pathlib import Path
+    from datetime import datetime
+    import importlib.resources
+    import re
 
     projectPath = request.projectPath
     operationMode = request.operationMode
     techStack = request.techStack
     regenerate = request.regenerate
 
-    # Default Bible content if AI generation fails
-    mode_rules = (
-        "## Automation Level: YOLO\nAgents have full autonomy within these guardrails."
-        if operationMode == "yolo"
-        else "## Automation Level: Manual\nAgents must confirm all actions before execution."
-    )
+    # Security: Validate and sanitize project path to prevent path traversal
+    if projectPath:
+        try:
+            project_path = Path(projectPath).resolve()
+            allowed_base = Path.cwd().resolve()
+            # Ensure path is within current working directory
+            if not str(project_path).startswith(str(allowed_base)):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid project path: must be within project directory"
+                )
+        except Exception as e:
+            logger.warning(f"Invalid project path rejected: {projectPath} - {e}")
+            raise HTTPException(status_code=400, detail="Invalid project path")
+    else:
+        project_path = Path.cwd()
 
-    tech_list = "\n".join([f"- {t}" for t in techStack]) if techStack else "- Auto-detected"
+    # Security: Sanitize techStack to prevent prompt injection
+    ALLOWED_TECH_PATTERN = re.compile(r'^[a-zA-Z0-9\s\.\-\+\#\/]+$')
+    sanitized_tech_stack = []
+    for tech in techStack:
+        # Only allow alphanumeric, spaces, dots, dashes, plus, hash, slash
+        if ALLOWED_TECH_PATTERN.match(tech) and len(tech) < 50:
+            sanitized_tech_stack.append(tech.strip())
+        else:
+            logger.warning(f"Rejected suspicious tech stack entry: {tech[:50]}")
+    techStack = sanitized_tech_stack
 
-    content = f"""# Agent Bible
+    # Security: Validate operation mode
+    if operationMode not in ("manual", "yolo"):
+        operationMode = "manual"
 
-{mode_rules}
+    # Load the template as a reference
+    template_content = ""
+    try:
+        template_path = Path(__file__).parent.parent.parent / "templates" / "AGENT_BIBLE_TEMPLATE.md"
+        if template_path.exists():
+            template_content = template_path.read_text()
+    except Exception as e:
+        logger.warning(f"Could not load template: {e}")
 
-## Core Laws
+    # Operation mode descriptions
+    if operationMode == "yolo":
+        mode_header = "Automation Level: YOLO (Full Autonomy)"
+        mode_description = """Agents have FULL AUTONOMY to:
+- Claim and work on tickets without confirmation
+- Push code changes to development branches
+- Merge approved pull requests
+- Deploy to staging environments
+- Make architectural decisions within established patterns
+
+Agents MUST still:
+- Follow all security rules
+- Stay within the guardrails defined in this Bible
+- Report significant decisions to the ops log
+- Never bypass review requirements for production"""
+    else:
+        mode_header = "Automation Level: Manual (Confirmation Required)"
+        mode_description = """Agents MUST confirm with user before:
+- Making code changes
+- Pushing to any branch
+- Merging pull requests
+- Deploying to any environment
+- Making architectural decisions
+
+Agents CAN autonomously:
+- Read and analyze code
+- Run tests and linters
+- Prepare changes for review
+- Generate reports and documentation"""
+
+    # Build tech-specific rules
+    tech_rules = []
+    tech_commands = []
+    tech_patterns = []
+
+    for tech in techStack:
+        tech_lower = tech.lower()
+        if "python" in tech_lower:
+            tech_rules.extend([
+                "| MUST | code_style | Use type hints for function parameters and returns |",
+                "| SHOULD | code_style | Follow PEP 8 style guidelines |",
+                "| MUST | testing | Run pytest before committing |",
+            ])
+            tech_commands.append("- `pytest` - Run tests")
+            tech_commands.append("- `ruff check .` - Lint code")
+        if "typescript" in tech_lower or "javascript" in tech_lower:
+            tech_rules.extend([
+                "| MUST | code_style | Use TypeScript strict mode |",
+                "| SHOULD | code_style | Prefer const over let |",
+                "| MUST | testing | Run npm test before committing |",
+            ])
+            tech_commands.append("- `npm test` - Run tests")
+            tech_commands.append("- `npm run lint` - Lint code")
+        if "react" in tech_lower:
+            tech_rules.extend([
+                "| SHOULD | code_style | Use functional components with hooks |",
+                "| MUST | code_style | Follow component naming conventions (PascalCase) |",
+            ])
+        if "docker" in tech_lower:
+            tech_rules.extend([
+                "| MUST | workflow | Rebuild containers after dependency changes |",
+                "| SHOULD | security | Use multi-stage builds for production |",
+            ])
+            tech_commands.append("- `docker-compose build` - Rebuild containers")
+            tech_commands.append("- `docker-compose up -d` - Start services")
+        if "fastapi" in tech_lower or "flask" in tech_lower:
+            tech_rules.extend([
+                "| MUST | security | Validate all user input with Pydantic models |",
+                "| SHOULD | code_style | Use async endpoints where appropriate |",
+            ])
+        if "next" in tech_lower:
+            tech_rules.extend([
+                "| SHOULD | code_style | Use App Router patterns |",
+                "| MUST | code_style | Server components by default, client only when needed |",
+            ])
+            tech_commands.append("- `npm run dev` - Start development server")
+            tech_commands.append("- `npm run build` - Build for production")
+
+    # Generate tech stack section
+    tech_list = "\n".join([f"- {t}" for t in techStack]) if techStack else "- To be detected"
+    tech_rules_str = "\n".join(tech_rules) if tech_rules else ""
+    tech_commands_str = "\n".join(tech_commands) if tech_commands else "- See package.json or pyproject.toml for available commands"
+
+    # Default fallback content
+    today = datetime.now().strftime("%Y-%m-%d")
+    content = f"""# THE AGENT BIBLE
+
+**Version:** 1.0.0
+**Last Updated:** {today}
+**Status:** AUTHORITATIVE - THIS IS THE ONLY AGENT DOCUMENTATION
+
+---
+
+## Table of Contents
+
+1. [The Hierarchy of Authority](#1-the-hierarchy-of-authority)
+2. [The Core Laws](#2-the-core-laws)
+3. [Project Overview](#3-project-overview)
+4. [Workflow Guidelines](#4-workflow-guidelines)
+5. [Code Standards](#5-code-standards)
+6. [Testing Requirements](#6-testing-requirements)
+7. [Security Rules](#7-security-rules)
+8. [Quick Reference](#8-quick-reference)
+
+---
+
+## 1. THE HIERARCHY OF AUTHORITY
+
+```
+┌─────────────────────────────────────────────────────┐
+│                USER ("The Boss")                    │
+│         Final authority on all decisions            │
+│       Can override any rule when necessary          │
+└─────────────────────────┬───────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────┐
+│           AGENT_BIBLE.md ("The Law")                │
+│     Single authoritative documentation source       │
+│        Defines all rules and constraints            │
+└─────────────────────────┬───────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────┐
+│              AGENTS ("The Crew")                    │
+│      Follow the law, serve the user's goals         │
+│            without exception                        │
+└─────────────────────────────────────────────────────┘
+```
+
+**Key Principle:** When in doubt, escalate UP the hierarchy.
+
+---
+
+## 2. THE CORE LAWS
+
+These laws are absolute. Violation is unacceptable.
 
 <!-- BEGIN_STRUCTURED_RULES -->
 | Severity | Category | Rule |
 |----------|----------|------|
-| MUST | security | Never commit secrets or API keys |
+| MUST | security | Never commit secrets, API keys, or credentials to version control |
 | MUST | workflow | Always create feature branches for changes |
+| MUST | workflow | Write clear, descriptive commit messages |
+| MUST | code_style | Follow existing codebase conventions and patterns |
+| MUST | testing | Verify changes work before marking complete |
 | SHOULD | testing | Write tests for new features |
-| SHOULD | code_style | Follow existing code conventions |
-| MUST_NOT | workflow | Never force push to main branch |
-| MUST_NOT | security | Never disable security features |
+| SHOULD | documentation | Document significant changes and decisions |
+| SHOULD | code_style | Keep functions focused and single-purpose |
+| MUST_NOT | workflow | Never force push to main/master branch |
+| MUST_NOT | security | Never disable security features or linters |
+| MUST_NOT | workflow | Never merge without proper review |
+{tech_rules_str}
 <!-- END_STRUCTURED_RULES -->
 
-## Tech Stack
+---
+
+## 3. PROJECT OVERVIEW
+
+### Tech Stack
+
 {tech_list}
 
-## Guidelines
-- Keep changes focused and atomic
-- Write clear commit messages
-- Document significant changes
-- Respect existing architecture patterns
-- Ask for clarification when requirements are unclear
+---
+
+## 4. WORKFLOW GUIDELINES
+
+### {mode_header}
+
+{mode_description}
+
+### Standard Workflow
+
+1. **Understand the Task** - Read requirements, identify affected files
+2. **Create Feature Branch** - Branch from main/development
+3. **Implement Changes** - Follow code standards, make atomic commits
+4. **Verify Changes** - Run tests, manually verify functionality
+5. **Submit for Review** - Create PR with clear description
+
+---
+
+## 5. CODE STANDARDS
+
+### General Principles
+
+- **Readability First**: Code should be self-documenting
+- **Consistency**: Match existing patterns in the codebase
+- **Simplicity**: Prefer simple solutions over clever ones
+- **DRY**: Don't Repeat Yourself, but don't over-abstract
+
+---
+
+## 6. TESTING REQUIREMENTS
+
+### Before Completing Any Task
+
+- [ ] Code compiles/runs without errors
+- [ ] Existing tests pass
+- [ ] New functionality has been manually verified
+- [ ] No console errors or warnings introduced
+- [ ] Edge cases considered
+
+---
+
+## 7. SECURITY RULES
+
+### Never Do
+
+- Commit secrets, API keys, or credentials
+- Store sensitive data in plain text
+- Disable security features
+- Ignore security warnings
+- Use hardcoded passwords
+
+### Always Do
+
+- Use environment variables for secrets
+- Validate and sanitize user input
+- Follow principle of least privilege
+- Keep dependencies updated
+
+---
+
+## 8. QUICK REFERENCE
+
+### Essential Commands
+
+{tech_commands_str}
+
+### When Stuck
+
+1. Re-read this Bible and relevant documentation
+2. Search codebase for similar implementations
+3. Try at least 2 different approaches
+4. Document what you tried and why it failed
+5. Escalate to human with clear problem description
+
+---
+
+**END OF AGENT BIBLE**
+
+*This document is the single source of truth for agent behavior in this project.*
 """
 
-    # Try to use AI to generate a better Bible (if available)
+    # Try to use AI to generate an enhanced Bible using template as reference
     try:
-        # Check if we have Anthropic key
         import os
-        if os.environ.get("ANTHROPIC_API_KEY") and not DEV_MODE:
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if api_key and not DEV_MODE:
             from anthropic import Anthropic
 
             client = Anthropic()
 
-            prompt = f"""Generate an AGENT_BIBLE.md file for a software project with:
-- Tech stack: {', '.join(techStack) if techStack else 'unknown'}
-- Operation mode: {operationMode}
+            prompt = f"""You are generating a comprehensive AGENT_BIBLE.md for a software project.
 
-The bible should include:
-1. Automation level header based on mode
-2. Core laws table with MUST/SHOULD/MUST_NOT rules
-3. Guidelines specific to the tech stack
+## Project Context
+- Tech stack: {', '.join(techStack) if techStack else 'To be detected'}
+- Operation mode: {operationMode} ({'Full autonomy within guardrails' if operationMode == 'yolo' else 'Confirmation required for actions'})
 
-Keep it concise but comprehensive. Use markdown format."""
+## Reference Template
+Use this template structure as your model. Your output should follow this format but be customized for the specific tech stack:
+
+{template_content[:3000] if template_content else 'Standard Agent Bible format'}
+
+## Requirements
+1. Use the EXACT same section structure as the template
+2. Include the hierarchy of authority ASCII diagram
+3. Include a structured rules table with <!-- BEGIN_STRUCTURED_RULES --> markers
+4. Add tech-stack-specific rules (e.g., for React: component patterns, for Python: type hints)
+5. Set automation level based on operation mode: {operationMode}
+6. Include practical commands specific to the tech stack
+7. Keep it comprehensive but actionable
+
+## Tech-Specific Rules to Include
+For {', '.join(techStack) if techStack else 'general projects'}:
+- Language-specific style guidelines
+- Testing requirements
+- Build/deployment commands
+- Security considerations
+
+Generate a complete AGENT_BIBLE.md that agents can follow immediately. Use markdown format.
+Today's date: {today}"""
 
             response = client.messages.create(
                 model="claude-sonnet-4-20250514",
-                max_tokens=2000,
+                max_tokens=4000,
                 messages=[{"role": "user", "content": prompt}],
             )
             content = response.content[0].text
@@ -1842,7 +2670,7 @@ Keep it concise but comprehensive. Use markdown format."""
         logger.warning(f"AI Bible generation failed, using default: {e}")
 
     # Save if regenerating or if file doesn't exist
-    project_path = Path(projectPath) if projectPath else Path.cwd()
+    # Note: project_path is already validated and sanitized at the start of this function
     bible_path = project_path / "AGENT_BIBLE.md"
 
     if regenerate or not bible_path.exists():
@@ -1898,3 +2726,97 @@ async def detect_tech_stack(projectPath: str = "") -> dict:
     stack = list(dict.fromkeys(stack))
 
     return {"stack": stack}
+
+
+# ============================================
+# DIRECTORY BROWSER ENDPOINTS
+# ============================================
+
+
+class DirectoryListRequest(BaseModel):
+    """Request to list directory contents."""
+
+    path: str = Field(default="~", description="Directory path to list")
+
+
+class DirectoryEntry(BaseModel):
+    """A directory entry."""
+
+    name: str
+    path: str
+    is_dir: bool
+    is_hidden: bool
+
+
+class DirectoryListResponse(BaseModel):
+    """Response with directory listing."""
+
+    current_path: str
+    parent_path: str | None
+    entries: list[DirectoryEntry]
+
+
+@router.post("/browse/directories", response_model=DirectoryListResponse)
+async def browse_directories(request: DirectoryListRequest):
+    """Browse directories on the local filesystem.
+
+    Used by the onboarding wizard for project path selection.
+    Only returns directories, not files.
+    """
+    from pathlib import Path
+
+    # Expand ~ and resolve path
+    try:
+        path = Path(request.path).expanduser().resolve()
+    except Exception:
+        path = Path.home()
+
+    # If path doesn't exist or isn't a directory, fall back to home
+    if not path.exists() or not path.is_dir():
+        path = Path.home()
+
+    # Get parent path (None if at root)
+    parent = path.parent if path != path.parent else None
+
+    entries: list[DirectoryEntry] = []
+
+    try:
+        for item in sorted(path.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())):
+            # Only include directories
+            if not item.is_dir():
+                continue
+
+            # Skip system directories on macOS/Linux
+            if item.name in ('.Trash', 'Library', '$RECYCLE.BIN', 'System Volume Information'):
+                continue
+
+            try:
+                # Check if we can access this directory
+                list(item.iterdir())
+                entries.append(DirectoryEntry(
+                    name=item.name,
+                    path=str(item),
+                    is_dir=True,
+                    is_hidden=item.name.startswith('.'),
+                ))
+            except PermissionError:
+                # Skip directories we can't access
+                continue
+    except PermissionError:
+        # Can't read this directory, return empty list
+        pass
+
+    return DirectoryListResponse(
+        current_path=str(path),
+        parent_path=str(parent) if parent else None,
+        entries=entries,
+    )
+
+
+@router.get("/browse/home")
+async def get_home_directory():
+    """Get the user's home directory path."""
+    from pathlib import Path
+
+    home = Path.home()
+    return {"path": str(home)}

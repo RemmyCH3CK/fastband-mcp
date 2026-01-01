@@ -218,7 +218,7 @@ export const useControlPlaneStore = create<ControlPlaneState>((set, get) => ({
         break
 
       default:
-        console.log('[ControlPlane] Unhandled event type:', type)
+        if (import.meta.env.DEV) console.log('[ControlPlane] Unhandled event type:', type)
     }
   },
 }))

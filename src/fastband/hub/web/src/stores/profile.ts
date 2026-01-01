@@ -64,7 +64,7 @@ export const useProfileStore = create<ProfileStore>((set, get) => ({
 
       set({ profile: data, loading: false })
     } catch (err) {
-      console.error('Failed to fetch profile:', err)
+      if (import.meta.env.DEV) console.error('Failed to fetch profile:', err)
       set({
         error: err instanceof Error ? err.message : 'Failed to fetch profile',
         loading: false
@@ -104,7 +104,7 @@ export const useProfileStore = create<ProfileStore>((set, get) => ({
 
       set({ profile: data, loading: false })
     } catch (err) {
-      console.error('Failed to update profile:', err)
+      if (import.meta.env.DEV) console.error('Failed to update profile:', err)
       set({
         error: err instanceof Error ? err.message : 'Failed to update profile',
         loading: false

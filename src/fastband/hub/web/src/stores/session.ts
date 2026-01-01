@@ -48,7 +48,7 @@ export const useSessionStore = create<SessionStore>((set, _get) => ({
         tier: data.tier,
       })
     } catch (error) {
-      console.error('Session creation error:', error)
+      if (import.meta.env.DEV) console.error('Session creation error:', error)
       throw error
     }
   },

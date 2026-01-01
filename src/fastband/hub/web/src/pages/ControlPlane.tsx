@@ -32,7 +32,9 @@ import {
   ClearanceModal,
   AgentDetailModal,
   TicketDetailModal,
+  CLIChatPanel,
 } from '../components/control-plane'
+import { InlineErrorBoundary } from '../components/ErrorBoundary'
 import type { WSMessage, AgentActivity, TicketSummary } from '../types/controlPlane'
 import { toast } from '../stores/toast'
 
@@ -61,7 +63,24 @@ export function ControlPlane() {
   const [selectedTicket, setSelectedTicket] = useState<TicketSummary | null>(null)
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false)
 
-  // Keyboard shortcuts
+  // Fetch initial dashboard state - defined first to avoid stale closure in shortcuts
+  const fetchDashboard = useCallback(async () => {
+    setLoading(true)
+    try {
+      const response = await fetch('/api/control-plane/dashboard')
+      if (!response.ok) {
+        throw new Error(`Failed to fetch dashboard: ${response.statusText}`)
+      }
+      const data = await response.json()
+      setDashboardState(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load dashboard')
+    } finally {
+      setLoading(false)
+    }
+  }, [setDashboardState, setLoading, setError])
+
+  // Keyboard shortcuts - defined after fetchDashboard to avoid stale closure
   const shortcuts = useMemo(
     () => [
       {
@@ -96,27 +115,10 @@ export function ControlPlane() {
         description: 'Close modals',
       },
     ],
-    []
+    [fetchDashboard]
   )
 
   useKeyboardShortcuts({ shortcuts })
-
-  // Fetch initial dashboard state
-  const fetchDashboard = useCallback(async () => {
-    setLoading(true)
-    try {
-      const response = await fetch('/api/control-plane/dashboard')
-      if (!response.ok) {
-        throw new Error(`Failed to fetch dashboard: ${response.statusText}`)
-      }
-      const data = await response.json()
-      setDashboardState(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load dashboard')
-    } finally {
-      setLoading(false)
-    }
-  }, [setDashboardState, setLoading, setError])
 
   // Handle incoming WebSocket messages
   const onWSMessage = useCallback(
@@ -332,7 +334,7 @@ export function ControlPlane() {
       )}
 
       {/* Main content */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-6 pb-16">
         {isLoading && !lastUpdated ? (
           // Loading state
           <div className="flex items-center justify-center h-full">
@@ -456,6 +458,17 @@ export function ControlPlane() {
         onClose={() => setSelectedTicket(null)}
         ticket={selectedTicket}
       />
+
+      {/* CLI Chat Panel */}
+      <InlineErrorBoundary
+        fallback={
+          <div className="fixed bottom-0 left-64 right-0 z-40 bg-void-800/95 border-t border-void-600/50 px-4 py-3 text-sm text-slate-500">
+            CLI Chat unavailable
+          </div>
+        }
+      >
+        <CLIChatPanel />
+      </InlineErrorBoundary>
     </div>
   )
 }

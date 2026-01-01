@@ -1,20 +1,32 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from './stores/auth'
-import { useCallback } from 'react'
-import { Backups } from './pages/Backups'
+import { useCallback, useState, lazy, Suspense } from 'react'
+// Core pages - loaded immediately
 import { Chat } from './pages/Chat'
 import { ControlPlane } from './pages/ControlPlane'
 import { Login } from './pages/Login'
 import { Onboarding } from './pages/Onboarding'
-import { Settings } from './pages/Settings'
-import { Analyze } from './pages/Analyze'
-import { Tickets } from './pages/Tickets'
-import { Usage } from './pages/Usage'
-import { BibleEditor } from './pages/BibleEditor'
+// Lazy-loaded pages for code splitting
+const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })))
+const Backups = lazy(() => import('./pages/Backups').then(m => ({ default: m.Backups })))
+const Analyze = lazy(() => import('./pages/Analyze').then(m => ({ default: m.Analyze })))
+const Tickets = lazy(() => import('./pages/Tickets').then(m => ({ default: m.Tickets })))
+const Usage = lazy(() => import('./pages/Usage').then(m => ({ default: m.Usage })))
+const BibleEditor = lazy(() => import('./pages/BibleEditor').then(m => ({ default: m.BibleEditor })))
 import { Layout } from './components/Layout'
 import { ToastContainer } from './components/Toast'
 import { OnboardingModal } from './components/onboarding/OnboardingModal'
+import { toast } from './stores/toast'
+
+// Loading fallback for lazy-loaded routes
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-void-900">
+      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-cyan" />
+    </div>
+  )
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -29,9 +41,47 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, onboardingCompleted, completeOnboarding } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
+  const [isRestarting, setIsRestarting] = useState(false)
 
-  const handleOnboardingComplete = useCallback((data: Parameters<typeof completeOnboarding>[0]) => {
-    completeOnboarding(data)
+  const handleOnboardingComplete = useCallback(async (data: Parameters<typeof completeOnboarding>[0]) => {
+    // Complete onboarding - this also reinitializes chat manager with new API keys
+    setIsRestarting(true)
+    toast.info('Applying Configuration', 'Setting up your environment...')
+
+    try {
+      // Call completeOnboarding which saves data and reinitializes chat
+      const response = await fetch('/api/onboarding/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+
+        // Update local state
+        completeOnboarding(data)
+
+        if (result.chatReady) {
+          toast.success('Configuration Applied', 'You\'re all set! Chat is ready.')
+        } else {
+          // Chat couldn't be initialized - may need manual restart
+          toast.warning('Partial Setup', 'Configuration saved. You may need to restart the server for chat.')
+        }
+      } else {
+        toast.error('Setup Error', 'Failed to save configuration. Please try again.')
+      }
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn('Onboarding complete failed:', error)
+      }
+      // Still mark as complete locally so user can proceed
+      completeOnboarding(data)
+      toast.warning('Offline Mode', 'Configuration saved locally. Server sync may be needed.')
+    } finally {
+      setIsRestarting(false)
+    }
+
     // Navigate to Control Plane after onboarding
     if (location.pathname !== '/') {
       navigate('/', { replace: true })
@@ -48,6 +98,17 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (!user) {
     return <Navigate to="/login" replace />
+  }
+
+  // Show restart indicator
+  if (isRestarting) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-void-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cyan mb-4" />
+        <p className="text-cyan font-medium">Applying configuration...</p>
+        <p className="text-slate-500 text-sm mt-2">Server is restarting with your new settings</p>
+      </div>
+    )
   }
 
   // Show onboarding modal for first-time users
@@ -97,7 +158,9 @@ export default function App() {
           path="/analyze"
           element={
             <ProtectedRoute>
-              <Analyze />
+              <Suspense fallback={<PageLoader />}>
+                <Analyze />
+              </Suspense>
             </ProtectedRoute>
           }
         />
@@ -105,7 +168,9 @@ export default function App() {
           path="/usage"
           element={
             <ProtectedRoute>
-              <Usage />
+              <Suspense fallback={<PageLoader />}>
+                <Usage />
+              </Suspense>
             </ProtectedRoute>
           }
         />
@@ -113,7 +178,9 @@ export default function App() {
           path="/settings"
           element={
             <ProtectedRoute>
-              <Settings />
+              <Suspense fallback={<PageLoader />}>
+                <Settings />
+              </Suspense>
             </ProtectedRoute>
           }
         />
@@ -121,7 +188,9 @@ export default function App() {
           path="/backups"
           element={
             <ProtectedRoute>
-              <Backups />
+              <Suspense fallback={<PageLoader />}>
+                <Backups />
+              </Suspense>
             </ProtectedRoute>
           }
         />
@@ -129,7 +198,9 @@ export default function App() {
           path="/tickets"
           element={
             <ProtectedRoute>
-              <Tickets />
+              <Suspense fallback={<PageLoader />}>
+                <Tickets />
+              </Suspense>
             </ProtectedRoute>
           }
         />
@@ -147,7 +218,9 @@ export default function App() {
           path="/bible"
           element={
             <ProtectedRoute>
-              <BibleEditor />
+              <Suspense fallback={<PageLoader />}>
+                <BibleEditor />
+              </Suspense>
             </ProtectedRoute>
           }
         />

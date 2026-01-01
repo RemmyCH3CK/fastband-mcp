@@ -17,17 +17,27 @@ import {
   XCircle,
   AlertCircle,
   RefreshCw,
+  Archive,
+  FolderOpen,
+  Clock,
+  Save,
+  Folder,
+  ChevronRight,
+  ArrowUp,
+  X,
+  Home,
 } from 'lucide-react'
 import { useAuthStore } from '../stores/auth'
 import { useSessionStore } from '../stores/session'
 import { Layout } from '../components/Layout'
 import { toast } from '../stores/toast'
 
-type Tab = 'profile' | 'ai-providers' | 'billing' | 'notifications' | 'security'
+type Tab = 'profile' | 'ai-providers' | 'backup' | 'billing' | 'notifications' | 'security'
 
 const tabs: { id: Tab; label: string; icon: typeof User }[] = [
   { id: 'profile', label: 'Profile', icon: User },
   { id: 'ai-providers', label: 'AI Providers', icon: Bot },
+  { id: 'backup', label: 'Backup', icon: Archive },
   { id: 'billing', label: 'Billing', icon: CreditCard },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'security', label: 'Security', icon: Shield },
@@ -94,6 +104,21 @@ export function Settings() {
   })
   const [savingProvider, setSavingProvider] = useState<string | null>(null)
 
+  // Backup settings state
+  const [backupPath, setBackupPath] = useState('.fastband/backups')
+  const [backupRetentionDays, setBackupRetentionDays] = useState(3)
+  const [backupIntervalHours, setBackupIntervalHours] = useState(2)
+  const [backupMaxCount, setBackupMaxCount] = useState(50)
+  const [loadingBackup, setLoadingBackup] = useState(false)
+  const [savingBackup, setSavingBackup] = useState(false)
+
+  // Folder browser state
+  const [showFolderBrowser, setShowFolderBrowser] = useState(false)
+  const [browserPath, setBrowserPath] = useState('~')
+  const [browserEntries, setBrowserEntries] = useState<{ name: string; path: string }[]>([])
+  const [browserParent, setBrowserParent] = useState<string | null>(null)
+  const [browserLoading, setBrowserLoading] = useState(false)
+
   const { user, resetOnboarding } = useAuthStore()
   const { tier } = useSessionStore()
 
@@ -101,6 +126,104 @@ export function Settings() {
   useEffect(() => {
     checkProviderStatus()
   }, [])
+
+  // Load backup config on mount
+  useEffect(() => {
+    loadBackupConfig()
+  }, [])
+
+  const loadBackupConfig = async () => {
+    setLoadingBackup(true)
+    try {
+      const response = await fetch('/api/backups/config')
+      if (response.ok) {
+        const data = await response.json()
+        setBackupPath(data.backup_path || '.fastband/backups')
+        setBackupRetentionDays(data.retention_days ?? 3)
+        setBackupIntervalHours(data.interval_hours ?? 2)
+        setBackupMaxCount(data.max_backups ?? 50)
+      }
+    } catch {
+      console.log('Backup config not available')
+    } finally {
+      setLoadingBackup(false)
+    }
+  }
+
+  const saveBackupConfig = async () => {
+    setSavingBackup(true)
+    try {
+      const response = await fetch('/api/backups/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          backup_path: backupPath,
+          retention_days: backupRetentionDays,
+          interval_hours: backupIntervalHours,
+          max_backups: backupMaxCount,
+        }),
+      })
+
+      if (response.ok) {
+        toast.success('Backup Settings Saved', 'Your backup configuration has been updated.')
+      } else {
+        const error = await response.json()
+        toast.error('Failed to save', error.detail || 'Please try again')
+      }
+    } catch {
+      toast.error('Connection Error', 'Failed to connect to server')
+    } finally {
+      setSavingBackup(false)
+    }
+  }
+
+  const browseFolders = async (path: string) => {
+    setBrowserLoading(true)
+    try {
+      const response = await fetch(`/api/filesystem/browse?path=${encodeURIComponent(path)}`)
+      if (response.ok) {
+        const data = await response.json()
+        setBrowserPath(data.current_path)
+        setBrowserParent(data.parent_path)
+        setBrowserEntries(data.entries)
+      } else {
+        const error = await response.json()
+        toast.error('Browse Error', error.detail || 'Cannot access folder')
+      }
+    } catch {
+      toast.error('Connection Error', 'Failed to browse filesystem')
+    } finally {
+      setBrowserLoading(false)
+    }
+  }
+
+  const openFolderBrowser = async () => {
+    // Try native macOS Finder folder picker first
+    try {
+      const response = await fetch('/api/filesystem/pick-folder', {
+        method: 'POST',
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setBackupPath(data.path)
+        return
+      } else if (response.status === 400) {
+        // User cancelled - do nothing
+        return
+      }
+      // Fall through to custom browser for other errors
+    } catch {
+      // Fall back to custom browser
+    }
+    // Fallback to custom browser
+    setShowFolderBrowser(true)
+    browseFolders('~')
+  }
+
+  const selectFolder = (path: string) => {
+    setBackupPath(path)
+    setShowFolderBrowser(false)
+  }
 
   const checkProviderStatus = async () => {
     try {
@@ -540,6 +663,196 @@ export OPENAI_API_KEY=sk-...`}
             </div>
           )}
 
+          {/* Backup tab */}
+          {activeTab === 'backup' && (
+            <div className="space-y-6">
+              {/* Overview */}
+              <div className="bg-gradient-to-r from-cyan-900/50 to-blue-900/50 rounded-lg p-6 border border-cyan-500/30">
+                <h2 className="text-lg font-semibold text-white mb-2">
+                  Backup Configuration
+                </h2>
+                <p className="text-gray-300 text-sm">
+                  Configure where backups are stored and how long they're retained.
+                  Backups include your database, configuration, and ticket history.
+                </p>
+              </div>
+
+              {/* Storage Location */}
+              <div className="bg-gray-800 rounded-lg p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+                    <FolderOpen className="w-5 h-5 text-cyan-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-white">Storage Location</h3>
+                    <p className="text-sm text-gray-400">Where backups are saved</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                      Backup Path
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={backupPath}
+                        onChange={(e) => setBackupPath(e.target.value)}
+                        placeholder=".fastband/backups"
+                        disabled={loadingBackup}
+                        className={clsx(
+                          'flex-1 px-4 py-3 rounded-lg',
+                          'bg-gray-700 border border-gray-600 text-white',
+                          'focus:border-cyan-500 focus:outline-none',
+                          'placeholder:text-gray-500',
+                          'disabled:opacity-50'
+                        )}
+                      />
+                      <button
+                        type="button"
+                        onClick={openFolderBrowser}
+                        disabled={loadingBackup}
+                        className={clsx(
+                          'px-4 py-3 rounded-lg',
+                          'bg-cyan-600/20 border border-cyan-500/50 text-cyan-400',
+                          'hover:bg-cyan-600/30 transition-colors',
+                          'disabled:opacity-50 disabled:cursor-not-allowed',
+                          'flex items-center gap-2'
+                        )}
+                      >
+                        <FolderOpen className="w-5 h-5" />
+                        Browse
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Relative to project root, or use an absolute path like /Volumes/backup/fastband
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Retention Settings */}
+              <div className="bg-gray-800 rounded-lg p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-purple-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-white">Retention Settings</h3>
+                    <p className="text-sm text-gray-400">How long to keep backups</p>
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                      Retention Days
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={backupRetentionDays}
+                      onChange={(e) => setBackupRetentionDays(Number(e.target.value))}
+                      disabled={loadingBackup}
+                      className={clsx(
+                        'w-full px-4 py-3 rounded-lg',
+                        'bg-gray-700 border border-gray-600 text-white',
+                        'focus:border-purple-500 focus:outline-none',
+                        'disabled:opacity-50'
+                      )}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Days to keep backups</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                      Backup Interval
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={24}
+                      value={backupIntervalHours}
+                      onChange={(e) => setBackupIntervalHours(Number(e.target.value))}
+                      disabled={loadingBackup}
+                      className={clsx(
+                        'w-full px-4 py-3 rounded-lg',
+                        'bg-gray-700 border border-gray-600 text-white',
+                        'focus:border-purple-500 focus:outline-none',
+                        'disabled:opacity-50'
+                      )}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Hours between backups</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                      Max Backups
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={1000}
+                      value={backupMaxCount}
+                      onChange={(e) => setBackupMaxCount(Number(e.target.value))}
+                      disabled={loadingBackup}
+                      className={clsx(
+                        'w-full px-4 py-3 rounded-lg',
+                        'bg-gray-700 border border-gray-600 text-white',
+                        'focus:border-purple-500 focus:outline-none',
+                        'disabled:opacity-50'
+                      )}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Total backups to keep</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Save Button */}
+              <div className="flex justify-end">
+                <button
+                  onClick={saveBackupConfig}
+                  disabled={savingBackup || loadingBackup}
+                  className={clsx(
+                    'flex items-center gap-2 px-6 py-3 rounded-lg',
+                    'bg-cyan-600 text-white font-medium',
+                    'hover:bg-cyan-700 transition-colors',
+                    'disabled:opacity-50 disabled:cursor-not-allowed'
+                  )}
+                >
+                  {savingBackup ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      Save Backup Settings
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Current backup info */}
+              <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+                <h4 className="text-sm font-medium text-gray-300 mb-2">
+                  Current Configuration
+                </h4>
+                <pre className="text-xs text-gray-400 bg-gray-900 p-3 rounded overflow-x-auto">
+{`# Backup settings in .fastband/config.yaml
+backup:
+  backup_path: "${backupPath}"
+  retention_days: ${backupRetentionDays}
+  interval_hours: ${backupIntervalHours}
+  max_backups: ${backupMaxCount}`}
+                </pre>
+              </div>
+            </div>
+          )}
+
           {/* Billing tab */}
           {activeTab === 'billing' && (
             <div className="space-y-6">
@@ -714,6 +1027,103 @@ export OPENAI_API_KEY=sk-...`}
           )}
         </div>
       </div>
+
+      {/* Folder Browser Modal */}
+      {showFolderBrowser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-gray-900 rounded-xl border border-gray-700 w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
+              <h3 className="text-lg font-semibold text-white">Select Backup Folder</h3>
+              <button
+                onClick={() => setShowFolderBrowser(false)}
+                className="p-2 rounded-lg hover:bg-gray-700 text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Current Path */}
+            <div className="px-6 py-3 bg-gray-800/50 border-b border-gray-700 flex items-center gap-2">
+              <button
+                onClick={() => browseFolders('~')}
+                className="p-1.5 rounded hover:bg-gray-700 text-gray-400 hover:text-cyan-400 transition-colors"
+                title="Home"
+              >
+                <Home className="w-4 h-4" />
+              </button>
+              {browserParent && (
+                <button
+                  onClick={() => browseFolders(browserParent)}
+                  className="p-1.5 rounded hover:bg-gray-700 text-gray-400 hover:text-cyan-400 transition-colors"
+                  title="Go up"
+                >
+                  <ArrowUp className="w-4 h-4" />
+                </button>
+              )}
+              <div className="flex-1 px-3 py-1.5 bg-gray-700 rounded text-sm text-gray-300 font-mono truncate">
+                {browserPath}
+              </div>
+            </div>
+
+            {/* Folder List */}
+            <div className="flex-1 overflow-y-auto p-2">
+              {browserLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin text-cyan-400" />
+                </div>
+              ) : browserEntries.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  No subfolders found
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {browserEntries.map((entry) => (
+                    <button
+                      key={entry.path}
+                      onClick={() => browseFolders(entry.path)}
+                      className={clsx(
+                        'w-full flex items-center gap-3 px-4 py-2.5 rounded-lg',
+                        'hover:bg-gray-700/50 transition-colors text-left group'
+                      )}
+                    >
+                      <Folder className="w-5 h-5 text-cyan-400" />
+                      <span className="flex-1 text-gray-200">{entry.name}</span>
+                      <ChevronRight className="w-4 h-4 text-gray-500 group-hover:text-gray-300" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-700 bg-gray-800/50">
+              <p className="text-sm text-gray-400">
+                Select a folder or navigate to create a new one
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowFolderBrowser(false)}
+                  className="px-4 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => selectFolder(browserPath)}
+                  className={clsx(
+                    'px-4 py-2 rounded-lg font-medium',
+                    'bg-cyan-600 text-white hover:bg-cyan-700 transition-colors',
+                    'flex items-center gap-2'
+                  )}
+                >
+                  <Check className="w-4 h-4" />
+                  Select This Folder
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   )
 }

@@ -31,10 +31,34 @@ _app: FastAPI | None = None
 _chat_manager: ChatManager | None = None
 
 
+def _load_env_file():
+    """Load .env file from .fastband directory if it exists."""
+    from pathlib import Path
+
+    env_path = Path.cwd() / ".fastband" / ".env"
+    if env_path.exists():
+        try:
+            with open(env_path) as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        key, value = line.split("=", 1)
+                        # Only set if not already in environment
+                        if key not in os.environ:
+                            os.environ[key] = value
+                            logger.debug(f"Loaded {key} from .fastband/.env")
+            logger.info(f"Loaded environment from {env_path}")
+        except Exception as e:
+            logger.warning(f"Failed to load .env file: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     global _chat_manager
+
+    # Load .env file from .fastband directory
+    _load_env_file()
 
     logger.info("Starting Fastband AI Hub...")
 
@@ -213,3 +237,44 @@ def get_chat_manager() -> ChatManager | None:
         ChatManager or None if not initialized
     """
     return _chat_manager
+
+
+async def reinitialize_chat_manager(app: FastAPI) -> bool:
+    """Reinitialize the chat manager with current environment.
+
+    Call this after API keys are set (e.g., after onboarding completes)
+    to enable chat without requiring a server restart.
+
+    Returns:
+        True if chat manager was successfully initialized
+    """
+    global _chat_manager
+
+    try:
+        from fastband.providers import get_provider
+
+        # Try to get a provider with the new keys
+        provider = get_provider("claude")
+
+        if provider:
+            # Shutdown existing chat manager if any
+            if _chat_manager:
+                await _chat_manager.shutdown()
+
+            # Create new chat manager
+            _chat_manager = ChatManager(
+                ai_provider=provider,
+                session_manager=get_session_manager(),
+                memory_store=getattr(app.state, "memory", None),
+            )
+            await _chat_manager.initialize()
+
+            # Update app state
+            app.state.chat_manager = _chat_manager
+
+            logger.info("Chat manager reinitialized with new API keys")
+            return True
+    except Exception as e:
+        logger.warning(f"Could not reinitialize chat manager: {e}")
+
+    return False
