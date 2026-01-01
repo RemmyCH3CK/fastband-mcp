@@ -3,15 +3,25 @@ Fastband AI Hub - FastAPI Application.
 
 Main FastAPI application with middleware, error handling,
 and lifecycle management.
+
+Security Features:
+- Rate limiting (token bucket algorithm)
+- Security headers (X-Frame-Options, CSP, etc.)
+- Request size limits
+- CORS with explicit origins
 """
 
 import logging
 import os
+import time
+from collections import defaultdict
 from contextlib import asynccontextmanager
+from typing import Callable
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from fastband import __version__
 from fastband.hub.api.routes import router
@@ -25,6 +35,142 @@ logger = logging.getLogger(__name__)
 
 # Dev mode - skip memory/embeddings when no API keys
 DEV_MODE = os.environ.get("FASTBAND_DEV_MODE", "").lower() in ("1", "true", "yes")
+
+# Security constants
+MAX_REQUEST_SIZE = 10 * 1024 * 1024  # 10MB max request body
+RATE_LIMIT_REQUESTS = 100  # requests per window
+RATE_LIMIT_WINDOW = 60  # seconds
+
+
+class RateLimiter:
+    """Simple in-memory token bucket rate limiter.
+
+    For production, consider Redis-backed rate limiting.
+    """
+
+    def __init__(self, requests_per_window: int = 100, window_seconds: int = 60):
+        self.requests_per_window = requests_per_window
+        self.window_seconds = window_seconds
+        self._buckets: dict[str, list[float]] = defaultdict(list)
+
+    def _get_client_id(self, request: Request) -> str:
+        """Get client identifier from request."""
+        # Use forwarded header if behind proxy, otherwise use client host
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+        return request.client.host if request.client else "unknown"
+
+    def is_allowed(self, request: Request) -> tuple[bool, dict[str, int]]:
+        """Check if request is allowed under rate limit.
+
+        Returns:
+            Tuple of (is_allowed, headers_dict with rate limit info)
+        """
+        client_id = self._get_client_id(request)
+        now = time.time()
+        window_start = now - self.window_seconds
+
+        # Clean old entries and count recent requests
+        self._buckets[client_id] = [
+            t for t in self._buckets[client_id] if t > window_start
+        ]
+        request_count = len(self._buckets[client_id])
+
+        headers = {
+            "X-RateLimit-Limit": self.requests_per_window,
+            "X-RateLimit-Remaining": max(0, self.requests_per_window - request_count - 1),
+            "X-RateLimit-Reset": int(window_start + self.window_seconds),
+        }
+
+        if request_count >= self.requests_per_window:
+            return False, headers
+
+        # Record this request
+        self._buckets[client_id].append(now)
+        return True, headers
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Add security headers to all responses."""
+
+    async def dispatch(self, request: Request, call_next: Callable):
+        response = await call_next(request)
+
+        # Security headers
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+
+        # Content Security Policy (relaxed for SPA)
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: blob:; "
+            "font-src 'self' data:; "
+            "connect-src 'self' ws: wss:; "
+            "frame-ancestors 'none'"
+        )
+
+        return response
+
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Rate limiting middleware."""
+
+    def __init__(self, app, limiter: RateLimiter):
+        super().__init__(app)
+        self.limiter = limiter
+
+    async def dispatch(self, request: Request, call_next: Callable):
+        # Skip rate limiting for static assets and health checks
+        if request.url.path.startswith(("/assets/", "/favicon", "/health")):
+            return await call_next(request)
+
+        allowed, headers = self.limiter.is_allowed(request)
+
+        if not allowed:
+            return JSONResponse(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                content={"error": "Rate limit exceeded. Please try again later."},
+                headers={k: str(v) for k, v in headers.items()},
+            )
+
+        response = await call_next(request)
+
+        # Add rate limit headers to response
+        for key, value in headers.items():
+            response.headers[key] = str(value)
+
+        return response
+
+
+class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
+    """Limit request body size."""
+
+    def __init__(self, app, max_size: int = MAX_REQUEST_SIZE):
+        super().__init__(app)
+        self.max_size = max_size
+
+    async def dispatch(self, request: Request, call_next: Callable):
+        content_length = request.headers.get("content-length")
+
+        if content_length and int(content_length) > self.max_size:
+            return JSONResponse(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                content={
+                    "error": f"Request body too large. Maximum size is {self.max_size // (1024*1024)}MB."
+                },
+            )
+
+        return await call_next(request)
+
+
+# Global rate limiter instance
+_rate_limiter = RateLimiter(RATE_LIMIT_REQUESTS, RATE_LIMIT_WINDOW)
 
 # Global app instance
 _app: FastAPI | None = None
@@ -192,6 +338,11 @@ def create_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Add security middleware (order matters - first added = last executed)
+    _app.add_middleware(SecurityHeadersMiddleware)
+    _app.add_middleware(RateLimitMiddleware, limiter=_rate_limiter)
+    _app.add_middleware(RequestSizeLimitMiddleware)
 
     # Add exception handlers
     @_app.exception_handler(ValueError)

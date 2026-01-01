@@ -425,12 +425,13 @@ async def send_message(
             return ChatResponse(
                 message_id=str(uuid.uuid4()),
                 role="assistant",
-                content=f'🔧 {error_msg}. Please refresh the page to start a new session.',
+                content="🔧 Session expired. Please refresh the page to start a new session.",
                 tokens_used=50,
                 conversation_id=request.conversation_id or "dev-conv-1",
                 tool_calls=[],
             )
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.warning(f"Chat request validation error: {e}")
+        raise HTTPException(status_code=400, detail="Invalid request")
 
 
 @router.post("/chat/stream")
@@ -846,9 +847,9 @@ async def analyze_codebase(request: AnalyzeRequest):
         # Local directory analysis
         path = Path(request.path)
         if not path.exists():
-            raise HTTPException(status_code=400, detail=f"Path does not exist: {request.path}")
+            raise HTTPException(status_code=400, detail="Path does not exist")
         if not path.is_dir():
-            raise HTTPException(status_code=400, detail=f"Path is not a directory: {request.path}")
+            raise HTTPException(status_code=400, detail="Path is not a directory")
 
         report = await analyzer.analyze_local(path)
 
@@ -1252,12 +1253,16 @@ async def pick_folder_native() -> dict:
     except subprocess.TimeoutExpired:
         raise HTTPException(status_code=408, detail="Folder selection timed out")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Native folder picker failed: {e}")
+        raise HTTPException(status_code=500, detail="Folder selection failed")
 
 
 @router.get("/filesystem/browse")
 async def browse_filesystem(path: str = "~") -> DirectoryListResponse:
-    """Browse filesystem directories for folder selection."""
+    """Browse filesystem directories for folder selection.
+
+    Security: Only allows browsing within home directory, cwd, or /Volumes.
+    """
     from pathlib import Path
 
     # Expand ~ to home directory
@@ -1270,13 +1275,31 @@ async def browse_filesystem(path: str = "~") -> DirectoryListResponse:
     try:
         browse_path = browse_path.resolve()
     except Exception:
-        raise HTTPException(status_code=400, detail=f"Invalid path: {path}")
+        raise HTTPException(status_code=400, detail="Invalid path")
+
+    # SECURITY: Restrict browsing to allowed roots only
+    allowed_roots = [
+        Path.home().resolve(),
+        Path.cwd().resolve(),
+        Path("/Volumes").resolve() if Path("/Volumes").exists() else None,
+    ]
+    allowed_roots = [r for r in allowed_roots if r is not None]
+
+    is_allowed = any(
+        browse_path == root or browse_path.is_relative_to(root)
+        for root in allowed_roots
+    )
+    if not is_allowed:
+        raise HTTPException(
+            status_code=403,
+            detail="Access to this directory is not allowed"
+        )
 
     if not browse_path.exists():
-        raise HTTPException(status_code=404, detail=f"Path not found: {path}")
+        raise HTTPException(status_code=404, detail="Path not found")
 
     if not browse_path.is_dir():
-        raise HTTPException(status_code=400, detail=f"Not a directory: {path}")
+        raise HTTPException(status_code=400, detail="Not a directory")
 
     # Get parent path
     parent_path = str(browse_path.parent) if browse_path.parent != browse_path else None
@@ -1295,7 +1318,7 @@ async def browse_filesystem(path: str = "~") -> DirectoryListResponse:
                     is_dir=True,
                 ))
     except PermissionError:
-        raise HTTPException(status_code=403, detail=f"Permission denied: {path}")
+        raise HTTPException(status_code=403, detail="Permission denied")
 
     return DirectoryListResponse(
         current_path=str(browse_path),
@@ -1439,7 +1462,7 @@ async def create_backup(request: BackupCreateRequest) -> BackupResponse:
         )
     except Exception as e:
         logger.error(f"Backup creation failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Backup failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Backup creation failed")
 
 
 @router.get("/backups/{backup_id}")
@@ -1580,11 +1603,11 @@ async def start_scheduler() -> dict:
                 return {"started": False, "message": "Scheduler process started but not running"}
         except Exception as e:
             logger.error(f"Failed to start scheduler subprocess: {e}")
-            return {"started": False, "message": str(e)}
+            return {"started": False, "message": "Failed to start scheduler process"}
 
     except Exception as e:
         logger.error(f"Scheduler start failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Scheduler start failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Scheduler start failed")
 
 
 @router.post("/backups/scheduler/stop")
@@ -2794,6 +2817,8 @@ async def browse_directories(request: DirectoryListRequest):
 
     Used by the onboarding wizard for project path selection.
     Only returns directories, not files.
+
+    Security: Only allows browsing within home directory, cwd, or /Volumes.
     """
     from pathlib import Path
 
@@ -2801,6 +2826,22 @@ async def browse_directories(request: DirectoryListRequest):
     try:
         path = Path(request.path).expanduser().resolve()
     except Exception:
+        path = Path.home()
+
+    # SECURITY: Restrict browsing to allowed roots only
+    allowed_roots = [
+        Path.home().resolve(),
+        Path.cwd().resolve(),
+        Path("/Volumes").resolve() if Path("/Volumes").exists() else None,
+    ]
+    allowed_roots = [r for r in allowed_roots if r is not None]
+
+    is_allowed = any(
+        path == root or path.is_relative_to(root)
+        for root in allowed_roots
+    )
+    if not is_allowed:
+        # Fall back to home directory if path not allowed
         path = Path.home()
 
     # If path doesn't exist or isn't a directory, fall back to home
