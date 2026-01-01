@@ -23,6 +23,7 @@ from fastband.hub.models import (
     Conversation,
     HubSession,
     MemoryContext,
+    ModelMode,
     ToolCall,
 )
 
@@ -248,8 +249,14 @@ class MessagePipeline:
 
         Returns:
             ChatMessage or async generator of content chunks
+
+        Note:
+            Uses try/finally to ensure cleanup runs even if the async generator
+            is abandoned (GeneratorExit). This prevents resource leaks and ensures
+            memory storage and post-hooks execute properly.
         """
         start_time = time.time()
+        processing_error = None
 
         # Run pre-hooks
         for hook in self._pre_hooks:
@@ -270,27 +277,40 @@ class MessagePipeline:
                 response = await self._complete(context, messages)
                 context.response_content = response
 
-            # Stage 4: Store in memory
-            await self._store_memory(context)
-
-            context.processing_time_ms = int((time.time() - start_time) * 1000)
-
-            # Run post-hooks
-            for hook in self._post_hooks:
-                await hook(context) if asyncio.iscoroutinefunction(hook) else hook(context)
-
+            # Yield final response for non-streaming mode
             if not stream:
                 yield ChatMessage.assistant(
                     content=context.response_content,
                     tokens_used=context.tokens_used,
                 )
 
+        except GeneratorExit:
+            # Generator was abandoned by consumer - still run cleanup
+            logger.debug("Pipeline generator closed early by consumer")
+            raise
         except Exception as e:
             logger.error(f"Pipeline error: {e}")
+            processing_error = e
             yield ChatMessage.assistant(
                 content=f"I encountered an error processing your request: {e}",
                 tokens_used=0,
             )
+        finally:
+            # CRITICAL: Cleanup runs even if generator is abandoned
+            # This ensures memory storage and post-hooks always execute
+            try:
+                await self._store_memory(context)
+            except Exception as e:
+                logger.warning(f"Failed to store memory during cleanup: {e}")
+
+            context.processing_time_ms = int((time.time() - start_time) * 1000)
+
+            # Run post-hooks (with individual error handling)
+            for hook in self._post_hooks:
+                try:
+                    await hook(context) if asyncio.iscoroutinefunction(hook) else hook(context)
+                except Exception as e:
+                    logger.warning(f"Post-hook error: {e}")
 
     async def _enrich_context(self, context: PipelineContext) -> None:
         """Enrich context with memory and tool availability."""
@@ -352,6 +372,29 @@ class MessagePipeline:
 
         return "\n".join(parts)
 
+    def _get_model_for_context(self, context: PipelineContext) -> str:
+        """Get the appropriate model for the current context.
+
+        Uses auto model selection if enabled, otherwise uses the fixed model.
+
+        Args:
+            context: Pipeline context with session config
+
+        Returns:
+            Model ID string
+        """
+        config = context.session.config
+
+        if config.model_mode == ModelMode.AUTO:
+            # Use auto model selection based on task type
+            if hasattr(self.provider, "get_model_for_task_type"):
+                return self.provider.get_model_for_task_type(config.task_type)
+            elif hasattr(self.provider, "get_recommended_model"):
+                return self.provider.get_recommended_model(config.task_type)
+
+        # Fixed mode - use configured model
+        return config.model
+
     async def _complete(
         self,
         context: PipelineContext,
@@ -362,13 +405,18 @@ class MessagePipeline:
         max_iterations = 10
         iteration = 0
 
+        # Get model based on mode (auto or fixed)
+        model = self._get_model_for_context(context)
+        logger.debug(f"Using model: {model} (mode: {context.session.config.model_mode})")
+
         while iteration < max_iterations:
             iteration += 1
 
-            # Get completion
+            # Get completion with selected model
             response = await self.provider.complete_with_tools(
                 messages=messages,
                 tools=tools,
+                model=model,
                 temperature=context.session.config.temperature,
                 max_tokens=context.session.config.max_tokens,
             )
@@ -424,9 +472,13 @@ class MessagePipeline:
         """Stream AI completion with tool execution."""
         tools = self.executor.get_available_tools()
 
+        # Get model based on mode (auto or fixed)
+        model = self._get_model_for_context(context)
+
         async for chunk in self.provider.stream(
             messages=messages,
             tools=tools,
+            model=model,
             temperature=context.session.config.temperature,
             max_tokens=context.session.config.max_tokens,
         ):

@@ -162,20 +162,44 @@ def mount_dashboard(app) -> bool:
 
             return JSONResponse(status_code=404, content={"error": "Not found", "path": full_path})
 
-        # SECURITY: Validate path doesn't escape static_dir (path traversal protection)
-        try:
-            requested_path = (static_dir / full_path).resolve()
-            static_dir_resolved = static_dir.resolve()
+        # SECURITY: Validate path BEFORE resolution to prevent path traversal
+        # Check for dangerous patterns in the raw path first
+        if ".." in full_path or full_path.startswith("/") or "\x00" in full_path:
+            # Path traversal attempt - serve index.html
+            return FileResponse(index_path)
 
-            # Ensure path is within static_dir
+        # Check for URL-encoded traversal attempts
+        if "%2e" in full_path.lower() or "%2f" in full_path.lower() or "%00" in full_path.lower():
+            return FileResponse(index_path)
+
+        try:
+            # Now safe to construct and resolve the path
+            static_dir_resolved = static_dir.resolve()
+            requested_path = (static_dir / full_path).resolve()
+
+            # Ensure resolved path is within static_dir (defense in depth)
             requested_path.relative_to(static_dir_resolved)
 
-            # Serve file if it exists and is not a symlink
-            if requested_path.is_file() and not requested_path.is_symlink():
+            # Check symlinks BEFORE serving - reject if path or any parent is a symlink
+            # This prevents symlink-based escapes
+            original_path = static_dir / full_path
+            if original_path.exists():
+                # Check if the file itself is a symlink
+                if original_path.is_symlink():
+                    return FileResponse(index_path)
+                # Check parents for symlinks (up to static_dir)
+                current = original_path
+                while current != static_dir and current.parent != current:
+                    if current.is_symlink():
+                        return FileResponse(index_path)
+                    current = current.parent
+
+            # Serve file if it exists and passed all security checks
+            if requested_path.is_file():
                 return FileResponse(requested_path)
 
         except (ValueError, OSError):
-            # Path traversal attempt or invalid path - ignore and serve index
+            # Path traversal attempt or invalid path - serve index
             pass
 
         # Otherwise, serve index.html for SPA routing

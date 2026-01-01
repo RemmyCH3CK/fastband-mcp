@@ -2161,6 +2161,30 @@ async def complete_onboarding(data: OnboardingDataRequest, request: Request) -> 
 _last_restart_time: float = 0
 _restart_cooldown_seconds: float = 60.0  # Minimum 60s between restarts
 
+# Valid restart tokens (populated from config or generated)
+_valid_restart_tokens: set[str] = set()
+
+
+def _get_or_create_restart_token() -> str:
+    """Get or create a restart token from environment or generate one."""
+    import secrets
+    token = os.environ.get("FASTBAND_RESTART_TOKEN")
+    if not token:
+        # Generate a secure token and store it
+        token = secrets.token_urlsafe(32)
+        os.environ["FASTBAND_RESTART_TOKEN"] = token
+    _valid_restart_tokens.add(token)
+    return token
+
+
+def _validate_restart_token(token: str) -> bool:
+    """Validate a restart token."""
+    if not token:
+        return False
+    # Ensure we have a valid token to compare against
+    _get_or_create_restart_token()
+    return token in _valid_restart_tokens
+
 
 @router.post("/server/restart")
 async def restart_server(request: Request) -> dict:
@@ -2172,9 +2196,9 @@ async def restart_server(request: Request) -> dict:
     3. Apply new provider settings
 
     Security:
-    - Requires valid session (checked via Authorization header or session cookie)
+    - Requires valid Bearer token (FASTBAND_RESTART_TOKEN env var) OR localhost
     - Rate limited to once per 60 seconds
-    - Requires local request (localhost only in production)
+    - Localhost requests are allowed for local development
     """
     import signal
     import threading
@@ -2191,19 +2215,27 @@ async def restart_server(request: Request) -> dict:
             detail=f"Rate limited. Try again in {remaining} seconds."
         )
 
-    # Basic authorization check - require auth header or localhost
+    # SECURITY: Proper authorization check with token validation
     auth_header = request.headers.get("Authorization", "")
     client_host = request.client.host if request.client else "unknown"
 
-    # Allow only authenticated users OR localhost requests
+    # Check if localhost (allowed for local development)
     is_localhost = client_host in ("127.0.0.1", "localhost", "::1")
-    has_auth = auth_header.startswith("Bearer ")
 
-    if not (is_localhost or has_auth):
+    # Validate Bearer token if provided
+    is_authenticated = False
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:].strip()  # Extract token after "Bearer "
+        is_authenticated = _validate_restart_token(token)
+        if not is_authenticated:
+            logger.warning(f"Invalid restart token from {client_host}")
+
+    # Require either localhost OR valid authentication
+    if not (is_localhost or is_authenticated):
         logger.warning(f"Unauthorized restart attempt from {client_host}")
         raise HTTPException(
             status_code=401,
-            detail="Authentication required for server restart"
+            detail="Authentication required for server restart. Use Bearer token or connect from localhost."
         )
 
     # Update rate limit timestamp
