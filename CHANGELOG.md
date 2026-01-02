@@ -9,6 +9,22 @@ and this project adheres to a hybrid versioning scheme: `vMAJOR.YYYY.MM.PATCH[-p
 
 ## [1.2026.01.02] - 2026-01-01
 
+### Added
+
+#### Enterprise Features
+- **API Versioning** - New `/api/v1/` prefix for all routes with deprecation headers on legacy `/api/` endpoints
+- **JWT Authentication** - Standalone JWT auth module with roles, permissions, and FastAPI dependencies
+- **OpenTelemetry Tracing** - Distributed tracing with OTLP/Jaeger/Zipkin export support
+- **Circuit Breakers** - Resilience pattern for AI provider failures with configurable thresholds
+- **Redis Session Store** - Horizontal scaling support with Redis-backed session management
+- **Alembic Migrations** - Database schema versioning with `fastband db` CLI commands
+
+#### Infrastructure
+- **Kubernetes Health Probes** - `/api/health/live` and `/api/health/ready` endpoints
+- **Standardized Error Responses** - Consistent error format with request IDs and error codes
+- **Pagination** - Cursor-based pagination for list endpoints (tickets, conversations, backups)
+- **5-Tier Memory Architecture** - Session, conversation, working, reference, and archival memory tiers
+
 ### Security
 
 #### Fixed (Critical)
@@ -27,10 +43,13 @@ and this project adheres to a hybrid versioning scheme: `vMAJOR.YYYY.MM.PATCH[-p
 - **Browse path restrictions** - Limited filesystem browsing to home/cwd/Volumes only
 - **Conversation memory limits** - MAX_MESSAGES=500 to prevent unbounded growth
 
-#### Changed
+### Changed
 - Error messages no longer leak internal paths or exception details
 - Session timeout enforcement already implemented (30 min idle cleanup)
 - Health check endpoint already exists at `/api/health`
+
+### Fixed
+- Screenshot validation tests now use real temporary files
 
 ## [1.2025.12.6] - 2025-12-30
 
