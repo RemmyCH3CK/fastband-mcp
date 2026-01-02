@@ -229,7 +229,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Callable):
         # Skip rate limiting for static assets and health checks (including K8s probes)
-        skip_paths = ("/assets/", "/favicon", "/health", "/api/health")
+        skip_paths = ("/assets/", "/favicon", "/health", "/api/health", "/api/v1/health", "/api/version")
         if request.url.path.startswith(skip_paths):
             return await call_next(request)
 
@@ -275,6 +275,50 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if forwarded:
             return forwarded.split(",")[0].strip()
         return request.client.host if request.client else "unknown"
+
+
+# =============================================================================
+# API VERSIONING
+# =============================================================================
+
+# Current API version
+API_VERSION = "v1"
+API_VERSION_HEADER = "X-API-Version"
+DEPRECATED_API_WARNING = (
+    "This endpoint is deprecated. Please use /api/v1/ prefix instead. "
+    "The /api/ prefix will be removed in a future release."
+)
+
+
+class APIVersionMiddleware(BaseHTTPMiddleware):
+    """API versioning middleware.
+
+    Adds API version headers to responses and deprecation warnings
+    for legacy endpoints.
+    """
+
+    async def dispatch(self, request: Request, call_next: Callable):
+        response = await call_next(request)
+
+        # Add API version header to all API responses
+        if request.url.path.startswith("/api"):
+            response.headers[API_VERSION_HEADER] = API_VERSION
+
+            # Add deprecation warning for legacy /api/ endpoints (not /api/v1/)
+            if request.url.path.startswith("/api/") and not request.url.path.startswith(
+                "/api/v1/"
+            ):
+                response.headers["Deprecation"] = "true"
+                response.headers["Sunset"] = "2026-07-01T00:00:00Z"  # 6 months notice
+                response.headers["Link"] = (
+                    f'</api/v1{request.url.path[4:]}>; rel="successor-version"'
+                )
+                # Log deprecation usage (could use for migration tracking)
+                logger.debug(
+                    f"Deprecated API endpoint used: {request.url.path} -> /api/v1{request.url.path[4:]}"
+                )
+
+        return response
 
 
 class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
@@ -571,6 +615,7 @@ def create_app(
     _app.add_middleware(CSRFMiddleware)
     _app.add_middleware(RateLimitMiddleware, limiter=_rate_limiter)
     _app.add_middleware(RequestSizeLimitMiddleware)
+    _app.add_middleware(APIVersionMiddleware)
 
     # Add exception handlers with standardized error responses
 
@@ -636,7 +681,31 @@ def create_app(
             request=request,
         )
 
-    # Include routes
+    # ==========================================================================
+    # API VERSIONED ROUTES
+    # ==========================================================================
+
+    # Add version info endpoint at /api/version (always available)
+    @_app.get("/api/version", tags=["API Info"])
+    async def get_api_version():
+        """Get API version information.
+
+        Returns current API version and deprecation status of legacy endpoints.
+        """
+        return {
+            "version": API_VERSION,
+            "current_prefix": f"/api/{API_VERSION}",
+            "legacy_prefix": "/api",
+            "legacy_sunset_date": "2026-07-01",
+            "documentation": f"/api/{API_VERSION}/docs",
+        }
+
+    # Primary versioned routes (/api/v1/*)
+    _app.include_router(router, prefix=f"/api/{API_VERSION}")
+    _app.include_router(control_plane_router, prefix=f"/api/{API_VERSION}")
+
+    # Legacy routes (/api/*) - deprecated but still functional
+    # These will have Deprecation headers added by APIVersionMiddleware
     _app.include_router(router, prefix="/api")
     _app.include_router(control_plane_router, prefix="/api")
 
