@@ -88,6 +88,9 @@ postgres = [
 mysql = [
     "pymysql>=1.1.0",
 ]
+migrations = [
+    "alembic>=1.13.0",  # Database migrations for schema versioning
+]
 auth = [
     "keyring>=24.0.0",  # Secure credential storage (macOS Keychain, Windows Credential Locker)
 ]
@@ -108,7 +111,7 @@ dev = [
     "flask>=2.0.0",
 ]
 full = [
-    "fastband-agent-control[all-providers,web,screenshots,postgres,mysql,auth,system,cloud,dev]",
+    "fastband-agent-control[all-providers,web,screenshots,postgres,mysql,migrations,auth,system,cloud,dev]",
 ]
 
 [project.scripts]

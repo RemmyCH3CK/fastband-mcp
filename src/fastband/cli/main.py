@@ -23,6 +23,14 @@ from fastband.cli.tools import tools_app
 from fastband.core.config import FastbandConfig, get_config
 from fastband.core.detection import Language, ProjectInfo, detect_project
 
+# Import db app conditionally (requires alembic)
+try:
+    from fastband.migrations.cli import app as db_app
+    _db_available = True
+except ImportError:
+    db_app = None
+    _db_available = False
+
 # Create the main CLI app
 app = typer.Typer(
     name="fastband",
@@ -53,6 +61,10 @@ app.add_typer(plugins_app, name="plugins")
 
 # Auth subcommand group
 app.add_typer(auth_app, name="auth")
+
+# Database migration subcommand group (optional, requires alembic)
+if _db_available and db_app:
+    app.add_typer(db_app, name="db")
 
 # Rich console for output
 console = Console()
