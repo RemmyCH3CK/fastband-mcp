@@ -236,6 +236,13 @@ class TestWebSocketManagerConnect:
         ws = AsyncMock()
         ws.accept = AsyncMock()
         ws.send_text = AsyncMock()
+        ws.close = AsyncMock()
+        # Mock headers as a regular dict (not async)
+        ws.headers = MagicMock()
+        ws.headers.get = MagicMock(return_value=None)
+        # Mock client info
+        ws.client = MagicMock()
+        ws.client.host = "127.0.0.1"
         return ws
 
     @pytest.mark.asyncio
