@@ -1,0 +1,101 @@
+# Gitleaks Configuration for Fastband Dual-Product Architecture
+# https://github.com/gitleaks/gitleaks
+#
+# This configuration:
+# - Uses default gitleaks rules for common secret patterns
+# - Adds allowlist for known false positives
+# - Excludes test fixtures and example files where appropriate
+
+title = "Fastband Secret Scanning"
+
+# Use the default gitleaks rules (extended ruleset)
+# See: https://github.com/gitleaks/gitleaks/blob/master/config/gitleaks.toml
+
+[extend]
+# Extend the default gitleaks configuration
+useDefault = true
+
+# =============================================================================
+# ALLOWLIST - Known false positives and intentional test data
+# =============================================================================
+
+[allowlist]
+description = "Global allowlist for false positives"
+
+# Files that are allowed to contain secret-like patterns
+paths = [
+    # Example configuration files (contain placeholder values)
+    '''examples/.*\.json$''',
+    '''examples/.*\.yaml$''',
+    '''examples/.*\.yml$''',
+
+    # Documentation with example values
+    '''docs/.*\.md$''',
+    '''.*README\.md$''',
+
+    # Test fixtures (may contain mock credentials)
+    '''tests/fixtures/.*''',
+    '''tests/.*_fixtures\.py$''',
+
+    # Environment example files
+    '''\.env\.example$''',
+    '''\.env\.sample$''',
+
+    # Lock files (contain hashes, not secrets)
+    '''poetry\.lock$''',
+    '''package-lock\.json$''',
+    '''yarn\.lock$''',
+    '''go\.sum$''',
+
+    # Scripts containing test patterns (intentional dummy secrets)
+    '''scripts/check-secrets\.sh$''',
+
+    # Frontend build assets (contain Supabase anon keys - public by design)
+    # Supabase anon keys are safe to expose: https://supabase.com/docs/guides/api#api-keys
+    '''.*static/assets/.*\.js$''',
+    '''.*dist/assets/.*\.js$''',
+]
+
+# Regex patterns for values that look like secrets but aren't
+regexes = [
+    # Placeholder patterns commonly used in examples
+    '''your[-_]?api[-_]?key[-_]?here''',
+    '''your[-_]?secret[-_]?here''',
+    '''xxx+''',
+    '''placeholder''',
+    '''example[-_]?(key|token|secret)''',
+    '''test[-_]?(key|token|secret)''',
+    '''dummy[-_]?(key|token|secret)''',
+    '''fake[-_]?(key|token|secret)''',
+    '''<[A-Z_]+>''',  # Placeholder like <API_KEY>
+    '''INSERT[-_]?YOUR[-_]?.*[-_]?HERE''',
+
+    # Common test/mock values
+    '''sk[-_]test[-_].*''',  # Stripe test keys start with sk_test_
+    '''pk[-_]test[-_].*''',  # Stripe test keys start with pk_test_
+]
+
+# Specific commits to ignore (e.g., if secrets were rotated)
+commits = []
+
+# Stopwords - common words that trigger false positives
+stopwords = [
+    "password",
+    "secret",
+    "token",
+    "credential",
+]
+
+# =============================================================================
+# CUSTOM RULES - Additional patterns specific to Fastband
+# =============================================================================
+
+# Note: Default rules already cover most cases. Add custom rules here only
+# if you need to detect project-specific secret patterns.
+
+# Example of a custom rule (commented out - enable if needed):
+# [[rules]]
+# id = "fastband-internal-token"
+# description = "Fastband internal service token"
+# regex = '''fb_internal_[a-zA-Z0-9]{32}'''
+# tags = ["fastband", "internal"]
