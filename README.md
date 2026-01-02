@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-v1.2025.12.7-green.svg)](https://github.com/RemmyCH3CK/fastband-mcp/releases)
+[![Version](https://img.shields.io/badge/version-v1.2026.01.02-green.svg)](https://github.com/RemmyCH3CK/fastband-mcp/releases)
 
 ---
 
@@ -58,6 +58,33 @@ local = get_provider("ollama")
 - **Change detection** - only backup when needed
 - **Multiple database support** - SQLite, PostgreSQL, MySQL
 - **Configurable retention** policies
+
+### Webhooks
+- **External notifications** for ticket and agent events
+- **HMAC signatures** (SHA-256) for secure verification
+- **Automatic retries** with exponential backoff
+- **CLI management** via `fastband webhooks`
+
+```bash
+# Create a webhook for ticket events
+fastband webhooks create https://api.slack.com/webhook \
+  -e ticket.completed -e ticket.claimed \
+  -n "Slack Notifications"
+
+# Test the webhook
+fastband webhooks test <webhook-id>
+```
+
+### Enterprise Features
+
+| Feature | Description |
+|---------|-------------|
+| **API Versioning** | `/api/v1/` prefix with deprecation headers |
+| **JWT Authentication** | Role-based access control with FastAPI |
+| **OpenTelemetry** | Distributed tracing (OTLP/Jaeger/Zipkin) |
+| **Circuit Breakers** | Resilience for AI provider failures |
+| **Redis Sessions** | Horizontal scaling support |
+| **Database Migrations** | Alembic schema versioning |
 
 ---
 
@@ -115,6 +142,11 @@ fastband backup create --name "before_refactor"
 # Agent coordination
 fastband agents status
 fastband ops read --since 1h
+
+# Webhook management
+fastband webhooks list
+fastband webhooks create URL -e ticket.completed
+fastband webhooks test <id>
 ```
 
 ---
@@ -165,7 +197,7 @@ fastband:
 
 ## Roadmap
 
-### v1.2025.12.6 (Current - Stable)
+### v1.2026.01.02 (Current - Stable)
 - [x] Core MCP server
 - [x] AI provider abstraction
 - [x] Tool garage system
@@ -174,11 +206,17 @@ fastband:
 - [x] Control Plane dashboard
 - [x] Plugin system
 - [x] Vision analysis tools
+- [x] **Enterprise hardening** (JWT, tracing, circuit breakers)
+- [x] **Webhooks** for external event notifications
+- [x] **API versioning** with deprecation support
+- [x] **Redis session store** for horizontal scaling
 
-### v1.2026.01.0 (Next)
+### v1.2026.02.0 (Next)
 - [ ] Enhanced multi-agent workflows
 - [ ] E2E testing integration
 - [ ] Visual regression testing
+- [ ] Slack/Discord webhook integrations
+- [ ] Prometheus metrics endpoint
 
 ---
 
