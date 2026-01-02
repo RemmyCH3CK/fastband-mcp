@@ -108,6 +108,9 @@ tracing = [
     "opentelemetry-instrumentation-fastapi>=0.41b0",
     "opentelemetry-instrumentation-httpx>=0.41b0",
 ]
+redis = [
+    "redis>=5.0.0",  # Async Redis with connection pooling
+]
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
@@ -119,7 +122,7 @@ dev = [
     "flask>=2.0.0",
 ]
 full = [
-    "fastband-agent-control[all-providers,web,screenshots,postgres,mysql,migrations,auth,system,cloud,tracing,dev]",
+    "fastband-agent-control[all-providers,web,screenshots,postgres,mysql,migrations,auth,system,cloud,tracing,redis,dev]",
 ]
 
 [project.scripts]
