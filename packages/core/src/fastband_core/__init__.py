@@ -15,6 +15,7 @@ Architecture Rules:
 
 Modules:
 - ports: Interface definitions for adapters to implement
+- runtime: Engine lifecycle and context management
 """
 
 __version__ = "0.0.1"
@@ -47,6 +48,23 @@ from fastband_core.ports import (
     EventBus,
 )
 
+# Re-export commonly used runtime components
+from fastband_core.runtime import (
+    # Engine
+    EngineBase,
+    EngineConfig,
+    EngineState,
+    EngineInfo,
+    # Context
+    RuntimeContext,
+    RuntimeConfig,
+    RequestContext,
+    ServiceRegistry,
+    # Registry
+    ComponentRegistry,
+    ToolDefinition,
+)
+
 __all__ = [
     # Storage
     "KeyValueStore",
@@ -72,4 +90,17 @@ __all__ = [
     "EventPublisher",
     "EventSubscriber",
     "EventBus",
+    # Runtime - Engine
+    "EngineBase",
+    "EngineConfig",
+    "EngineState",
+    "EngineInfo",
+    # Runtime - Context
+    "RuntimeContext",
+    "RuntimeConfig",
+    "RequestContext",
+    "ServiceRegistry",
+    # Runtime - Registry
+    "ComponentRegistry",
+    "ToolDefinition",
 ]

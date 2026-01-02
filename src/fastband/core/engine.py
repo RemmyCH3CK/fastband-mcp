@@ -2,6 +2,9 @@
 Fastband Agent Control Engine.
 
 The core MCP server that handles tool registration, execution, and protocol handling.
+
+This module provides the concrete MCP implementation of the abstract engine
+from fastband_core.runtime.
 """
 
 import asyncio
@@ -24,14 +27,48 @@ from fastband.tools.base import Tool, ToolResult
 from fastband.tools.core import CORE_TOOLS
 from fastband.tools.registry import get_registry
 
+# Re-export Core runtime abstractions for backwards compatibility
+from fastband_core.runtime import (
+    EngineBase,
+    EngineConfig,
+    EngineInfo,
+    EngineState,
+    RuntimeContext,
+    RuntimeConfig,
+    RequestContext,
+    ServiceRegistry,
+    ComponentRegistry,
+    ToolDefinition,
+)
+
 logger = logging.getLogger(__name__)
 
+# Export Core abstractions
+__all__ = [
+    # Core abstractions (re-exported)
+    "EngineBase",
+    "EngineConfig",
+    "EngineInfo",
+    "EngineState",
+    "RuntimeContext",
+    "RuntimeConfig",
+    "RequestContext",
+    "ServiceRegistry",
+    "ComponentRegistry",
+    "ToolDefinition",
+    # Concrete implementations
+    "FastbandEngine",
+    "create_engine",
+    "run_server",
+]
 
-class FastbandEngine:
+
+class FastbandEngine(EngineBase):
     """
     Fastband Agent Control Engine.
 
     Manages the MCP server lifecycle, tool registration, and execution.
+    Inherits lifecycle management from EngineBase.
 
     Example:
         engine = FastbandEngine()
@@ -44,12 +81,30 @@ class FastbandEngine:
         project_path: Path | None = None,
         config: FastbandConfig | None = None,
     ):
-        self.project_path = project_path or Path.cwd()
-        self.config = config or get_config(self.project_path)
+        # Initialize base class with engine config
+        engine_config = EngineConfig(
+            name="fastband-agent-control",
+            version=__version__,
+            project_path=project_path or Path.cwd(),
+        )
+        super().__init__(engine_config)
+
+        # Fastband-specific config
+        self.project_path = engine_config.project_path
+        self.fastband_config = config or get_config(self.project_path)
         self.registry = get_registry()
         self.server = Server("fastband-agent-control")
-        self._running = False
         self._setup_handlers()
+
+    # Backwards compatibility property
+    @property
+    def config(self) -> FastbandConfig:
+        """Get Fastband configuration (backwards compatibility)."""
+        return self.fastband_config
+
+    def _get_active_tool_count(self) -> int:
+        """Return count of active tools for EngineInfo."""
+        return len(self.registry.get_active_tools())
 
     def _setup_handlers(self):
         """Set up MCP server handlers."""
@@ -143,15 +198,20 @@ class FastbandEngine:
         Returns:
             ToolResult from execution
         """
+        self.record_execution()
         return await self.registry.execute(name, **kwargs)
 
-    async def start(self):
-        """Start the MCP server."""
+    # EngineBase abstract method implementations
+
+    async def _do_initialize(self) -> None:
+        """Initialize engine resources."""
+        logger.debug("Initializing Fastband engine")
+
+    async def _do_start(self) -> None:
+        """Start the MCP server (called by EngineBase.start())."""
         logger.info(f"Starting Fastband Agent Control v{__version__}")
         logger.info(f"Project path: {self.project_path}")
         logger.info(f"Active tools: {len(self.registry.get_active_tools())}")
-
-        self._running = True
 
         async with stdio_server() as (read_stream, write_stream):
             await self.server.run(
@@ -160,15 +220,19 @@ class FastbandEngine:
                 self.server.create_initialization_options(),
             )
 
-    async def stop(self):
-        """Stop the MCP server."""
+    async def _do_stop(self) -> None:
+        """Stop the MCP server (called by EngineBase.stop())."""
         logger.info("Stopping Fastband Agent Control")
-        self._running = False
 
-    @property
-    def is_running(self) -> bool:
-        """Check if server is running."""
-        return self._running
+    # Convenience methods (backwards compatibility)
+
+    async def start(self) -> None:
+        """Start the MCP server (delegates to EngineBase)."""
+        await super().start()
+
+    async def stop(self) -> None:
+        """Stop the MCP server (delegates to EngineBase)."""
+        await super().stop()
 
     def get_tool_schemas(self) -> list[dict]:
         """Get MCP schemas for all active tools."""
