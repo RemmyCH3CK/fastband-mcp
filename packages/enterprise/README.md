@@ -177,7 +177,7 @@ packages/enterprise/
 ### Running Tests
 
 ```bash
-# Run all tests
+# Run all tests (unit tests only)
 make test
 
 # Run tests with coverage
@@ -186,6 +186,48 @@ make test-cover
 # Run specific package tests
 go test -v ./internal/config/
 ```
+
+### Running Integration Tests
+
+Integration tests require a running PostgreSQL database. They are skipped by default and only run when the `integration` build tag is specified.
+
+#### Option 1: Using Docker Compose
+
+```bash
+# Start PostgreSQL in Docker
+docker run -d --name fastband-postgres \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=fastband_test \
+  -p 5432:5432 \
+  postgres:15
+
+# Apply migrations
+psql -h localhost -U postgres -d fastband_test -f migrations/0001_initial_schema.up.sql
+
+# Run integration tests
+go test -v -tags=integration ./internal/storage/postgres/...
+
+# Cleanup
+docker stop fastband-postgres && docker rm fastband-postgres
+```
+
+#### Option 2: Using Environment Variables
+
+```bash
+# Set custom database connection
+export TEST_POSTGRES_DSN="host=localhost port=5432 dbname=fastband_test user=postgres password=postgres sslmode=disable"
+
+# Run integration tests
+go test -v -tags=integration ./internal/storage/postgres/...
+```
+
+#### What Integration Tests Cover
+
+- Full CRUD lifecycle for Tickets, Jobs, Approvals
+- Cursor-based pagination with multiple pages
+- Audit record append-only behavior
+- Foreign key constraints (Jobs require valid Tickets)
 
 ### Code Style
 

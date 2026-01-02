@@ -5,6 +5,7 @@ package models
 import (
 	"database/sql"
 	"encoding/json"
+	"strings"
 	"time"
 )
 
@@ -114,20 +115,89 @@ func (j *JSONB) Scan(value interface{}) error {
 type StringArray []string
 
 // Scan implements the sql.Scanner interface.
+// It can parse both JSON arrays (["a","b"]) and Postgres array literals ({a,b}).
 func (a *StringArray) Scan(value interface{}) error {
 	if value == nil {
 		*a = nil
 		return nil
 	}
 
+	var data []byte
 	switch v := value.(type) {
 	case []byte:
-		return json.Unmarshal(v, a)
+		data = v
 	case string:
-		return json.Unmarshal([]byte(v), a)
+		data = []byte(v)
 	default:
 		return nil
 	}
+
+	if len(data) == 0 {
+		*a = nil
+		return nil
+	}
+
+	// Try JSON first
+	if data[0] == '[' {
+		return json.Unmarshal(data, a)
+	}
+
+	// Parse Postgres array literal format: {a,b,c} or {}
+	if data[0] == '{' && data[len(data)-1] == '}' {
+		inner := string(data[1 : len(data)-1])
+		if inner == "" {
+			*a = []string{}
+			return nil
+		}
+		// Simple split by comma - note: doesn't handle quoted values with commas
+		*a = splitPostgresArray(inner)
+		return nil
+	}
+
+	return json.Unmarshal(data, a)
+}
+
+// splitPostgresArray splits a Postgres array inner string by commas,
+// handling quoted elements.
+func splitPostgresArray(s string) []string {
+	var result []string
+	var current strings.Builder
+	inQuotes := false
+	escaped := false
+
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+
+		if escaped {
+			current.WriteByte(c)
+			escaped = false
+			continue
+		}
+
+		if c == '\\' {
+			escaped = true
+			continue
+		}
+
+		if c == '"' {
+			inQuotes = !inQuotes
+			continue
+		}
+
+		if c == ',' && !inQuotes {
+			result = append(result, current.String())
+			current.Reset()
+			continue
+		}
+
+		current.WriteByte(c)
+	}
+
+	if current.Len() > 0 {
+		result = append(result, current.String())
+	}
+
+	return result
 }
 
 // Ticket represents a work ticket in the system.
@@ -194,3 +264,91 @@ type AuditRecord struct {
 	Timestamp    time.Time     `json:"timestamp" db:"timestamp"`
 	ReceivedAt   time.Time     `json:"received_at" db:"received_at"`
 }
+
+// =============================================================================
+// Pagination and Filter Types
+// =============================================================================
+
+// PageInfo contains pagination metadata for list responses.
+type PageInfo struct {
+	HasNextPage bool   `json:"has_next_page"`
+	NextCursor  string `json:"next_cursor,omitempty"`
+	TotalCount  int64  `json:"total_count,omitempty"`
+}
+
+// TicketFilter defines filtering options for listing tickets.
+type TicketFilter struct {
+	WorkspaceID string         `json:"workspace_id,omitempty"`
+	Status      TicketStatus   `json:"status,omitempty"`
+	Priority    TicketPriority `json:"priority,omitempty"`
+	AssignedTo  string         `json:"assigned_to,omitempty"`
+	CreatedBy   string         `json:"created_by,omitempty"`
+	Labels      []string       `json:"labels,omitempty"`
+	Cursor      string         `json:"cursor,omitempty"`
+	Limit       int            `json:"limit,omitempty"`
+}
+
+// TicketList is the result of listing tickets with pagination.
+type TicketList struct {
+	Tickets  []Ticket `json:"tickets"`
+	PageInfo PageInfo `json:"page_info"`
+}
+
+// JobFilter defines filtering options for listing jobs.
+type JobFilter struct {
+	TicketID string    `json:"ticket_id,omitempty"`
+	Status   JobStatus `json:"status,omitempty"`
+	Cursor   string    `json:"cursor,omitempty"`
+	Limit    int       `json:"limit,omitempty"`
+}
+
+// JobList is the result of listing jobs with pagination.
+type JobList struct {
+	Jobs     []Job    `json:"jobs"`
+	PageInfo PageInfo `json:"page_info"`
+}
+
+// ApprovalFilter defines filtering options for listing approvals.
+type ApprovalFilter struct {
+	JobID       string         `json:"job_id,omitempty"`
+	Status      ApprovalStatus `json:"status,omitempty"`
+	RequestedBy string         `json:"requested_by,omitempty"`
+	Tool        string         `json:"tool,omitempty"`
+	Cursor      string         `json:"cursor,omitempty"`
+	Limit       int            `json:"limit,omitempty"`
+}
+
+// ApprovalList is the result of listing approvals with pagination.
+type ApprovalList struct {
+	Approvals []Approval `json:"approvals"`
+	PageInfo  PageInfo   `json:"page_info"`
+}
+
+// AuditFilter defines filtering options for listing audit records.
+type AuditFilter struct {
+	WorkspaceID  string        `json:"workspace_id,omitempty"`
+	EventType    string        `json:"event_type,omitempty"`
+	Category     EventCategory `json:"category,omitempty"`
+	Severity     EventSeverity `json:"severity,omitempty"`
+	ActorID      string        `json:"actor_id,omitempty"`
+	ActorType    ActorType     `json:"actor_type,omitempty"`
+	ResourceID   string        `json:"resource_id,omitempty"`
+	ResourceType string        `json:"resource_type,omitempty"`
+	Outcome      EventOutcome  `json:"outcome,omitempty"`
+	StartTime    *time.Time    `json:"start_time,omitempty"`
+	EndTime      *time.Time    `json:"end_time,omitempty"`
+	Cursor       string        `json:"cursor,omitempty"`
+	Limit        int           `json:"limit,omitempty"`
+}
+
+// AuditList is the result of listing audit records with pagination.
+type AuditList struct {
+	Records  []AuditRecord `json:"records"`
+	PageInfo PageInfo      `json:"page_info"`
+}
+
+// DefaultPageLimit is the default number of items per page.
+const DefaultPageLimit = 50
+
+// MaxPageLimit is the maximum number of items per page.
+const MaxPageLimit = 100
