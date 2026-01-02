@@ -20,6 +20,7 @@ from fastband.cli.backup import backup_app
 from fastband.cli.plugins import plugins_app
 from fastband.cli.tickets import tickets_app
 from fastband.cli.tools import tools_app
+from fastband.cli.webhooks import webhooks_app
 from fastband.core.config import FastbandConfig, get_config
 from fastband.core.detection import Language, ProjectInfo, detect_project
 
@@ -61,6 +62,9 @@ app.add_typer(plugins_app, name="plugins")
 
 # Auth subcommand group
 app.add_typer(auth_app, name="auth")
+
+# Webhooks subcommand group
+app.add_typer(webhooks_app, name="webhooks")
 
 # Database migration subcommand group (optional, requires alembic)
 if _db_available and db_app:
