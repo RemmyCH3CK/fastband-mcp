@@ -12,11 +12,14 @@ Architecture Rules:
 - No framework imports (FastAPI, Flask)
 - No database driver imports
 - No environment file loading
+- No side effects on import
 
 Modules:
 - ports: Interface definitions for adapters to implement
 - runtime: Engine lifecycle and context management
 - tools: Tool abstraction and registry
+- events: Domain event models
+- audit: Audit domain models
 """
 
 __version__ = "0.0.1"
@@ -42,7 +45,7 @@ from fastband_core.ports import (
     Tracer,
     MetricsRegistry,
     TelemetryProvider,
-    # Events
+    # Events (ports)
     Event,
     EventPublisher,
     EventSubscriber,
@@ -82,6 +85,28 @@ from fastband_core.tools import (
     ToolRegistry,
 )
 
+# Re-export domain event models
+# Note: EventMetadata and EventPriority also exist in ports - use qualified imports
+# (fastband_core.events.EventMetadata) if you need the domain model version
+from fastband_core.events import (
+    DomainEvent,
+    EventEnvelope,
+    EventCategory,
+    TypedEvent,
+    CommonEventTypes,
+)
+
+# Re-export audit models
+from fastband_core.audit import (
+    AuditRecord,
+    AuditActor,
+    AuditResource,
+    AuditSeverity,
+    AuditCategory,
+    AuditOutcome,
+    AuditEventTypes,
+)
+
 __all__ = [
     # Storage
     "KeyValueStore",
@@ -102,7 +127,7 @@ __all__ = [
     "Tracer",
     "MetricsRegistry",
     "TelemetryProvider",
-    # Events
+    # Events (ports)
     "Event",
     "EventPublisher",
     "EventSubscriber",
@@ -132,4 +157,18 @@ __all__ = [
     # Tools - Registry
     "ToolLoadStatus",
     "ToolRegistry",
+    # Events - Domain models
+    "DomainEvent",
+    "EventEnvelope",
+    "EventCategory",
+    "TypedEvent",
+    "CommonEventTypes",
+    # Audit - Domain models
+    "AuditRecord",
+    "AuditActor",
+    "AuditResource",
+    "AuditSeverity",
+    "AuditCategory",
+    "AuditOutcome",
+    "AuditEventTypes",
 ]

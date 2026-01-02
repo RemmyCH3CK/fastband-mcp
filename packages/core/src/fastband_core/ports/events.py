@@ -9,10 +9,15 @@ These are pure interfaces - no message broker imports allowed.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Awaitable, Callable, Generic, Protocol, TypeVar, runtime_checkable
 from uuid import uuid4
+
+
+def _utc_now() -> datetime:
+    """Get current UTC time (timezone-aware)."""
+    return datetime.now(timezone.utc)
 
 
 class EventPriority(Enum):
@@ -29,7 +34,7 @@ class EventMetadata:
     """Metadata attached to every event."""
 
     event_id: str = field(default_factory=lambda: str(uuid4()))
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=_utc_now)
     source: str = ""  # Origin of the event
     correlation_id: str | None = None  # For request tracing
     causation_id: str | None = None  # ID of event that caused this one
@@ -91,7 +96,7 @@ class Subscription:
     id: str
     topic: str  # Topic pattern (may include wildcards)
     handler_name: str
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=_utc_now)
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
