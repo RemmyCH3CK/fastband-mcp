@@ -7,6 +7,27 @@ and this project adheres to a hybrid versioning scheme: `vMAJOR.YYYY.MM.PATCH[-p
 
 ## [Unreleased]
 
+## [1.2026.01.03] - 2026-01-02
+
+### Added
+- **Webhooks** - External event notification system
+  - `fastband.webhooks` module with HMAC SHA-256 signatures
+  - Automatic retries with exponential backoff (10s, 60s, 300s)
+  - Event bus integration for ticket, agent, and build events
+  - Persistent storage at `~/.fastband/webhooks.json`
+  - Full CRUD API at `/api/webhooks`
+- **CLI Commands** - `fastband webhooks` subcommand
+  - `list` - Show all subscriptions with stats
+  - `create` - Register new webhook with events
+  - `delete` - Remove subscription
+  - `test` - Send test event
+  - `info` - Show detailed information
+  - `events` - List available event types
+  - `toggle` - Enable/disable webhook
+
+### Fixed
+- WebSocket mock fixture now correctly uses MagicMock for headers
+
 ## [1.2026.01.02] - 2026-01-01
 
 ### Added

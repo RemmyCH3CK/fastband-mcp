@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-v1.2026.01.02-green.svg)](https://github.com/RemmyCH3CK/fastband-mcp/releases)
+[![Version](https://img.shields.io/badge/version-v1.2026.01.03-green.svg)](https://github.com/RemmyCH3CK/fastband-mcp/releases)
 
 ---
 
@@ -197,7 +197,7 @@ fastband:
 
 ## Roadmap
 
-### v1.2026.01.02 (Current - Stable)
+### v1.2026.01.03 (Current - Stable)
 - [x] Core MCP server
 - [x] AI provider abstraction
 - [x] Tool garage system
