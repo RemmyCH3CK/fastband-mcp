@@ -2,20 +2,32 @@
 WebSocket Connection Manager for Control Plane.
 
 Provides real-time event broadcasting with subscription-based filtering.
+
+Enterprise Features:
+- Connection limits (global and per-IP)
+- Subscription-based message filtering
+- Heartbeat/ping-pong support
+- Graceful connection rejection
 """
 
 import asyncio
 import json
 import logging
+import os
+from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
-from fastapi import WebSocket
+from fastapi import WebSocket, WebSocketDisconnect
 
 logger = logging.getLogger(__name__)
+
+# Enterprise: Connection limits (configurable via environment)
+MAX_CONNECTIONS = int(os.environ.get("WS_MAX_CONNECTIONS", "1000"))
+MAX_CONNECTIONS_PER_IP = int(os.environ.get("WS_MAX_CONNECTIONS_PER_IP", "50"))
 
 
 class SubscriptionType(str, Enum):
@@ -112,18 +124,38 @@ class WebSocketManager:
     Manages WebSocket connections with subscription-based routing.
 
     Features:
-    - Connection pool management
+    - Connection pool management with enterprise limits
+    - Per-IP connection limiting (DoS protection)
     - Subscription-based message filtering
     - Broadcast to all or specific subscription types
     - Heartbeat/ping-pong support
     - Auto-reconnect support (client-side)
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        max_connections: int = MAX_CONNECTIONS,
+        max_per_ip: int = MAX_CONNECTIONS_PER_IP,
+    ):
         self._connections: dict[str, Connection] = {}
+        self._ip_counts: dict[str, int] = defaultdict(int)  # Track connections per IP
+        self._connection_ips: dict[str, str] = {}  # Map connection_id -> IP
         self._lock = asyncio.Lock()
         self._heartbeat_interval = 30  # seconds
         self._heartbeat_task: asyncio.Task | None = None
+        self._max_connections = max_connections
+        self._max_per_ip = max_per_ip
+
+    def _get_client_ip(self, websocket: WebSocket) -> str:
+        """Extract client IP from WebSocket, handling proxies."""
+        # Check for forwarded header (behind proxy/load balancer)
+        forwarded = websocket.headers.get("x-forwarded-for")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+        # Fall back to direct client
+        if websocket.client:
+            return websocket.client.host
+        return "unknown"
 
     async def connect(
         self,
@@ -134,6 +166,8 @@ class WebSocketManager:
         """
         Accept and register a new WebSocket connection.
 
+        Enterprise: Enforces global and per-IP connection limits.
+
         Args:
             websocket: FastAPI WebSocket instance
             connection_id: Unique connection identifier
@@ -142,6 +176,28 @@ class WebSocketManager:
         Returns:
             True if connection was established successfully
         """
+        client_ip = self._get_client_ip(websocket)
+
+        # Enterprise: Check connection limits BEFORE accepting
+        async with self._lock:
+            # Check global limit
+            if len(self._connections) >= self._max_connections:
+                logger.warning(
+                    f"WebSocket connection rejected: global limit reached "
+                    f"({self._max_connections} connections)"
+                )
+                await websocket.close(code=1013, reason="Server at capacity")
+                return False
+
+            # Check per-IP limit
+            if self._ip_counts[client_ip] >= self._max_per_ip:
+                logger.warning(
+                    f"WebSocket connection rejected: per-IP limit reached "
+                    f"for {client_ip} ({self._max_per_ip} connections)"
+                )
+                await websocket.close(code=1013, reason="Too many connections from your IP")
+                return False
+
         await websocket.accept()
 
         # Parse subscriptions
@@ -166,9 +222,16 @@ class WebSocketManager:
                 websocket=websocket,
                 subscriptions=sub_set,
             )
+            # Track IP for per-IP limiting
+            self._connection_ips[connection_id] = client_ip
+            self._ip_counts[client_ip] += 1
 
         try:
-            logger.info(f"WebSocket connected: {connection_id} with subscriptions: {sub_set}")
+            logger.info(
+                f"WebSocket connected: {connection_id} from {client_ip} "
+                f"(total: {len(self._connections)}/{self._max_connections}, "
+                f"from IP: {self._ip_counts[client_ip]}/{self._max_per_ip})"
+            )
         except (ValueError, OSError):
             pass  # Ignore logging errors from closed streams
 
@@ -203,7 +266,7 @@ class WebSocketManager:
 
     async def disconnect(self, connection_id: str) -> None:
         """
-        Remove a WebSocket connection.
+        Remove a WebSocket connection and update IP tracking.
 
         Args:
             connection_id: Connection to remove
@@ -211,8 +274,20 @@ class WebSocketManager:
         async with self._lock:
             if connection_id in self._connections:
                 del self._connections[connection_id]
+
+                # Decrement IP count
+                if connection_id in self._connection_ips:
+                    client_ip = self._connection_ips.pop(connection_id)
+                    self._ip_counts[client_ip] = max(0, self._ip_counts[client_ip] - 1)
+                    # Clean up zero counts to prevent memory leak
+                    if self._ip_counts[client_ip] == 0:
+                        del self._ip_counts[client_ip]
+
                 try:
-                    logger.info(f"WebSocket disconnected: {connection_id}")
+                    logger.info(
+                        f"WebSocket disconnected: {connection_id} "
+                        f"(remaining: {len(self._connections)})"
+                    )
                 except (ValueError, OSError):
                     pass  # Ignore logging errors from closed streams
 
@@ -396,6 +471,21 @@ class WebSocketManager:
                 1 for conn in self._connections.values() if sub in conn.subscriptions
             )
         return counts
+
+    def get_connection_stats(self) -> dict[str, Any]:
+        """Get comprehensive connection statistics for monitoring."""
+        return {
+            "total_connections": len(self._connections),
+            "max_connections": self._max_connections,
+            "max_per_ip": self._max_per_ip,
+            "unique_ips": len(self._ip_counts),
+            "subscriptions": self.get_subscription_counts(),
+            "capacity_percent": (
+                len(self._connections) / self._max_connections * 100
+                if self._max_connections > 0
+                else 0
+            ),
+        }
 
     async def handle_client_message(
         self,

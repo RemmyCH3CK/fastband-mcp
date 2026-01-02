@@ -16,7 +16,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from fastband.core.logging import AuditEventType, audit_log
-from fastapi.responses import StreamingResponse
+from fastapi.responses import PlainTextResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 # Load .env file BEFORE checking for API keys
@@ -821,6 +821,98 @@ async def get_stats(
     Returns detailed statistics about sessions and usage.
     """
     return manager.get_stats()
+
+
+@router.get("/metrics", response_class=PlainTextResponse)
+async def prometheus_metrics(
+    request: Request,
+    manager: SessionManager = Depends(get_session_manager),
+):
+    """Prometheus-compatible metrics endpoint.
+
+    Returns metrics in Prometheus text format for monitoring and alerting.
+    Enterprise feature for observability.
+    """
+    from fastband import __version__
+    from fastband.hub.websockets.manager import get_websocket_manager
+
+    uptime = (_utc_now() - _start_time).total_seconds()
+    ws_manager = get_websocket_manager()
+    ws_stats = ws_manager.get_connection_stats()
+    session_stats = manager.get_stats()
+
+    # Build Prometheus text format metrics
+    lines = [
+        "# HELP fastband_info Fastband Hub information",
+        "# TYPE fastband_info gauge",
+        f'fastband_info{{version="{__version__}"}} 1',
+        "",
+        "# HELP fastband_uptime_seconds Hub uptime in seconds",
+        "# TYPE fastband_uptime_seconds counter",
+        f"fastband_uptime_seconds {uptime:.2f}",
+        "",
+        "# HELP fastband_sessions_active Number of active sessions",
+        "# TYPE fastband_sessions_active gauge",
+        f"fastband_sessions_active {session_stats.get('active_sessions', 0)}",
+        "",
+        "# HELP fastband_sessions_total Total sessions created",
+        "# TYPE fastband_sessions_total counter",
+        f"fastband_sessions_total {session_stats.get('total_sessions', 0)}",
+        "",
+        "# HELP fastband_websocket_connections Active WebSocket connections",
+        "# TYPE fastband_websocket_connections gauge",
+        f"fastband_websocket_connections {ws_stats.get('total_connections', 0)}",
+        "",
+        "# HELP fastband_websocket_max Maximum WebSocket connections allowed",
+        "# TYPE fastband_websocket_max gauge",
+        f"fastband_websocket_max {ws_stats.get('max_connections', 1000)}",
+        "",
+        "# HELP fastband_websocket_capacity_percent WebSocket capacity utilization",
+        "# TYPE fastband_websocket_capacity_percent gauge",
+        f"fastband_websocket_capacity_percent {ws_stats.get('capacity_percent', 0):.2f}",
+        "",
+        "# HELP fastband_websocket_unique_ips Unique IPs connected via WebSocket",
+        "# TYPE fastband_websocket_unique_ips gauge",
+        f"fastband_websocket_unique_ips {ws_stats.get('unique_ips', 0)}",
+        "",
+    ]
+
+    # Add subscription metrics
+    subscriptions = ws_stats.get("subscriptions", {})
+    lines.append("# HELP fastband_websocket_subscriptions Connections per subscription type")
+    lines.append("# TYPE fastband_websocket_subscriptions gauge")
+    for sub_type, count in subscriptions.items():
+        lines.append(f'fastband_websocket_subscriptions{{type="{sub_type}"}} {count}')
+    lines.append("")
+
+    # Add memory metrics if available
+    try:
+        from fastband.memory.budget import get_budget_manager
+        budget_manager = get_budget_manager()
+        budget_stats = budget_manager.get_total_usage()
+
+        lines.extend([
+            "# HELP fastband_memory_sessions Active memory sessions",
+            "# TYPE fastband_memory_sessions gauge",
+            f"fastband_memory_sessions {budget_stats.get('active_sessions', 0)}",
+            "",
+            "# HELP fastband_memory_tokens_allocated Total tokens allocated",
+            "# TYPE fastband_memory_tokens_allocated gauge",
+            f"fastband_memory_tokens_allocated {budget_stats.get('total_allocated', 0)}",
+            "",
+            "# HELP fastband_memory_tokens_used Total tokens used",
+            "# TYPE fastband_memory_tokens_used gauge",
+            f"fastband_memory_tokens_used {budget_stats.get('total_used', 0)}",
+            "",
+            "# HELP fastband_memory_budget_utilization Budget utilization percentage",
+            "# TYPE fastband_memory_budget_utilization gauge",
+            f"fastband_memory_budget_utilization {budget_stats.get('budget_utilization', 0):.2f}",
+            "",
+        ])
+    except Exception:
+        pass  # Memory module not available
+
+    return "\n".join(lines)
 
 
 # =============================================================================

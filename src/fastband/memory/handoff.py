@@ -779,8 +779,11 @@ _handoff_manager_lock = threading.Lock()
 
 
 def get_handoff_manager(storage_path: Optional[str] = None) -> HandoffManager:
-    """Get or create the global handoff manager. Thread-safe."""
+    """Get or create the global handoff manager. Thread-safe with double-check locking."""
     global _handoff_manager
     if _handoff_manager is None:
-        _handoff_manager = HandoffManager(storage_path)
+        with _handoff_manager_lock:
+            # Double-check pattern for thread safety
+            if _handoff_manager is None:
+                _handoff_manager = HandoffManager(storage_path)
     return _handoff_manager

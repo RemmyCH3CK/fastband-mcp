@@ -105,6 +105,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
 
+        # HSTS - enforce HTTPS (enterprise requirement)
+        # Only add if request came over HTTPS to avoid breaking local dev
+        if request.url.scheme == "https":
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+
         # Content Security Policy (relaxed for SPA)
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
