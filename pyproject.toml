@@ -93,6 +93,7 @@ migrations = [
 ]
 auth = [
     "keyring>=24.0.0",  # Secure credential storage (macOS Keychain, Windows Credential Locker)
+    "PyJWT>=2.8.0",  # JWT token creation and validation
 ]
 system = [
     "psutil>=5.9.0",  # System resource detection (RAM, CPU, disk)
