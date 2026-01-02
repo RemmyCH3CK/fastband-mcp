@@ -20,6 +20,7 @@ Modules:
 - tools: Tool abstraction and registry
 - events: Domain event models
 - audit: Audit domain models
+- providers: AI provider abstraction layer
 """
 
 __version__ = "0.0.1"
@@ -107,6 +108,24 @@ from fastband_core.audit import (
     AuditEventTypes,
 )
 
+# Re-export provider abstractions
+# Note: Full provider types available via fastband_core.providers
+from fastband_core.providers import (
+    # Capabilities
+    Capability,
+    CapabilitySet,
+    ModelInfo,
+    # Provider ports
+    CompletionProvider,
+    EmbeddingProvider,
+    # Domain models
+    ProviderConfig,
+    CompletionResponse,
+    EmbeddingConfig,
+    EmbeddingResult,
+    ProviderHealth,
+)
+
 __all__ = [
     # Storage
     "KeyValueStore",
@@ -171,4 +190,17 @@ __all__ = [
     "AuditCategory",
     "AuditOutcome",
     "AuditEventTypes",
+    # Providers - Capabilities
+    "Capability",
+    "CapabilitySet",
+    "ModelInfo",
+    # Providers - Ports
+    "CompletionProvider",
+    "EmbeddingProvider",
+    # Providers - Domain models
+    "ProviderConfig",
+    "CompletionResponse",
+    "EmbeddingConfig",
+    "EmbeddingResult",
+    "ProviderHealth",
 ]
