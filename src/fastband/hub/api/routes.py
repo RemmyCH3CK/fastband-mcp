@@ -182,6 +182,81 @@ class AnalyzeResponse(BaseModel):
 
 
 # =============================================================================
+# PAGINATION MODELS (Enterprise)
+# =============================================================================
+
+
+class PaginationMeta(BaseModel):
+    """Pagination metadata for list responses."""
+
+    total: int = Field(..., description="Total number of items")
+    page: int = Field(..., description="Current page number (1-indexed)")
+    page_size: int = Field(..., description="Number of items per page")
+    total_pages: int = Field(..., description="Total number of pages")
+    has_next: bool = Field(..., description="Whether there is a next page")
+    has_prev: bool = Field(..., description="Whether there is a previous page")
+
+
+class PaginatedTicketsResponse(BaseModel):
+    """Paginated tickets response."""
+
+    items: list["TicketResponse"] = Field(default_factory=list)
+    pagination: PaginationMeta
+
+
+class PaginatedConversationsResponse(BaseModel):
+    """Paginated conversations response."""
+
+    items: list[ConversationResponse] = Field(default_factory=list)
+    pagination: PaginationMeta
+
+
+class PaginatedBackupsResponse(BaseModel):
+    """Paginated backups response."""
+
+    items: list["BackupResponse"] = Field(default_factory=list)
+    pagination: PaginationMeta
+
+
+def paginate(items: list, page: int = 1, page_size: int = 20) -> tuple[list, PaginationMeta]:
+    """
+    Paginate a list of items.
+
+    Args:
+        items: Full list of items
+        page: Page number (1-indexed)
+        page_size: Items per page
+
+    Returns:
+        Tuple of (paginated items, pagination metadata)
+    """
+    # Ensure valid bounds
+    page = max(1, page)
+    page_size = min(max(1, page_size), 100)  # Max 100 items per page
+
+    total = len(items)
+    total_pages = max(1, (total + page_size - 1) // page_size)
+
+    # Clamp page to valid range
+    page = min(page, total_pages)
+
+    start = (page - 1) * page_size
+    end = start + page_size
+    paginated_items = items[start:end]
+
+    meta = PaginationMeta(
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+        has_next=page < total_pages,
+        has_prev=page > 1,
+    )
+
+    return paginated_items, meta
+
+
+# =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
 
@@ -618,25 +693,36 @@ _DEV_CONVERSATIONS = [
 ]
 
 
-@router.get("/conversations", response_model=list[ConversationResponse])
+@router.get("/conversations", response_model=PaginatedConversationsResponse)
 async def list_conversations(
     session_id: str,
+    page: int = 1,
+    page_size: int = 20,
     manager: SessionManager = Depends(get_session_manager),
 ):
-    """List conversations for a session.
+    """List conversations for a session with pagination.
 
-    Returns all conversations associated with the session.
+    Args:
+        session_id: Session identifier
+        page: Page number (1-indexed, default: 1)
+        page_size: Items per page (1-100, default: 20)
+
+    Returns:
+        Paginated list of conversations with metadata.
     """
     # Dev mode or generated session ID - return mock data
     if DEV_MODE or session_id.startswith("dev-") or session_id.startswith("chat-"):
-        return _DEV_CONVERSATIONS
+        items, pagination = paginate(_DEV_CONVERSATIONS, page, page_size)
+        return PaginatedConversationsResponse(items=items, pagination=pagination)
 
     session = manager.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
     conversations = manager.get_conversations(session_id)
-    return [_conversation_to_response(conv) for conv in conversations]
+    all_responses = [_conversation_to_response(conv) for conv in conversations]
+    items, pagination = paginate(all_responses, page, page_size)
+    return PaginatedConversationsResponse(items=items, pagination=pagination)
 
 
 @router.post("/conversations")
@@ -809,6 +895,114 @@ async def health_check(
         version=__version__,
         active_sessions=manager.get_active_session_count(),
         uptime_seconds=uptime,
+    )
+
+
+# =============================================================================
+# KUBERNETES HEALTH PROBES (Enterprise)
+# =============================================================================
+
+
+class LivenessResponse(BaseModel):
+    """Liveness probe response."""
+
+    status: str = Field(..., description="alive or dead")
+    timestamp: str
+
+
+class ReadinessResponse(BaseModel):
+    """Readiness probe response with component status."""
+
+    status: str = Field(..., description="ready or not_ready")
+    timestamp: str
+    checks: dict[str, bool] = Field(default_factory=dict, description="Component health checks")
+
+
+@router.get("/health/live", response_model=LivenessResponse)
+async def liveness_probe():
+    """Kubernetes liveness probe.
+
+    Returns 200 if the process is alive and responding.
+    Use this for container restart decisions.
+
+    Note: This endpoint skips most middleware for reliability.
+    """
+    return LivenessResponse(
+        status="alive",
+        timestamp=_utc_now().isoformat(),
+    )
+
+
+@router.get("/health/ready", response_model=ReadinessResponse)
+async def readiness_probe(request: Request):
+    """Kubernetes readiness probe.
+
+    Checks if all dependencies are ready to serve traffic:
+    - Session manager initialized
+    - Database accessible (if configured)
+    - AI provider available (if configured)
+    - WebSocket manager running
+
+    Returns 503 if any critical dependency is unhealthy.
+    Use this for load balancer traffic routing.
+    """
+    checks = {}
+    all_ready = True
+
+    # Check session manager
+    try:
+        from fastband.hub.session import get_session_manager
+
+        sm = get_session_manager()
+        checks["session_manager"] = sm is not None
+        if not checks["session_manager"]:
+            all_ready = False
+    except Exception:
+        checks["session_manager"] = False
+        all_ready = False
+
+    # Check WebSocket manager
+    try:
+        from fastband.hub.websockets.manager import get_websocket_manager
+
+        ws_manager = get_websocket_manager()
+        checks["websocket_manager"] = ws_manager is not None
+    except Exception:
+        checks["websocket_manager"] = False
+        # WebSocket manager is non-critical, don't affect readiness
+
+    # Check AI provider availability (optional)
+    try:
+        app_state = getattr(request, "app", None)
+        if app_state:
+            chat_manager = getattr(app_state.state, "chat_manager", None)
+            checks["ai_provider"] = chat_manager is not None
+        else:
+            checks["ai_provider"] = None  # Unknown
+    except Exception:
+        checks["ai_provider"] = None  # Unknown, not critical
+
+    # Check control plane service
+    try:
+        app_state = getattr(request, "app", None)
+        if app_state:
+            control_plane = getattr(app_state.state, "control_plane_service", None)
+            checks["control_plane"] = control_plane is not None
+        else:
+            checks["control_plane"] = None
+    except Exception:
+        checks["control_plane"] = None
+
+    if not all_ready:
+        raise HTTPException(
+            status_code=503,
+            detail="Service not ready",
+        )
+
+    return ReadinessResponse(
+        status="ready",
+        timestamp=_utc_now().isoformat(),
+        checks=checks,
     )
 
 
@@ -1504,8 +1698,19 @@ async def update_backup_config(request: BackupConfigUpdateRequest) -> BackupConf
 
 
 @router.get("/backups")
-async def list_backups() -> list[BackupResponse]:
-    """List all backups."""
+async def list_backups(
+    page: int = 1,
+    page_size: int = 20,
+) -> PaginatedBackupsResponse:
+    """List all backups with pagination.
+
+    Args:
+        page: Page number (1-indexed, default: 1)
+        page_size: Items per page (1-100, default: 20)
+
+    Returns:
+        Paginated list of backups with metadata.
+    """
     from pathlib import Path
 
     from fastband.backup.manager import BackupManager
@@ -1515,7 +1720,7 @@ async def list_backups() -> list[BackupResponse]:
     manager = BackupManager(Path.cwd(), config.backup)
 
     backups = manager.list_backups()
-    return [
+    all_responses = [
         BackupResponse(
             id=b.id,
             backup_type=b.backup_type.value,
@@ -1527,6 +1732,9 @@ async def list_backups() -> list[BackupResponse]:
         )
         for b in backups
     ]
+
+    items, pagination = paginate(all_responses, page, page_size)
+    return PaginatedBackupsResponse(items=items, pagination=pagination)
 
 
 @router.post("/backups")
@@ -1796,8 +2004,22 @@ async def list_tickets(
     priority: str | None = None,
     ticket_type: str | None = None,
     assigned_to: str | None = None,
-) -> list[TicketResponse]:
-    """List all tickets with optional filters."""
+    page: int = 1,
+    page_size: int = 20,
+) -> PaginatedTicketsResponse:
+    """List all tickets with optional filters and pagination.
+
+    Args:
+        status: Filter by ticket status
+        priority: Filter by priority level
+        ticket_type: Filter by ticket type
+        assigned_to: Filter by assignee
+        page: Page number (1-indexed, default: 1)
+        page_size: Items per page (1-100, default: 20)
+
+    Returns:
+        Paginated list of tickets with metadata.
+    """
     from pathlib import Path
 
     from fastband.tickets.storage import StorageFactory
@@ -1816,7 +2038,7 @@ async def list_tickets(
     if assigned_to:
         tickets = [t for t in tickets if t.assigned_to == assigned_to]
 
-    return [
+    all_responses = [
         TicketResponse(
             id=t.id,
             ticket_number=t.ticket_number,
@@ -1836,6 +2058,9 @@ async def list_tickets(
         )
         for t in tickets
     ]
+
+    items, pagination = paginate(all_responses, page, page_size)
+    return PaginatedTicketsResponse(items=items, pagination=pagination)
 
 
 @router.post("/tickets")

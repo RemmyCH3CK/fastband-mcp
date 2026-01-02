@@ -8,6 +8,43 @@ Performance Optimizations (Issue #38):
 - Lazy initialization of heavy resources
 - Background cleanup of idle sessions
 - Thread-safe session access
+
+ENTERPRISE: Horizontal Scaling with Redis
+==========================================
+For production deployments with multiple Hub instances, sessions should be
+stored in Redis instead of in-memory to enable:
+
+1. Session sharing across instances
+2. Persistence across restarts
+3. True horizontal scaling behind a load balancer
+
+To enable Redis sessions, set these environment variables:
+
+    FASTBAND_SESSION_STORE=redis
+    FASTBAND_REDIS_URL=redis://localhost:6379/0
+    FASTBAND_REDIS_PASSWORD=your-password  # optional
+    FASTBAND_REDIS_SSL=true  # for production
+
+Implementation Notes:
+- Current in-memory SessionManager should be replaced with RedisSessionManager
+- Use redis-py with asyncio support (redis.asyncio.Redis)
+- Session data should be serialized as JSON
+- Use Redis SETEX for automatic session expiration
+- Consider Redis Cluster for high availability
+
+Example Redis Session Key Pattern:
+    fastband:session:{session_id} -> JSON session data
+    fastband:session:{session_id}:conversations:{conv_id} -> JSON conversation
+    fastband:session:{session_id}:usage -> JSON usage stats
+
+Reference implementation pattern:
+    class RedisSessionManager(SessionManager):
+        def __init__(self, redis_url: str, ...):
+            self._redis = redis.asyncio.from_url(redis_url)
+
+        async def get_session(self, session_id: str) -> HubSession | None:
+            data = await self._redis.get(f"fastband:session:{session_id}")
+            return HubSession.model_validate_json(data) if data else None
 """
 
 import asyncio

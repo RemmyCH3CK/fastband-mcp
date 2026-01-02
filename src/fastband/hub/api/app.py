@@ -15,16 +15,28 @@ import logging
 import os
 import secrets
 import time
+import traceback
 from collections import defaultdict
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import Callable
 
 from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from fastband import __version__
+from fastband.core.logging import (
+    AuditEventType,
+    AuditSeverity,
+    audit_csrf_violation,
+    audit_rate_limit,
+    audit_security_event,
+)
 from fastband.hub.api.routes import router
 from fastband.hub.chat import ChatManager
 from fastband.hub.control_plane.routes import router as control_plane_router
@@ -36,6 +48,90 @@ logger = logging.getLogger(__name__)
 
 # Dev mode - skip memory/embeddings when no API keys
 DEV_MODE = os.environ.get("FASTBAND_DEV_MODE", "").lower() in ("1", "true", "yes")
+
+
+# =============================================================================
+# STANDARDIZED ERROR RESPONSES (Enterprise)
+# =============================================================================
+
+
+class ErrorResponse(BaseModel):
+    """Standardized error response format for all API errors.
+
+    Enterprise-grade error responses include:
+    - Consistent structure across all endpoints
+    - Request correlation ID for tracing
+    - Error categorization for client handling
+    - Timestamp for debugging
+    """
+
+    error: str = Field(..., description="Human-readable error message")
+    error_code: str = Field(..., description="Machine-readable error code")
+    status_code: int = Field(..., description="HTTP status code")
+    timestamp: str = Field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        description="ISO 8601 timestamp",
+    )
+    request_id: str | None = Field(None, description="Request correlation ID")
+    details: dict | None = Field(None, description="Additional error details")
+
+
+# Error codes for categorization
+class ErrorCodes:
+    """Standardized error codes for client handling."""
+
+    # 4xx Client Errors
+    VALIDATION_ERROR = "VALIDATION_ERROR"
+    BAD_REQUEST = "BAD_REQUEST"
+    UNAUTHORIZED = "UNAUTHORIZED"
+    FORBIDDEN = "FORBIDDEN"
+    NOT_FOUND = "NOT_FOUND"
+    RATE_LIMITED = "RATE_LIMITED"
+    CSRF_ERROR = "CSRF_ERROR"
+    REQUEST_TOO_LARGE = "REQUEST_TOO_LARGE"
+
+    # 5xx Server Errors
+    INTERNAL_ERROR = "INTERNAL_ERROR"
+    SERVICE_UNAVAILABLE = "SERVICE_UNAVAILABLE"
+    TIMEOUT = "TIMEOUT"
+
+
+def create_error_response(
+    status_code: int,
+    error: str,
+    error_code: str,
+    request: Request | None = None,
+    details: dict | None = None,
+) -> JSONResponse:
+    """Create a standardized error response.
+
+    Args:
+        status_code: HTTP status code
+        error: Human-readable error message
+        error_code: Machine-readable error code
+        request: Optional request for correlation ID
+        details: Optional additional error details
+
+    Returns:
+        JSONResponse with standardized error format
+    """
+    request_id = None
+    if request:
+        # Use existing request ID header or generate one
+        request_id = request.headers.get("x-request-id")
+
+    response = ErrorResponse(
+        error=error,
+        error_code=error_code,
+        status_code=status_code,
+        request_id=request_id,
+        details=details,
+    )
+
+    return JSONResponse(
+        status_code=status_code,
+        content=response.model_dump(exclude_none=True),
+    )
 
 # Security constants
 MAX_REQUEST_SIZE = 10 * 1024 * 1024  # 10MB max request body
@@ -132,18 +228,38 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.limiter = limiter
 
     async def dispatch(self, request: Request, call_next: Callable):
-        # Skip rate limiting for static assets and health checks
-        if request.url.path.startswith(("/assets/", "/favicon", "/health")):
+        # Skip rate limiting for static assets and health checks (including K8s probes)
+        skip_paths = ("/assets/", "/favicon", "/health", "/api/health")
+        if request.url.path.startswith(skip_paths):
             return await call_next(request)
 
         allowed, headers = self.limiter.is_allowed(request)
 
         if not allowed:
-            return JSONResponse(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                content={"error": "Rate limit exceeded. Please try again later."},
-                headers={k: str(v) for k, v in headers.items()},
+            # Audit log the rate limit violation
+            client_ip = self._get_client_ip(request)
+            request_id = request.headers.get("x-request-id")
+            audit_rate_limit(
+                ip_address=client_ip,
+                path=request.url.path,
+                limit=headers.get("X-RateLimit-Limit", 100),
+                request_id=request_id,
             )
+
+            response = create_error_response(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                error="Rate limit exceeded. Please try again later.",
+                error_code=ErrorCodes.RATE_LIMITED,
+                request=request,
+                details={
+                    "retry_after_seconds": headers.get("X-RateLimit-Reset", 60),
+                    "limit": headers.get("X-RateLimit-Limit"),
+                },
+            )
+            # Add rate limit headers
+            for k, v in headers.items():
+                response.headers[k] = str(v)
+            return response
 
         response = await call_next(request)
 
@@ -152,6 +268,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             response.headers[key] = str(value)
 
         return response
+
+    def _get_client_ip(self, request: Request) -> str:
+        """Extract client IP from request, handling proxies."""
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+        return request.client.host if request.client else "unknown"
 
 
 class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
@@ -165,10 +288,14 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
         content_length = request.headers.get("content-length")
 
         if content_length and int(content_length) > self.max_size:
-            return JSONResponse(
+            return create_error_response(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                content={
-                    "error": f"Request body too large. Maximum size is {self.max_size // (1024*1024)}MB."
+                error=f"Request body too large. Maximum size is {self.max_size // (1024*1024)}MB.",
+                error_code=ErrorCodes.REQUEST_TOO_LARGE,
+                request=request,
+                details={
+                    "max_size_bytes": self.max_size,
+                    "received_size_bytes": int(content_length),
                 },
             )
 
@@ -223,18 +350,50 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         header_token = request.headers.get("x-csrf-token")
 
         if not cookie_token or not header_token:
-            return JSONResponse(
+            # Audit log the CSRF violation
+            client_ip = self._get_client_ip(request)
+            request_id = request.headers.get("x-request-id")
+            audit_csrf_violation(
+                ip_address=client_ip,
+                path=request.url.path,
+                method=request.method,
+                request_id=request_id,
+            )
+
+            return create_error_response(
                 status_code=status.HTTP_403_FORBIDDEN,
-                content={"error": "CSRF token missing"},
+                error="CSRF token missing. Include X-CSRF-Token header.",
+                error_code=ErrorCodes.CSRF_ERROR,
+                request=request,
+                details={"has_cookie": bool(cookie_token), "has_header": bool(header_token)},
             )
 
         if not secrets.compare_digest(cookie_token, header_token):
-            return JSONResponse(
+            # Audit log the CSRF token mismatch
+            client_ip = self._get_client_ip(request)
+            request_id = request.headers.get("x-request-id")
+            audit_csrf_violation(
+                ip_address=client_ip,
+                path=request.url.path,
+                method=request.method,
+                request_id=request_id,
+            )
+
+            return create_error_response(
                 status_code=status.HTTP_403_FORBIDDEN,
-                content={"error": "CSRF token mismatch"},
+                error="CSRF token mismatch. Token may have expired.",
+                error_code=ErrorCodes.CSRF_ERROR,
+                request=request,
             )
 
         return await call_next(request)
+
+    def _get_client_ip(self, request: Request) -> str:
+        """Extract client IP from request, handling proxies."""
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+        return request.client.host if request.client else "unknown"
 
 
 # Global rate limiter instance
@@ -413,20 +572,68 @@ def create_app(
     _app.add_middleware(RateLimitMiddleware, limiter=_rate_limiter)
     _app.add_middleware(RequestSizeLimitMiddleware)
 
-    # Add exception handlers
+    # Add exception handlers with standardized error responses
+
+    @_app.exception_handler(StarletteHTTPException)
+    async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+        """Handle HTTP exceptions with standardized format."""
+        # Map status codes to error codes
+        error_code_map = {
+            400: ErrorCodes.BAD_REQUEST,
+            401: ErrorCodes.UNAUTHORIZED,
+            403: ErrorCodes.FORBIDDEN,
+            404: ErrorCodes.NOT_FOUND,
+            429: ErrorCodes.RATE_LIMITED,
+        }
+        error_code = error_code_map.get(exc.status_code, ErrorCodes.INTERNAL_ERROR)
+
+        return create_error_response(
+            status_code=exc.status_code,
+            error=str(exc.detail),
+            error_code=error_code,
+            request=request,
+        )
+
+    @_app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+        """Handle Pydantic validation errors with detailed feedback."""
+        errors = []
+        for error in exc.errors():
+            loc = " -> ".join(str(x) for x in error.get("loc", []))
+            msg = error.get("msg", "Validation error")
+            errors.append({"field": loc, "message": msg})
+
+        return create_error_response(
+            status_code=422,
+            error="Request validation failed",
+            error_code=ErrorCodes.VALIDATION_ERROR,
+            request=request,
+            details={"validation_errors": errors},
+        )
+
     @_app.exception_handler(ValueError)
     async def value_error_handler(request: Request, exc: ValueError):
-        return JSONResponse(
+        """Handle ValueError with standardized format."""
+        return create_error_response(
             status_code=400,
-            content={"error": str(exc), "type": "validation_error"},
+            error=str(exc),
+            error_code=ErrorCodes.BAD_REQUEST,
+            request=request,
         )
 
     @_app.exception_handler(Exception)
     async def general_exception_handler(request: Request, exc: Exception):
-        logger.error(f"Unhandled exception: {exc}")
-        return JSONResponse(
+        """Handle unexpected exceptions securely."""
+        # Log full error with traceback for debugging
+        logger.error(f"Unhandled exception on {request.url.path}: {exc}")
+        logger.debug(traceback.format_exc())
+
+        # Return generic error to client (don't leak internals)
+        return create_error_response(
             status_code=500,
-            content={"error": "Internal server error", "type": "server_error"},
+            error="Internal server error",
+            error_code=ErrorCodes.INTERNAL_ERROR,
+            request=request,
         )
 
     # Include routes

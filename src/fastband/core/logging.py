@@ -593,20 +593,69 @@ def _patch_logger_handlers(logger: logging.Logger) -> None:
 
 
 # =============================================================================
-# AUDIT LOGGING
+# AUDIT LOGGING (Enterprise Security)
 # =============================================================================
 
 # Audit event types for categorization
 class AuditEventType:
-    """Audit event type constants."""
+    """Audit event type constants for security monitoring."""
 
+    # Authentication & Authorization
     AUTH = "auth"
+    AUTH_SUCCESS = "auth:success"
+    AUTH_FAILURE = "auth:failure"
+    TOKEN_ISSUED = "auth:token_issued"
+    TOKEN_REVOKED = "auth:token_revoked"
+    SESSION_CREATED = "auth:session_created"
+    SESSION_DESTROYED = "auth:session_destroyed"
+
+    # Configuration & Settings
     CONFIG = "config"
-    SESSION = "session"
+    CONFIG_CHANGED = "config:changed"
     API_KEY = "api_key"
+    API_KEY_ADDED = "api_key:added"
+    API_KEY_REMOVED = "api_key:removed"
+    API_KEY_ROTATED = "api_key:rotated"
+
+    # Data Access
+    SESSION = "session"
     BACKUP = "backup"
-    SERVER = "server"
+    BACKUP_CREATED = "backup:created"
+    BACKUP_RESTORED = "backup:restored"
+    BACKUP_DELETED = "backup:deleted"
+    DATA_EXPORT = "data:export"
+    DATA_DELETE = "data:delete"
+
+    # Security Events
     SECURITY = "security"
+    RATE_LIMITED = "security:rate_limited"
+    CSRF_VIOLATION = "security:csrf_violation"
+    REQUEST_BLOCKED = "security:request_blocked"
+    SUSPICIOUS_ACTIVITY = "security:suspicious"
+    PRIVILEGE_ESCALATION = "security:privilege_escalation"
+    ACCESS_DENIED = "security:access_denied"
+
+    # Server Operations
+    SERVER = "server"
+    SERVER_START = "server:start"
+    SERVER_STOP = "server:stop"
+    SERVER_ERROR = "server:error"
+
+    # Agent Operations
+    AGENT = "agent"
+    AGENT_STARTED = "agent:started"
+    AGENT_STOPPED = "agent:stopped"
+    TICKET_CLAIMED = "agent:ticket_claimed"
+    TICKET_COMPLETED = "agent:ticket_completed"
+
+
+# Severity levels for audit events
+class AuditSeverity:
+    """Audit event severity levels."""
+
+    INFO = "info"
+    WARNING = "warning"
+    CRITICAL = "critical"
 
 
 _audit_logger: logging.Logger | None = None
@@ -649,6 +698,8 @@ def audit_log(
     details: dict | None = None,
     success: bool = True,
     ip_address: str | None = None,
+    severity: str = AuditSeverity.INFO,
+    request_id: str | None = None,
 ) -> None:
     """
     Log an audit event for security-sensitive operations.
@@ -661,6 +712,8 @@ def audit_log(
         details: Additional details (DO NOT include sensitive data)
         success: Whether the action succeeded
         ip_address: Client IP address if available
+        severity: Event severity level (info, warning, critical)
+        request_id: Request correlation ID for tracing
     """
     logger = get_audit_logger()
 
@@ -668,7 +721,8 @@ def audit_log(
         "event_type": event_type,
         "action": action,
         "success": success,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "severity": severity,
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     }
 
     if user_id:
@@ -679,9 +733,126 @@ def audit_log(
         audit_record["details"] = details
     if ip_address:
         audit_record["ip_address"] = ip_address
+    if request_id:
+        audit_record["request_id"] = request_id
 
     # Log as JSON for easy parsing
-    logger.info(json.dumps(audit_record))
+    # Use appropriate log level based on severity
+    log_entry = json.dumps(audit_record)
+    if severity == AuditSeverity.CRITICAL:
+        logger.critical(log_entry)
+    elif severity == AuditSeverity.WARNING:
+        logger.warning(log_entry)
+    else:
+        logger.info(log_entry)
+
+
+# =============================================================================
+# SECURITY AUDIT CONVENIENCE FUNCTIONS
+# =============================================================================
+
+
+def audit_security_event(
+    event_type: str,
+    message: str,
+    ip_address: str | None = None,
+    user_id: str | None = None,
+    details: dict | None = None,
+    severity: str = AuditSeverity.WARNING,
+    request_id: str | None = None,
+) -> None:
+    """
+    Log a security-related audit event.
+
+    Args:
+        event_type: Type of security event (use AuditEventType.SECURITY_* constants)
+        message: Description of the security event
+        ip_address: Client IP address
+        user_id: User ID if known
+        details: Additional context
+        severity: Event severity
+        request_id: Request correlation ID
+    """
+    audit_log(
+        event_type=event_type,
+        action=message,
+        user_id=user_id,
+        ip_address=ip_address,
+        details=details,
+        success=False,
+        severity=severity,
+        request_id=request_id,
+    )
+
+
+def audit_rate_limit(
+    ip_address: str,
+    path: str,
+    limit: int,
+    request_id: str | None = None,
+) -> None:
+    """Log a rate limit violation."""
+    audit_security_event(
+        event_type=AuditEventType.RATE_LIMITED,
+        message=f"Rate limit exceeded on {path}",
+        ip_address=ip_address,
+        details={"path": path, "limit": limit},
+        severity=AuditSeverity.WARNING,
+        request_id=request_id,
+    )
+
+
+def audit_csrf_violation(
+    ip_address: str,
+    path: str,
+    method: str,
+    request_id: str | None = None,
+) -> None:
+    """Log a CSRF token violation."""
+    audit_security_event(
+        event_type=AuditEventType.CSRF_VIOLATION,
+        message=f"CSRF token invalid on {method} {path}",
+        ip_address=ip_address,
+        details={"path": path, "method": method},
+        severity=AuditSeverity.WARNING,
+        request_id=request_id,
+    )
+
+
+def audit_auth_failure(
+    ip_address: str,
+    reason: str,
+    user_id: str | None = None,
+    request_id: str | None = None,
+) -> None:
+    """Log an authentication failure."""
+    audit_security_event(
+        event_type=AuditEventType.AUTH_FAILURE,
+        message=f"Authentication failed: {reason}",
+        ip_address=ip_address,
+        user_id=user_id,
+        severity=AuditSeverity.WARNING,
+        request_id=request_id,
+    )
+
+
+def audit_access_denied(
+    ip_address: str,
+    resource: str,
+    user_id: str | None = None,
+    reason: str = "Unauthorized",
+    request_id: str | None = None,
+) -> None:
+    """Log an access denied event."""
+    audit_security_event(
+        event_type=AuditEventType.ACCESS_DENIED,
+        message=f"Access denied to {resource}: {reason}",
+        ip_address=ip_address,
+        user_id=user_id,
+        details={"resource": resource, "reason": reason},
+        severity=AuditSeverity.WARNING,
+        request_id=request_id,
+    )
 
 
 def get_uvicorn_log_config() -> dict:
