@@ -101,6 +101,13 @@ system = [
 cloud = [
     "supabase>=2.0.0",  # Supabase client for cloud sync and profiles
 ]
+tracing = [
+    "opentelemetry-api>=1.20.0",
+    "opentelemetry-sdk>=1.20.0",
+    "opentelemetry-exporter-otlp>=1.20.0",
+    "opentelemetry-instrumentation-fastapi>=0.41b0",
+    "opentelemetry-instrumentation-httpx>=0.41b0",
+]
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
@@ -112,7 +119,7 @@ dev = [
     "flask>=2.0.0",
 ]
 full = [
-    "fastband-agent-control[all-providers,web,screenshots,postgres,mysql,migrations,auth,system,cloud,dev]",
+    "fastband-agent-control[all-providers,web,screenshots,postgres,mysql,migrations,auth,system,cloud,tracing,dev]",
 ]
 
 [project.scripts]
