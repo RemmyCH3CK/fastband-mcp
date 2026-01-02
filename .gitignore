@@ -51,6 +51,8 @@ coverage.xml
 
 # Environments
 .env
+.env.local
+.env.*.local
 .venv
 env/
 venv/
@@ -80,7 +82,17 @@ dmypy.json
 .fastband/
 *.db
 *.sqlite
+*.sqlite3
 *.log
+
+# Secrets and credentials (NEVER commit)
+.secret*
+*.key
+*.pem
+*.p12
+*.pfx
+credentials.json
+service-account*.json
 
 # OS
 .DS_Store
@@ -98,3 +110,16 @@ node_modules/
 .npm
 .pnpm-store/
 *.nfs*
+
+# Dual-product monorepo artifacts
+packages/*/dist/
+packages/*/.eggs/
+packages/*/build/
+packages/*/*.egg-info/
+
+# Go build artifacts (enterprise)
+packages/enterprise/bin/
+packages/enterprise/*.exe
+packages/enterprise/*.dll
+packages/enterprise/*.so
+packages/enterprise/*.dylib

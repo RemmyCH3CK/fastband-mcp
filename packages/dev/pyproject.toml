@@ -37,9 +37,39 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/fastband_dev"]
 exclude = [
+    # Environment files
     "**/.env*",
+    "**/.secret*",
+    # Databases
     "**/*.db",
     "**/*.sqlite*",
+    # Runtime directories
     "**/backups/",
     "**/.fastband/",
+    # Credentials
+    "**/*.key",
+    "**/*.pem",
+    "**/*.p12",
+    "**/credentials.json",
+    "**/service-account*.json",
+    # Build artifacts
+    "**/dist/",
+    "**/build/",
+    "**/*.egg-info/",
+    # Cache
+    "**/__pycache__/",
+    "**/.pytest_cache/",
+    "**/.ruff_cache/",
+    "**/.mypy_cache/",
+]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "**/.env*",
+    "**/.secret*",
+    "**/*.db",
+    "**/*.sqlite*",
+    "**/*.key",
+    "**/*.pem",
+    "**/credentials.json",
 ]

@@ -1,0 +1,51 @@
+name: Artifact Hygiene
+
+on:
+  push:
+    branches:
+      - dual-product-rearch
+  pull_request:
+    branches:
+      - dual-product-rearch
+
+jobs:
+  check-artifacts:
+    name: Check Artifact Hygiene
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run artifact hygiene check
+        run: |
+          echo "Checking for forbidden tracked files..."
+          python scripts/check-artifact-hygiene.py
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Artifact Hygiene Check" >> $GITHUB_STEP_SUMMARY
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "✅ No forbidden artifacts tracked" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Forbidden artifacts detected in git" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Forbidden Patterns" >> $GITHUB_STEP_SUMMARY
+            echo "- \`.env.local\`, \`.env.*.local\` (local environment)" >> $GITHUB_STEP_SUMMARY
+            echo "- \`.fastband/\` (local config directory)" >> $GITHUB_STEP_SUMMARY
+            echo "- \`*.db\`, \`*.sqlite\` (databases)" >> $GITHUB_STEP_SUMMARY
+            echo "- \`.secret*\`, \`*.key\`, \`*.pem\` (credentials)" >> $GITHUB_STEP_SUMMARY
+            echo "- \`dist/\`, \`build/\`, \`*.egg-info/\` (build artifacts)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Fix" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+            echo "git rm --cached <file>" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi
