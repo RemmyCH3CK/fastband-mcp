@@ -633,6 +633,372 @@ Get environment variables.
 
 ---
 
+### Web Tools
+
+**Module:** `fastband.tools.web`
+
+#### `BrowserAutomationTool`
+
+Automate browser interactions like a human user - clicking, typing, filling forms, and navigating pages.
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `url` | string | Yes | Target page URL |
+| `action` | string | Yes | Action: click, type, fill, wait, scroll, select, hover, press, goto |
+| `selector` | string | No | CSS selector for element (required for most actions) |
+| `value` | string | No | Value for type/fill/select/press actions |
+| `wait_ms` | integer | No | Wait time in milliseconds (default: 1000) |
+| `screenshot` | boolean | No | Take screenshot after action (default: false) |
+
+**Returns:**
+```python
+{
+    "success": bool,         # Whether action succeeded
+    "action": str,           # Action performed
+    "selector": str,         # Selector used
+    "screenshot_path": str,  # Path to screenshot (if taken)
+    "page_url": str,         # Current page URL after action
+    "page_title": str        # Current page title
+}
+```
+
+**Example:**
+```python
+# Login form automation
+await browser_automation.execute(
+    url="https://app.example.com/login",
+    action="fill",
+    selector="#username",
+    value="user@example.com"
+)
+await browser_automation.execute(
+    url="https://app.example.com/login",
+    action="fill",
+    selector="#password",
+    value="password123"
+)
+await browser_automation.execute(
+    url="https://app.example.com/login",
+    action="click",
+    selector="button[type='submit']",
+    screenshot=True
+)
+```
+
+---
+
+#### `QAConsoleSweepTool`
+
+Sweep multiple pages for JavaScript console errors, network failures, and runtime issues.
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `base_url` | string | Yes | Base URL of the application |
+| `pages` | array | Yes | List of page paths to check |
+| `auth` | object | No | Authentication credentials |
+| `wait_per_page` | integer | No | Wait time per page in ms (default: 2000) |
+| `capture_screenshots` | boolean | No | Capture screenshots on errors (default: true) |
+
+**Returns:**
+```python
+{
+    "total_pages": int,          # Pages checked
+    "pages_with_errors": int,    # Pages with issues
+    "error_summary": {           # Error breakdown
+        "js_errors": int,
+        "network_failures": int,
+        "console_warnings": int
+    },
+    "details": List[{            # Per-page details
+        "path": str,
+        "status": str,
+        "errors": List[str],
+        "screenshot": str        # Path if captured
+    }]
+}
+```
+
+**Example:**
+```python
+result = await qa_console_sweep.execute(
+    base_url="https://myapp.com",
+    pages=["/", "/dashboard", "/settings", "/profile"],
+    capture_screenshots=True
+)
+
+if result.data["pages_with_errors"] > 0:
+    for page in result.data["details"]:
+        if page["errors"]:
+            print(f"Errors on {page['path']}: {page['errors']}")
+```
+
+---
+
+### Testing Tools
+
+**Module:** `fastband.tools.testing`
+
+#### `AgentTesterTool`
+
+Run end-to-end tests simulating agent workflows - page loads, form submissions, and navigation flows.
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `base_url` | string | Yes | Application base URL |
+| `test_type` | string | Yes | Test type: page_load, form_submit, navigation_flow |
+| `test_config` | object | Yes | Test-specific configuration |
+| `timeout_seconds` | integer | No | Test timeout (default: 30) |
+
+**Test Configurations:**
+
+`page_load`:
+```python
+{
+    "pages": ["/", "/about", "/contact"],
+    "expected_elements": ["#main", ".nav"]
+}
+```
+
+`form_submit`:
+```python
+{
+    "form_url": "/login",
+    "fields": {"username": "test", "password": "test"},
+    "submit_selector": "button[type='submit']",
+    "success_indicator": ".dashboard"
+}
+```
+
+`navigation_flow`:
+```python
+{
+    "steps": [
+        {"goto": "/"},
+        {"click": ".start-button"},
+        {"wait": 2000},
+        {"assert": ".step-2-content"}
+    ]
+}
+```
+
+**Returns:**
+```python
+{
+    "test_type": str,       # Type of test run
+    "passed": bool,         # Overall pass/fail
+    "duration_ms": int,     # Execution time
+    "results": List[{       # Individual test results
+        "name": str,
+        "passed": bool,
+        "message": str,
+        "screenshot": str   # If failure
+    }]
+}
+```
+
+---
+
+#### `ScreenshotValidatorTool`
+
+Validate screenshots using Claude Vision for proof-of-work verification.
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `screenshot_path` | string | Yes | Path to screenshot file |
+| `expected_state` | string | Yes | Description of expected state |
+| `validation_rules` | array | No | Specific elements to verify |
+| `confidence_threshold` | number | No | Min confidence (default: 0.8) |
+
+**Returns:**
+```python
+{
+    "valid": bool,              # Overall validation result
+    "confidence": float,        # Confidence score (0-1)
+    "matches": List[str],       # Elements found matching expectations
+    "mismatches": List[str],    # Elements not matching
+    "analysis": str,            # Vision model analysis
+    "recommendations": List[str] # Improvement suggestions
+}
+```
+
+**Example:**
+```python
+result = await screenshot_validator.execute(
+    screenshot_path="/tmp/login_success.png",
+    expected_state="User successfully logged in, showing dashboard",
+    validation_rules=[
+        "Dashboard header visible",
+        "User avatar in top right",
+        "Navigation menu present"
+    ]
+)
+
+if result.data["valid"]:
+    print(f"Screenshot validated with {result.data['confidence']:.0%} confidence")
+else:
+    print(f"Issues found: {result.data['mismatches']}")
+```
+
+---
+
+### Memory Tools
+
+**Module:** `fastband.tools.memory`
+
+Claude Memory System for cross-session learning and pattern recognition.
+
+#### `memory_query`
+
+Query past ticket memories for relevant context and fix patterns.
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `query` | string | Yes | Natural language search query |
+| `app` | string | No | Filter by application name |
+| `ticket_type` | string | No | Filter: Bug, Feature, Enhancement |
+| `files` | array | No | Files involved (finds related tickets) |
+| `session_id` | string | No | Session ID for context tracking |
+| `max_results` | integer | No | Maximum results (default: 10) |
+
+**Returns:**
+```python
+{
+    "memories_found": int,      # Number of relevant memories
+    "patterns_found": int,      # Number of relevant patterns
+    "context": str,             # Formatted context for agent
+    "memory_ids": List[str],    # IDs of matched memories
+    "pattern_ids": List[str],   # IDs of matched patterns
+    "session_id": str           # Session tracking ID
+}
+```
+
+---
+
+#### `memory_start_session`
+
+Start a memory session for context tracking (avoids repetition).
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `agent_name` | string | Yes | Agent identifier (e.g., "MCP_Agent1") |
+| `current_app` | string | No | Application being worked on |
+| `current_ticket` | string | No | Current ticket number |
+
+**Returns:**
+```python
+{
+    "session_id": str,      # Use this in subsequent queries
+    "agent_name": str,
+    "current_app": str,
+    "current_ticket": str,
+    "started_at": str,
+    "message": str
+}
+```
+
+---
+
+#### `memory_add_discovery`
+
+Record a discovery during the session for cross-session learning.
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `session_id` | string | Yes | Session ID from memory_start_session |
+| `discovery` | string | Yes | What was discovered |
+| `category` | string | No | Category: bug_cause, code_pattern, gotcha, tip, general |
+
+---
+
+#### `memory_commit`
+
+Commit a resolved ticket to Claude Memory.
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `ticket_id` | string | Yes | Ticket number |
+| `app` | string | Yes | Application identifier |
+| `title` | string | Yes | Ticket title |
+| `problem_summary` | string | Yes | What was wrong |
+| `solution_summary` | string | Yes | How it was fixed |
+| `files_modified` | array | Yes | Files that were changed |
+| `ticket_type` | string | No | Bug, Feature, Enhancement (default: Bug) |
+
+---
+
+#### `memory_get_patterns`
+
+Get learned fix patterns from cross-session analysis.
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `query` | string | No | Optional filter query |
+| `limit` | integer | No | Max patterns to return (default: 10) |
+
+**Returns:**
+```python
+{
+    "patterns_count": int,
+    "patterns": List[{
+        "pattern_id": str,
+        "name": str,
+        "description": str,
+        "occurrence_count": int,
+        "common_files": List[str],
+        "solution_template": str,
+        "example_tickets": List[str]
+    }]
+}
+```
+
+---
+
+#### `memory_stats`
+
+Get Claude Memory system statistics.
+
+**Returns:**
+```python
+{
+    "total_memories": int,
+    "total_patterns": int,
+    "active_sessions": int,
+    "memories_by_app": Dict[str, int],
+    "memories_by_type": Dict[str, int],
+    "storage_size_kb": int
+}
+```
+
+---
+
+#### `memory_extract_patterns`
+
+Run pattern extraction from resolved tickets (maintenance).
+
+Analyzes past tickets to find common fix patterns. Run periodically (weekly recommended).
+
+---
+
+#### `memory_prune`
+
+Prune stale memories (self-healing maintenance).
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `dry_run` | boolean | No | If True, show what would be pruned (default: true) |
+
+---
+
 ## Exceptions
 
 ### `ToolError`

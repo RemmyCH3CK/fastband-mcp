@@ -97,3 +97,4 @@ backups/
 node_modules/
 .npm
 .pnpm-store/
+*.nfs*

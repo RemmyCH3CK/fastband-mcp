@@ -2,9 +2,12 @@
 Git tools - Version control operations for Fastband.
 
 Provides tools for git operations including status, commit, diff, log, and branch management.
+
+P1 Security: Includes secret scanning to prevent committing credentials.
 """
 
 import os
+import re
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -17,6 +20,153 @@ from fastband.tools.base import (
     ToolParameter,
     ToolResult,
 )
+
+
+# =============================================================================
+# P1 SECURITY: SECRET SCANNING
+# =============================================================================
+
+# Patterns that indicate potential secrets (compiled for performance)
+SECRET_PATTERNS = [
+    # API Keys (generic patterns)
+    (re.compile(r'(?i)(api[_-]?key|apikey)\s*[=:]\s*["\']?[a-zA-Z0-9_\-]{20,}["\']?'), "API key"),
+    (re.compile(r'(?i)(secret[_-]?key|secretkey)\s*[=:]\s*["\']?[a-zA-Z0-9_\-]{20,}["\']?'), "Secret key"),
+    (re.compile(r'(?i)(access[_-]?key|accesskey)\s*[=:]\s*["\']?[a-zA-Z0-9_\-]{20,}["\']?'), "Access key"),
+
+    # AWS
+    (re.compile(r'AKIA[0-9A-Z]{16}'), "AWS Access Key ID"),
+    (re.compile(r'(?i)aws[_-]?secret[_-]?access[_-]?key\s*[=:]\s*["\']?[a-zA-Z0-9/+=]{40}["\']?'), "AWS Secret"),
+
+    # OpenAI
+    (re.compile(r'sk-[a-zA-Z0-9]{48}'), "OpenAI API Key"),
+
+    # Anthropic
+    (re.compile(r'sk-ant-[a-zA-Z0-9\-]{90,}'), "Anthropic API Key"),
+
+    # GitHub
+    (re.compile(r'ghp_[a-zA-Z0-9]{36}'), "GitHub Personal Access Token"),
+    (re.compile(r'gho_[a-zA-Z0-9]{36}'), "GitHub OAuth Token"),
+    (re.compile(r'ghs_[a-zA-Z0-9]{36}'), "GitHub App Token"),
+
+    # Stripe
+    (re.compile(r'sk_live_[a-zA-Z0-9]{24}'), "Stripe Live Secret Key"),
+    (re.compile(r'sk_test_[a-zA-Z0-9]{24}'), "Stripe Test Secret Key"),
+
+    # Generic passwords
+    (re.compile(r'(?i)(password|passwd|pwd)\s*[=:]\s*["\'][^"\']{8,}["\']'), "Password"),
+
+    # Private keys
+    (re.compile(r'-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----'), "Private key"),
+
+    # Database connection strings
+    (re.compile(r'(?i)(postgres|mysql|mongodb)://[^:]+:[^@]+@'), "Database connection string"),
+]
+
+# Files that should never be committed
+SENSITIVE_FILES = [
+    ".env",
+    ".env.local",
+    ".env.production",
+    "credentials.json",
+    "service-account.json",
+    "*.pem",
+    "*.key",
+    "id_rsa",
+    "id_ed25519",
+]
+
+
+def _scan_file_for_secrets(file_path: Path) -> list[tuple[str, int, str]]:
+    """
+    Scan a file for potential secrets.
+
+    Args:
+        file_path: Path to the file to scan
+
+    Returns:
+        List of (secret_type, line_number, matched_text) tuples
+    """
+    findings = []
+
+    try:
+        content = file_path.read_text(errors='ignore')
+        lines = content.split('\n')
+
+        for line_num, line in enumerate(lines, 1):
+            for pattern, secret_type in SECRET_PATTERNS:
+                if pattern.search(line):
+                    # Truncate the match for display
+                    match = pattern.search(line)
+                    if match:
+                        matched = match.group(0)
+                        # Redact most of the secret
+                        if len(matched) > 20:
+                            redacted = matched[:10] + "..." + matched[-5:]
+                        else:
+                            redacted = matched[:5] + "..."
+                        findings.append((secret_type, line_num, redacted))
+
+    except Exception:
+        pass  # Skip unreadable files
+
+    return findings
+
+
+def _scan_staged_files_for_secrets(repo_path: str) -> dict[str, list[tuple[str, int, str]]]:
+    """
+    Scan all staged files in a git repository for secrets.
+
+    Args:
+        repo_path: Path to the git repository
+
+    Returns:
+        Dict mapping file paths to their findings
+    """
+    all_findings = {}
+
+    try:
+        # Get list of staged files
+        result = subprocess.run(
+            ["git", "diff", "--cached", "--name-only"],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        if result.returncode != 0:
+            return {}
+
+        staged_files = result.stdout.strip().split('\n')
+
+        for file_name in staged_files:
+            if not file_name:
+                continue
+
+            file_path = Path(repo_path) / file_name
+
+            # Check if it's a sensitive filename
+            for sensitive in SENSITIVE_FILES:
+                if sensitive.startswith("*"):
+                    if file_name.endswith(sensitive[1:]):
+                        all_findings.setdefault(file_name, []).append(
+                            ("Sensitive file type", 0, sensitive)
+                        )
+                elif file_name == sensitive or file_name.endswith("/" + sensitive):
+                    all_findings.setdefault(file_name, []).append(
+                        ("Sensitive file", 0, sensitive)
+                    )
+
+            # Scan file contents
+            if file_path.exists() and file_path.is_file():
+                findings = _scan_file_for_secrets(file_path)
+                if findings:
+                    all_findings.setdefault(file_name, []).extend(findings)
+
+    except Exception:
+        pass
+
+    return all_findings
 
 
 def _run_git_command(
@@ -322,6 +472,21 @@ class GitCommitTool(Tool):
                             success=False,
                             error=f"Failed to stage file '{file}': {add_result.stderr.strip()}",
                         )
+
+            # P1 SECURITY: Scan staged files for secrets BEFORE committing
+            secret_findings = _scan_staged_files_for_secrets(str(target))
+            if secret_findings:
+                error_lines = ["COMMIT BLOCKED: Potential secrets detected in staged files:"]
+                for file_path, findings in secret_findings.items():
+                    error_lines.append(f"\n  {file_path}:")
+                    for secret_type, line_num, redacted in findings:
+                        if line_num > 0:
+                            error_lines.append(f"    Line {line_num}: {secret_type} ({redacted})")
+                        else:
+                            error_lines.append(f"    {secret_type}: {redacted}")
+                error_lines.append("\n\nTo fix: Remove secrets and use environment variables instead.")
+                error_lines.append("If this is a false positive, review the file carefully before proceeding.")
+                return ToolResult(success=False, error="\n".join(error_lines))
 
             # Build commit command
             commit_args = ["commit", "-m", message]

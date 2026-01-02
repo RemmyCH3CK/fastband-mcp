@@ -3,6 +3,13 @@ AI-Powered Agent Bible Generator.
 
 Analyzes the codebase using AI to generate a context-aware AGENT_BIBLE.md
 that reflects the project's actual patterns, conventions, and architecture.
+
+The generated bible follows a strict 10 Laws structure with:
+- Ops Log coordination for parallel agents
+- Security requirements (no secrets, parameterized queries, path validation)
+- Screenshot verification with Vision API
+- Review agent protocols
+- MCP tool reference
 """
 
 import json
@@ -40,6 +47,10 @@ class CodebaseAnalysis:
     patterns: list[str] = field(default_factory=list)
     config_files: list[str] = field(default_factory=list)
     test_patterns: list[str] = field(default_factory=list)
+    test_command: str = "pytest"
+    lint_command: str = "ruff check ."
+    dev_url: str = "http://localhost:8000"
+    service_name: str = "app"
 
     def to_prompt_context(self) -> str:
         """Convert analysis to prompt context string."""
@@ -66,6 +77,12 @@ DETECTED PATTERNS:
 
 TEST PATTERNS:
 {chr(10).join(f'- {p}' for p in self.test_patterns)}
+
+DETECTED COMMANDS:
+- Test command: {self.test_command}
+- Lint command: {self.lint_command}
+- Dev URL: {self.dev_url}
+- Service name: {self.service_name}
 """
 
 
@@ -144,6 +161,12 @@ class CodebaseAnalyzer:
         # Find test patterns
         test_patterns = self._detect_test_patterns(all_files)
 
+        # Detect project-specific commands and URLs
+        test_command = self._detect_test_command(all_files)
+        lint_command = self._detect_lint_command(all_files)
+        dev_url = self._detect_dev_url(all_files)
+        service_name = self._detect_service_name(all_files)
+
         return CodebaseAnalysis(
             project_name=project_name,
             root_path=self.project_path,
@@ -155,6 +178,10 @@ class CodebaseAnalyzer:
             patterns=patterns,
             config_files=config_files,
             test_patterns=test_patterns,
+            test_command=test_command,
+            lint_command=lint_command,
+            dev_url=dev_url,
+            service_name=service_name,
         )
 
     def _collect_files(self) -> list[Path]:
@@ -334,31 +361,189 @@ class CodebaseAnalyzer:
 
         return patterns
 
+    def _detect_test_command(self, files: list[Path]) -> str:
+        """Detect the appropriate test command for the project."""
+        file_names = [f.name.lower() for f in files]
+
+        # Python projects
+        if 'pytest.ini' in file_names or 'conftest.py' in file_names:
+            return 'pytest'
+        if 'pyproject.toml' in file_names:
+            return 'pytest'
+        if 'setup.py' in file_names:
+            return 'python -m pytest'
+
+        # JavaScript/TypeScript projects
+        if 'package.json' in file_names:
+            # Check for specific test runners
+            for f in files:
+                if f.name == 'package.json':
+                    try:
+                        content = f.read_text(errors='ignore')
+                        if 'vitest' in content:
+                            return 'npm run test'
+                        if 'jest' in content:
+                            return 'npm test'
+                        if 'mocha' in content:
+                            return 'npm test'
+                    except Exception:
+                        pass
+            return 'npm test'
+
+        # Go projects
+        if 'go.mod' in file_names:
+            return 'go test ./...'
+
+        # Rust projects
+        if 'Cargo.toml' in file_names:
+            return 'cargo test'
+
+        return 'pytest'  # Default fallback
+
+    def _detect_lint_command(self, files: list[Path]) -> str:
+        """Detect the appropriate lint command for the project."""
+        file_names = [f.name.lower() for f in files]
+
+        # Python projects
+        if 'pyproject.toml' in file_names or 'ruff.toml' in file_names:
+            return 'ruff check .'
+        if '.flake8' in file_names:
+            return 'flake8 .'
+        if 'setup.cfg' in file_names:
+            return 'ruff check .'
+
+        # JavaScript/TypeScript projects
+        if '.eslintrc' in file_names or '.eslintrc.js' in file_names or '.eslintrc.json' in file_names:
+            return 'npm run lint'
+
+        # Go projects
+        if 'go.mod' in file_names:
+            return 'golangci-lint run'
+
+        # Rust projects
+        if 'Cargo.toml' in file_names:
+            return 'cargo clippy'
+
+        return 'ruff check .'  # Default fallback
+
+    def _detect_dev_url(self, files: list[Path]) -> str:
+        """Detect the development server URL."""
+        file_names = [f.name.lower() for f in files]
+
+        # Check docker-compose for port mappings
+        for f in files:
+            if 'docker-compose' in f.name.lower():
+                try:
+                    content = f.read_text(errors='ignore')
+                    # Look for common port patterns
+                    if '8080:' in content:
+                        return 'http://localhost:8080'
+                    if '3000:' in content:
+                        return 'http://localhost:3000'
+                    if '5000:' in content:
+                        return 'http://localhost:5000'
+                except Exception:
+                    pass
+
+        # Framework-specific defaults
+        if 'package.json' in file_names:
+            return 'http://localhost:3000'
+        if any('fastapi' in str(f).lower() for f in files):
+            return 'http://localhost:8000'
+        if any('flask' in str(f).lower() for f in files):
+            return 'http://localhost:5000'
+        if any('django' in str(f).lower() for f in files):
+            return 'http://localhost:8000'
+
+        return 'http://localhost:8000'  # Default fallback
+
+    def _detect_service_name(self, files: list[Path]) -> str:
+        """Detect the primary service/container name."""
+        # Check docker-compose for service names
+        for f in files:
+            if 'docker-compose' in f.name.lower():
+                try:
+                    content = f.read_text(errors='ignore')
+                    # Look for service definitions
+                    if 'webapp:' in content or 'web:' in content:
+                        return 'webapp'
+                    if 'api:' in content:
+                        return 'api'
+                    if 'app:' in content:
+                        return 'app'
+                except Exception:
+                    pass
+
+        return 'app'  # Default fallback
+
 
 class AIBibleGenerator:
     """Generates Agent Bible using AI based on codebase analysis."""
 
-    SYSTEM_PROMPT = """You are an expert software architect analyzing a codebase to create an Agent Bible document.
+    SYSTEM_PROMPT = """You are an expert at creating Agent Bible documents for AI agent coordination systems.
 
-The Agent Bible is a set of rules and conventions that AI agents MUST follow when working on this project.
+The Agent Bible is the AUTHORITATIVE set of rules that AI agents MUST follow when working on a project.
+It enables safe parallel agent operation through strict protocols.
 
-Based on the codebase analysis provided, generate a comprehensive AGENT_BIBLE.md that includes:
+You will generate a comprehensive AGENT_BIBLE.md following this EXACT structure:
 
-1. PROJECT OVERVIEW - Brief description of what the project does
-2. TECH STACK - Languages, frameworks, key dependencies
-3. ARCHITECTURE - How the code is organized, key patterns
-4. CRITICAL RULES - What agents MUST and MUST NOT do
-5. FILE CONVENTIONS - Naming, organization, imports
-6. CODE STYLE - Formatting, patterns to follow
-7. TESTING REQUIREMENTS - How to test changes
-8. COMMON PITFALLS - Things to avoid
+## REQUIRED STRUCTURE (Follow This Order):
 
-Be specific to THIS project based on the analysis. Don't be generic.
-Use markdown formatting with clear sections.
-Include practical examples from the actual codebase structure.
-Make rules actionable and specific, not vague guidelines.
+1. **THE HIERARCHY OF AUTHORITY** - ASCII diagram showing: USER > MCP TOOLS > AGENT_BIBLE > AGENTS
+2. **THE TEN LAWS** - 10 specific, enforceable laws (see below)
+3. **PROJECT ARCHITECTURE** - Tech stack, directory structure, key files
+4. **TICKET WORKFLOW (7 Steps)** - Claim → Screenshot → Work → Verify → Commit → Complete → Review
+5. **AGENT OPS LOG PROTOCOL** - Holds, clearances, rebuild coordination for parallel agents
+6. **VERIFICATION REQUIREMENTS** - Checklists for completing work
+7. **REVIEW AGENT PROTOCOL** - 3-agent review system (Code, Security, Process)
+8. **MCP TOOL REFERENCE** - Table of available tools
+9. **SECURITY REQUIREMENTS** - Code examples of correct vs incorrect patterns
+10. **ERROR RECOVERY & COMMON FIXES** - Pattern-based troubleshooting
+11. **QUICK REFERENCE CARD** - Summary of laws and essential commands
 
-IMPORTANT: Generate the FULL AGENT_BIBLE.md content, not just an outline."""
+## THE TEN LAWS (Adapt to Project):
+
+Each law MUST have: THE RULE, FORBIDDEN examples, REQUIRED examples
+
+1. **Ops Log Reporting is Mandatory** - All agents report to ops log, check for holds before work
+2. **Never Commit Secrets** - No hardcoded credentials, use environment variables
+3. **Use Parameterized Queries Only** - No SQL injection, use placeholders
+4. **Validate All Paths** - Prevent path traversal attacks
+5. **Screenshots Must Be Analyzed** - Vision API verification, not just captured
+6. **Test Before Completing** - Run tests, don't assume code works
+7. **Never Auto-Resolve Tickets** - Only humans set status to Resolved
+8. **Never Give Up** - Persist through difficulties, try multiple approaches
+9. **Keep the Bible Updated** - Propose corrections when discrepancies found
+10. **Commit Changes After Work** - Git commits required before completing
+
+## OPS LOG PROTOCOL (Critical for Parallel Agents):
+
+The Agent Ops Log enables safe parallel agent coordination:
+- **Holds** - Stop all agents from proceeding (e.g., during deploy)
+- **Clearances** - Allow agents to proceed after hold
+- **Rebuild announcements** - Coordinate container restarts
+- Agents MUST check for holds BEFORE starting any work
+- Agents MUST announce rebuilds BEFORE and AFTER
+
+## KEY PRINCIPLES:
+
+1. Be SPECIFIC to the project - use actual file paths, commands, URLs from the analysis
+2. Include working code examples with project-specific imports/patterns
+3. Laws must have FORBIDDEN and REQUIRED sections with concrete examples
+4. Use the exact tool names: mcp__fastband-mcp__<tool_name>()
+5. Include the ticket workflow with status flow diagram
+6. Make error recovery actionable with specific fixes
+
+## FORMATTING:
+
+- Use markdown with clear headers
+- Include ASCII diagrams for visual concepts
+- Use code blocks with language hints
+- Include tables for quick reference
+- Status flow: 🔴 Open → 🟡 In Progress → 🔍 Under Review → 🔵 Awaiting Approval → 🟢 Resolved
+
+IMPORTANT: Generate the COMPLETE AGENT_BIBLE.md content, not just an outline.
+Make it actionable and specific to THIS project based on the analysis provided."""
 
     def __init__(self, provider: str = "auto"):
         """
@@ -382,26 +567,55 @@ IMPORTANT: Generate the FULL AGENT_BIBLE.md content, not just an outline."""
                 )
         return provider
 
-    def generate(self, analysis: CodebaseAnalysis, ticket_prefix: str = "FB") -> str:
+    def generate(
+        self,
+        analysis: CodebaseAnalysis,
+        ticket_prefix: str = "FB",
+        hub_url: str = "http://localhost:8000",
+    ) -> str:
         """
         Generate Agent Bible content using AI.
 
         Args:
             analysis: Codebase analysis results
             ticket_prefix: Ticket prefix to use (e.g., "FB")
+            hub_url: URL for the Fastband Hub
 
         Returns:
             Generated AGENT_BIBLE.md content
         """
-        user_prompt = f"""Analyze this codebase and generate an AGENT_BIBLE.md:
+        user_prompt = f"""Generate a comprehensive AGENT_BIBLE.md for this project:
 
 {analysis.to_prompt_context()}
 
-Additional context:
-- Ticket prefix for this project: {ticket_prefix}
-- Generate date: {datetime.now().strftime('%Y-%m-%d')}
+## PROJECT-SPECIFIC VALUES TO USE:
 
-Generate the complete AGENT_BIBLE.md content now."""
+| Placeholder | Value |
+|-------------|-------|
+| PROJECT_NAME | {analysis.project_name} |
+| GENERATION_DATE | {datetime.now().strftime('%Y-%m-%d')} |
+| TICKET_PREFIX | {ticket_prefix} |
+| TEST_COMMAND | {analysis.test_command} |
+| LINT_COMMAND | {analysis.lint_command} |
+| DEV_URL | {analysis.dev_url} |
+| HUB_URL | {hub_url} |
+| SERVICE_NAME | {analysis.service_name} |
+| PRIMARY_LANGUAGE | {analysis.primary_language} |
+| FRAMEWORKS | {', '.join(analysis.frameworks) or 'None detected'} |
+| REPO_NAME | {analysis.project_name} |
+
+## REQUIREMENTS:
+
+1. Use the VALUES above in your generated content (not placeholders)
+2. Include the 10 Laws with FORBIDDEN/REQUIRED sections
+3. Include the Ops Log Protocol for parallel agent coordination
+4. Include the 7-step ticket workflow with status diagram
+5. Include the 3-agent review protocol (Code, Security, Process)
+6. Include project-specific security examples
+7. Include error recovery patterns relevant to this tech stack
+8. Make all code examples use the actual project structure
+
+Generate the COMPLETE AGENT_BIBLE.md now. Be specific to this project, not generic."""
 
         if self.provider == "anthropic":
             return self._generate_anthropic(user_prompt)
@@ -452,15 +666,25 @@ def generate_ai_bible(
     output_path: Path | None = None,
     ticket_prefix: str = "FB",
     provider: str = "auto",
+    hub_url: str = "http://localhost:8000",
 ) -> Path:
     """
     Generate an AI-powered Agent Bible for a project.
 
+    The generated bible includes:
+    - 10 Laws with FORBIDDEN/REQUIRED sections
+    - Ops Log Protocol for parallel agent coordination
+    - 7-step ticket workflow
+    - 3-agent review protocol
+    - Project-specific security examples
+    - Error recovery patterns
+
     Args:
         project_path: Root path of the project to analyze
         output_path: Where to save the Bible (default: .fastband/AGENT_BIBLE.md)
-        ticket_prefix: Ticket prefix for the project
-        provider: AI provider to use
+        ticket_prefix: Ticket prefix for the project (e.g., "FB", "MLB")
+        provider: AI provider to use ("anthropic", "openai", or "auto")
+        hub_url: URL for the Fastband Hub dashboard
 
     Returns:
         Path to the generated Agent Bible
@@ -471,7 +695,11 @@ def generate_ai_bible(
 
     # Generate the Bible using AI
     generator = AIBibleGenerator(provider=provider)
-    content = generator.generate(analysis, ticket_prefix=ticket_prefix)
+    content = generator.generate(
+        analysis,
+        ticket_prefix=ticket_prefix,
+        hub_url=hub_url,
+    )
 
     # Save to file
     if output_path is None:

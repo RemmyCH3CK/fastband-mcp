@@ -1101,19 +1101,23 @@ class TestWebToolsCollection:
         """Test that all web tools are properly exported."""
         from fastband.tools.web import (
             WEB_TOOLS,
+            BrowserAutomationTool,
             BrowserConsoleTool,
             DomQueryTool,
             HttpRequestTool,
+            QAConsoleSweepTool,
             ScreenshotTool,
             VisionAnalysisTool,
         )
 
-        assert len(WEB_TOOLS) == 5
+        assert len(WEB_TOOLS) == 7
         assert ScreenshotTool in WEB_TOOLS
         assert HttpRequestTool in WEB_TOOLS
         assert DomQueryTool in WEB_TOOLS
         assert BrowserConsoleTool in WEB_TOOLS
         assert VisionAnalysisTool in WEB_TOOLS
+        assert BrowserAutomationTool in WEB_TOOLS
+        assert QAConsoleSweepTool in WEB_TOOLS
 
     def test_all_tools_have_valid_category(self):
         """Test that all web tools have valid categories (WEB or AI)."""

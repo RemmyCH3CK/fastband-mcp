@@ -345,11 +345,23 @@ if Capability.VISION in provider.capabilities:
 
 ### ClaudeProvider
 
-Claude (Anthropic) provider implementation.
+Claude (Anthropic) provider implementation with auto model selection.
 
 **Module:** `fastband.providers.claude`
 
 **Default Model:** `claude-sonnet-4-20250514`
+
+**Available Models:**
+
+| Key | Model ID | Use Case |
+|-----|----------|----------|
+| `default` | claude-sonnet-4-20250514 | General purpose |
+| `fast` | claude-3-5-haiku-20241022 | Quick queries, chat |
+| `powerful` | claude-opus-4-5-20251101 | Complex reasoning |
+| `code` | claude-sonnet-4-20250514 | Code generation |
+| `code_review` | claude-opus-4-5-20251101 | Thorough code review |
+| `vision` | claude-sonnet-4-20250514 | Image analysis |
+| `integration` | claude-opus-4-5-20251101 | Full system integration |
 
 **Capabilities:**
 - TEXT_COMPLETION
@@ -359,6 +371,37 @@ Claude (Anthropic) provider implementation.
 - STREAMING
 - LONG_CONTEXT
 - EXTENDED_THINKING
+
+**Auto Model Selection:**
+
+The Claude provider supports automatic model selection based on task type:
+
+```python
+from fastband.providers.claude import ClaudeProvider, CLAUDE_MODELS
+
+provider = ClaudeProvider(config)
+
+# Auto-select model based on task
+model = provider.get_recommended_model("code review for auth system")
+# Returns: claude-opus-4-5-20251101 (Opus 4.5)
+
+model = provider.get_model_for_task_type("chat")
+# Returns: claude-3-5-haiku-20241022 (Haiku)
+
+model = provider.get_model_for_task_type("integration")
+# Returns: claude-opus-4-5-20251101 (Opus 4.5)
+```
+
+**Task Type Mapping:**
+
+| Task Type | Model Used |
+|-----------|------------|
+| `chat`, `quick_answer`, `simple_query` | Haiku (fast) |
+| `code`, `programming`, `debugging` | Sonnet (code) |
+| `image`, `vision`, `screenshot` | Sonnet (vision) |
+| `complex`, `reasoning`, `architecture`, `analysis` | Opus 4.5 (powerful) |
+| `code_review`, `review` | Opus 4.5 (code_review) |
+| `integration` | Opus 4.5 (integration) |
 
 **Extra Configuration:**
 ```python

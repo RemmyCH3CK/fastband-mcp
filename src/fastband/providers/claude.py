@@ -19,12 +19,38 @@ from fastband.providers.base import (
 logger = logging.getLogger(__name__)
 
 # Default models for different use cases
+# Updated 2025-01: Use Claude Opus 4.5 for powerful/complex tasks
 CLAUDE_MODELS = {
     "default": "claude-sonnet-4-20250514",
     "fast": "claude-3-5-haiku-20241022",
-    "powerful": "claude-opus-4-20250514",
+    "powerful": "claude-opus-4-5-20251101",  # Opus 4.5 for complex reasoning
     "code": "claude-sonnet-4-20250514",
+    "code_review": "claude-opus-4-5-20251101",  # Opus 4.5 for thorough code review
     "vision": "claude-sonnet-4-20250514",
+    "integration": "claude-opus-4-5-20251101",  # Opus 4.5 for full integration work
+}
+
+# Task type to model mapping for auto selection
+TASK_MODEL_MAP = {
+    # Fast tasks - use Haiku
+    "chat": "fast",
+    "quick_answer": "fast",
+    "simple_query": "fast",
+    # Standard tasks - use Sonnet
+    "code": "code",
+    "programming": "code",
+    "debugging": "code",
+    "image": "vision",
+    "vision": "vision",
+    "screenshot": "vision",
+    # Complex tasks - use Opus 4.5
+    "complex": "powerful",
+    "reasoning": "powerful",
+    "code_review": "code_review",
+    "review": "code_review",
+    "integration": "integration",
+    "architecture": "powerful",
+    "analysis": "powerful",
 }
 
 
@@ -404,10 +430,33 @@ class ClaudeProvider(AIProvider):
             finish_reason=response.stop_reason or "end_turn",
         )
 
-    def get_recommended_model(self, task: str) -> str:
-        """Get recommended model for a specific task type."""
+    def get_recommended_model(self, task: str, auto_mode: bool = True) -> str:
+        """Get recommended model for a specific task type.
+
+        When auto_mode is True (default), automatically selects the best model
+        based on task complexity:
+        - Haiku for simple chat/quick queries
+        - Sonnet for standard coding tasks
+        - Opus 4.5 for complex reasoning, code review, and integration work
+
+        Args:
+            task: Description of the task or task type keyword
+            auto_mode: If True, use intelligent model selection
+
+        Returns:
+            Model ID string (e.g., "claude-opus-4-5-20251101")
+        """
+        if not auto_mode:
+            return self.config.model or CLAUDE_MODELS["default"]
+
         task_lower = task.lower()
 
+        # Check for exact task type matches first
+        for keyword, model_key in TASK_MODEL_MAP.items():
+            if keyword in task_lower:
+                return CLAUDE_MODELS[model_key]
+
+        # Fallback keyword matching for backwards compatibility
         if "code" in task_lower or "programming" in task_lower:
             return CLAUDE_MODELS["code"]
         if "fast" in task_lower or "quick" in task_lower:
@@ -418,3 +467,23 @@ class ClaudeProvider(AIProvider):
             return CLAUDE_MODELS["vision"]
 
         return self.config.model or CLAUDE_MODELS["default"]
+
+    def get_model_for_task_type(self, task_type: str) -> str:
+        """Get model for a specific task type.
+
+        Task types:
+        - "chat": Simple chat (Haiku)
+        - "code": Code generation (Sonnet)
+        - "code_review": Thorough code review (Opus 4.5)
+        - "integration": Full system integration (Opus 4.5)
+        - "reasoning": Complex reasoning (Opus 4.5)
+        - "vision": Image analysis (Sonnet)
+
+        Args:
+            task_type: One of the supported task types
+
+        Returns:
+            Model ID string
+        """
+        model_key = TASK_MODEL_MAP.get(task_type.lower(), "default")
+        return CLAUDE_MODELS.get(model_key, CLAUDE_MODELS["default"])

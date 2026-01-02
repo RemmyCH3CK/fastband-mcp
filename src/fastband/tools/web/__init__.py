@@ -1218,6 +1218,623 @@ class BrowserConsoleTool(Tool):
                 await context.close()
 
 
+class BrowserAutomationTool(Tool):
+    """
+    Browser automation tool for human-like interaction with web pages.
+
+    Enables agents to:
+    - Navigate to pages and perform login flows
+    - Fill forms and submit them
+    - Click buttons and links
+    - Wait for elements to appear
+    - Scroll pages
+    - Execute multi-step navigation flows
+    - Capture screenshots after actions
+
+    This is essential for testing UI changes, verifying fixes,
+    and generating proof-of-work for ticket completion.
+    """
+
+    @property
+    def definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            metadata=ToolMetadata(
+                name="browser_automation",
+                description=(
+                    "Perform browser automation actions like a human user. "
+                    "Supports clicking, typing, form filling, navigation, scrolling, "
+                    "and waiting for elements. Essential for testing UI changes and "
+                    "generating proof-of-work screenshots."
+                ),
+                category=ToolCategory.WEB,
+                version="1.0.0",
+                project_types=[ProjectType.WEB_APP],
+                tech_stack_hints=["web", "testing", "qa", "e2e", "playwright"],
+                network_required=True,
+            ),
+            parameters=[
+                ToolParameter(
+                    name="url",
+                    type="string",
+                    description="Starting URL to navigate to",
+                    required=True,
+                ),
+                ToolParameter(
+                    name="actions",
+                    type="array",
+                    description=(
+                        "List of actions to perform. Each action is an object with:\n"
+                        "- type: 'click' | 'type' | 'fill' | 'wait' | 'scroll' | 'select' | 'hover' | 'press' | 'goto'\n"
+                        "- selector: CSS selector for the element (required for most actions)\n"
+                        "- value: Value for type/fill/select/scroll/press actions\n"
+                        "- timeout: Optional timeout in ms for wait actions (default: 5000)\n\n"
+                        "Examples:\n"
+                        "- {type: 'click', selector: 'button.submit'}\n"
+                        "- {type: 'fill', selector: 'input[name=email]', value: 'test@example.com'}\n"
+                        "- {type: 'type', selector: '#search', value: 'query'}\n"
+                        "- {type: 'wait', selector: '.loading', timeout: 10000}\n"
+                        "- {type: 'scroll', value: 500} (scroll down 500px)\n"
+                        "- {type: 'select', selector: 'select#country', value: 'US'}\n"
+                        "- {type: 'hover', selector: '.menu-item'}\n"
+                        "- {type: 'press', value: 'Enter'}\n"
+                        "- {type: 'goto', value: '/another-page'}"
+                    ),
+                    required=True,
+                ),
+                ToolParameter(
+                    name="screenshot_after",
+                    type="boolean",
+                    description="Capture screenshot after all actions complete (default: true)",
+                    required=False,
+                    default=True,
+                ),
+                ToolParameter(
+                    name="screenshot_name",
+                    type="string",
+                    description="Name for the screenshot file (default: 'automation_result')",
+                    required=False,
+                    default="automation_result",
+                ),
+                ToolParameter(
+                    name="width",
+                    type="integer",
+                    description="Viewport width in pixels (default: 1920)",
+                    required=False,
+                    default=1920,
+                ),
+                ToolParameter(
+                    name="height",
+                    type="integer",
+                    description="Viewport height in pixels (default: 1080)",
+                    required=False,
+                    default=1080,
+                ),
+                ToolParameter(
+                    name="headless",
+                    type="boolean",
+                    description="Run browser in headless mode (default: true)",
+                    required=False,
+                    default=True,
+                ),
+                ToolParameter(
+                    name="wait_after_action",
+                    type="integer",
+                    description="Milliseconds to wait after each action (default: 500)",
+                    required=False,
+                    default=500,
+                ),
+                ToolParameter(
+                    name="collect_console",
+                    type="boolean",
+                    description="Collect console logs during automation (default: true)",
+                    required=False,
+                    default=True,
+                ),
+            ],
+        )
+
+    async def execute(
+        self,
+        url: str,
+        actions: list[dict],
+        screenshot_after: bool = True,
+        screenshot_name: str = "automation_result",
+        width: int = 1920,
+        height: int = 1080,
+        headless: bool = True,
+        wait_after_action: int = 500,
+        collect_console: bool = True,
+        **kwargs,
+    ) -> ToolResult:
+        """Execute browser automation actions."""
+        if not PLAYWRIGHT_AVAILABLE:
+            return _playwright_not_installed_error()
+
+        # Validate URL
+        try:
+            parsed = urlparse(url)
+            if not parsed.scheme:
+                url = f"https://{url}"
+        except Exception as e:
+            return ToolResult(success=False, error=f"Invalid URL: {e}")
+
+        context = None
+        page = None
+        console_messages: list[dict] = []
+        network_errors: list[dict] = []
+        action_results: list[dict] = []
+
+        try:
+            manager = get_browser_manager()
+            context = await manager.get_context(
+                headless=headless, viewport={"width": width, "height": height}
+            )
+
+            if context is None:
+                return _playwright_not_installed_error()
+
+            page = await context.new_page()
+
+            # Set up console handler if requested
+            if collect_console:
+                def handle_console(msg):
+                    console_messages.append({
+                        "type": msg.type,
+                        "text": msg.text,
+                    })
+
+                def handle_request_failed(request):
+                    network_errors.append({
+                        "url": request.url,
+                        "method": request.method,
+                        "failure": str(request.failure) if request.failure else "Unknown",
+                    })
+
+                page.on("console", handle_console)
+                page.on("requestfailed", handle_request_failed)
+
+            # Navigate to initial URL
+            await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            try:
+                await page.wait_for_load_state("networkidle", timeout=10000)
+            except Exception:
+                # Fallback if networkidle times out
+                await asyncio.sleep(2)
+
+            action_results.append({
+                "action": "navigate",
+                "url": url,
+                "success": True,
+            })
+
+            # Execute each action
+            for i, action in enumerate(actions):
+                action_type = action.get("type", "").lower()
+                selector = action.get("selector")
+                value = action.get("value")
+                timeout = action.get("timeout", 5000)
+
+                result = {
+                    "index": i,
+                    "action": action_type,
+                    "selector": selector,
+                    "success": False,
+                    "error": None,
+                }
+
+                try:
+                    if action_type == "click":
+                        if not selector:
+                            result["error"] = "click requires 'selector'"
+                        else:
+                            await page.click(selector, timeout=timeout)
+                            result["success"] = True
+
+                    elif action_type in ("type", "fill"):
+                        if not selector or value is None:
+                            result["error"] = f"{action_type} requires 'selector' and 'value'"
+                        else:
+                            if action_type == "type":
+                                await page.type(selector, str(value))
+                            else:
+                                await page.fill(selector, str(value))
+                            result["success"] = True
+
+                    elif action_type == "wait":
+                        if not selector:
+                            result["error"] = "wait requires 'selector'"
+                        else:
+                            await page.wait_for_selector(selector, timeout=timeout)
+                            result["success"] = True
+
+                    elif action_type == "scroll":
+                        scroll_y = int(value) if value else 500
+                        await page.evaluate(f"window.scrollBy(0, {scroll_y})")
+                        result["success"] = True
+                        result["scrolled"] = scroll_y
+
+                    elif action_type == "select":
+                        if not selector or value is None:
+                            result["error"] = "select requires 'selector' and 'value'"
+                        else:
+                            await page.select_option(selector, value=str(value))
+                            result["success"] = True
+
+                    elif action_type == "hover":
+                        if not selector:
+                            result["error"] = "hover requires 'selector'"
+                        else:
+                            await page.hover(selector)
+                            result["success"] = True
+
+                    elif action_type == "press":
+                        if value is None:
+                            result["error"] = "press requires 'value' (key name)"
+                        else:
+                            await page.keyboard.press(str(value))
+                            result["success"] = True
+
+                    elif action_type == "goto":
+                        if value is None:
+                            result["error"] = "goto requires 'value' (URL or path)"
+                        else:
+                            goto_url = str(value)
+                            if not goto_url.startswith("http"):
+                                # Relative path - construct from current URL
+                                current_parsed = urlparse(page.url)
+                                goto_url = f"{current_parsed.scheme}://{current_parsed.netloc}{goto_url}"
+                            await page.goto(goto_url, wait_until="domcontentloaded", timeout=30000)
+                            result["success"] = True
+                            result["navigated_to"] = goto_url
+
+                    elif action_type == "wait_for_load":
+                        try:
+                            await page.wait_for_load_state("networkidle", timeout=timeout)
+                        except Exception:
+                            await asyncio.sleep(2)
+                        result["success"] = True
+
+                    elif action_type == "screenshot":
+                        # Inline screenshot during automation
+                        ss_name = value or f"step_{i}"
+                        screenshot_bytes = await page.screenshot(type="png")
+                        result["success"] = True
+                        result["screenshot_size"] = len(screenshot_bytes)
+
+                    else:
+                        result["error"] = f"Unknown action type: {action_type}"
+
+                except Exception as e:
+                    result["error"] = str(e)
+                    logger.warning(f"Action {i} ({action_type}) failed: {e}")
+
+                action_results.append(result)
+
+                # Wait between actions
+                if wait_after_action > 0 and result["success"]:
+                    await asyncio.sleep(wait_after_action / 1000)
+
+            # Capture final screenshot if requested
+            screenshot_base64 = None
+            if screenshot_after:
+                try:
+                    screenshot_bytes = await page.screenshot(type="png", full_page=False)
+                    screenshot_base64 = base64.b64encode(screenshot_bytes).decode("utf-8")
+                except Exception as e:
+                    logger.warning(f"Failed to capture screenshot: {e}")
+
+            # Calculate success rate
+            successful_actions = sum(1 for r in action_results if r.get("success", False))
+            total_actions = len(action_results)
+
+            return ToolResult(
+                success=True,
+                data={
+                    "url": url,
+                    "final_url": page.url,
+                    "actions_completed": successful_actions,
+                    "actions_total": total_actions,
+                    "action_results": action_results,
+                    "console_messages": console_messages if collect_console else [],
+                    "console_errors": [m for m in console_messages if m.get("type") == "error"],
+                    "network_errors": network_errors if collect_console else [],
+                    "screenshot_base64": screenshot_base64,
+                    "screenshot_format": "png" if screenshot_base64 else None,
+                    "page_title": await page.title(),
+                },
+                metadata={
+                    "viewport": {"width": width, "height": height},
+                    "headless": headless,
+                },
+            )
+
+        except Exception as e:
+            logger.exception(f"Browser automation failed for {url}")
+            return ToolResult(
+                success=False,
+                error=str(e),
+                data={
+                    "url": url,
+                    "action_results": action_results,
+                    "console_messages": console_messages,
+                    "network_errors": network_errors,
+                },
+            )
+        finally:
+            if page:
+                await page.close()
+            if context:
+                await context.close()
+
+
+class QAConsoleSweepTool(Tool):
+    """
+    Multi-page console error detection tool.
+
+    Sweeps multiple pages of a web application to detect:
+    - JavaScript console errors and warnings
+    - Network failures (4xx, 5xx responses)
+    - Page load failures
+    - Uncaught exceptions
+
+    Essential for QA verification after deployments or migrations.
+    """
+
+    @property
+    def definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            metadata=ToolMetadata(
+                name="qa_console_sweep",
+                description=(
+                    "Sweep multiple pages of a web application checking for console errors, "
+                    "network failures, and JavaScript exceptions. Returns a comprehensive "
+                    "QA report with pass/fail status for each page."
+                ),
+                category=ToolCategory.WEB,
+                version="1.0.0",
+                project_types=[ProjectType.WEB_APP],
+                tech_stack_hints=["web", "testing", "qa", "debugging"],
+                network_required=True,
+            ),
+            parameters=[
+                ToolParameter(
+                    name="base_url",
+                    type="string",
+                    description="Base URL of the application (e.g., 'http://localhost:3000')",
+                    required=True,
+                ),
+                ToolParameter(
+                    name="pages",
+                    type="array",
+                    description=(
+                        "List of pages to check. Each item can be:\n"
+                        "- A string path (e.g., '/dashboard')\n"
+                        "- An object with 'path' and 'name' (e.g., {path: '/dashboard', name: 'Dashboard'})"
+                    ),
+                    required=True,
+                ),
+                ToolParameter(
+                    name="login",
+                    type="object",
+                    description=(
+                        "Optional login configuration for authenticated pages:\n"
+                        "- url: Login page URL path (e.g., '/login')\n"
+                        "- email_selector: CSS selector for email input\n"
+                        "- password_selector: CSS selector for password input\n"
+                        "- submit_selector: CSS selector for submit button\n"
+                        "- email: Email to use\n"
+                        "- password: Password to use"
+                    ),
+                    required=False,
+                ),
+                ToolParameter(
+                    name="wait_time",
+                    type="integer",
+                    description="Milliseconds to wait on each page for async operations (default: 3000)",
+                    required=False,
+                    default=3000,
+                ),
+                ToolParameter(
+                    name="ignore_patterns",
+                    type="array",
+                    description="Patterns to ignore in error messages (e.g., ['favicon.ico', 'chrome-extension'])",
+                    required=False,
+                ),
+                ToolParameter(
+                    name="headless",
+                    type="boolean",
+                    description="Run browser in headless mode (default: true)",
+                    required=False,
+                    default=True,
+                ),
+            ],
+        )
+
+    async def execute(
+        self,
+        base_url: str,
+        pages: list,
+        login: dict = None,
+        wait_time: int = 3000,
+        ignore_patterns: list[str] = None,
+        headless: bool = True,
+        **kwargs,
+    ) -> ToolResult:
+        """Execute QA console sweep across multiple pages."""
+        if not PLAYWRIGHT_AVAILABLE:
+            return _playwright_not_installed_error()
+
+        # Normalize base URL
+        base_url = base_url.rstrip("/")
+
+        # Default ignore patterns
+        default_ignores = ["favicon.ico", "chrome-extension", "extensions::"]
+        ignore_patterns = (ignore_patterns or []) + default_ignores
+
+        context = None
+        page = None
+        results: list[dict] = []
+
+        try:
+            manager = get_browser_manager()
+            context = await manager.get_context(
+                headless=headless, viewport={"width": 1920, "height": 1080}
+            )
+
+            if context is None:
+                return _playwright_not_installed_error()
+
+            page = await context.new_page()
+
+            # Handle login if provided
+            if login:
+                try:
+                    login_url = f"{base_url}{login.get('url', '/login')}"
+                    await page.goto(login_url, wait_until="networkidle", timeout=30000)
+
+                    if login.get("email_selector") and login.get("email"):
+                        await page.fill(login["email_selector"], login["email"])
+                    if login.get("password_selector") and login.get("password"):
+                        await page.fill(login["password_selector"], login["password"])
+                    if login.get("submit_selector"):
+                        await page.click(login["submit_selector"])
+                        await page.wait_for_load_state("networkidle", timeout=10000)
+
+                except Exception as e:
+                    logger.warning(f"Login failed: {e}")
+
+            # Check each page
+            for page_config in pages:
+                if isinstance(page_config, str):
+                    path = page_config
+                    name = page_config.strip("/").replace("/", "_") or "home"
+                else:
+                    path = page_config.get("path", "/")
+                    name = page_config.get("name", path)
+
+                full_url = f"{base_url}{path}"
+
+                page_result = {
+                    "name": name,
+                    "path": path,
+                    "url": full_url,
+                    "status": "PASS",
+                    "page_loaded": False,
+                    "console_errors": [],
+                    "console_warnings": [],
+                    "network_failures": [],
+                    "js_errors": [],
+                }
+
+                # Collectors
+                console_messages = []
+                network_failures = []
+                page_errors = []
+
+                def handle_console(msg):
+                    console_messages.append({"type": msg.type, "text": msg.text})
+
+                def handle_response(response):
+                    if response.status >= 400:
+                        network_failures.append({
+                            "url": response.url,
+                            "status": response.status,
+                            "method": response.request.method,
+                        })
+
+                def handle_page_error(exc):
+                    page_errors.append(str(exc))
+
+                page.on("console", handle_console)
+                page.on("response", handle_response)
+                page.on("pageerror", handle_page_error)
+
+                try:
+                    response = await page.goto(full_url, wait_until="domcontentloaded", timeout=30000)
+
+                    if response and response.status >= 400:
+                        page_result["status"] = "FAIL"
+                        page_result["http_status"] = response.status
+                    else:
+                        try:
+                            await page.wait_for_load_state("networkidle", timeout=10000)
+                        except Exception:
+                            pass
+
+                        await asyncio.sleep(wait_time / 1000)
+                        page_result["page_loaded"] = True
+
+                except Exception as e:
+                    page_result["status"] = "ERROR"
+                    page_result["error"] = str(e)
+
+                # Remove listeners
+                page.remove_listener("console", handle_console)
+                page.remove_listener("response", handle_response)
+                page.remove_listener("pageerror", handle_page_error)
+
+                # Process collected data
+                for msg in console_messages:
+                    text = msg.get("text", "")
+                    # Check ignore patterns
+                    if any(pattern.lower() in text.lower() for pattern in ignore_patterns):
+                        continue
+
+                    if msg["type"] == "error":
+                        page_result["console_errors"].append(text)
+                    elif msg["type"] == "warning":
+                        page_result["console_warnings"].append(text)
+
+                page_result["network_failures"] = network_failures
+                page_result["js_errors"] = page_errors
+
+                # Determine status
+                has_500_error = any(f["status"] >= 500 for f in network_failures)
+                has_console_errors = len(page_result["console_errors"]) > 0
+                has_js_errors = len(page_errors) > 0
+
+                if page_result["status"] != "ERROR":
+                    if has_500_error or has_console_errors or has_js_errors:
+                        page_result["status"] = "FAIL"
+                    elif any(f["status"] == 404 for f in network_failures):
+                        page_result["status"] = "WARNING"
+
+                results.append(page_result)
+
+            # Calculate summary
+            passed = sum(1 for r in results if r["status"] == "PASS")
+            warnings = sum(1 for r in results if r["status"] == "WARNING")
+            failed = sum(1 for r in results if r["status"] == "FAIL")
+            errors = sum(1 for r in results if r["status"] == "ERROR")
+
+            return ToolResult(
+                success=True,
+                data={
+                    "base_url": base_url,
+                    "pages_checked": len(results),
+                    "summary": {
+                        "passed": passed,
+                        "warnings": warnings,
+                        "failed": failed,
+                        "errors": errors,
+                        "pass_rate": round((passed / len(results) * 100) if results else 0, 2),
+                    },
+                    "overall_status": "PASS" if (failed == 0 and errors == 0) else "FAIL",
+                    "results": results,
+                    "failed_pages": [r for r in results if r["status"] in ("FAIL", "ERROR")],
+                },
+            )
+
+        except Exception as e:
+            logger.exception(f"QA console sweep failed")
+            return ToolResult(success=False, error=str(e))
+        finally:
+            if page:
+                await page.close()
+            if context:
+                await context.close()
+
+
 # All web tools
 WEB_TOOLS = [
     ScreenshotTool,
@@ -1225,6 +1842,8 @@ WEB_TOOLS = [
     DomQueryTool,
     BrowserConsoleTool,
     VisionAnalysisTool,
+    BrowserAutomationTool,
+    QAConsoleSweepTool,
 ]
 
 __all__ = [
@@ -1233,6 +1852,8 @@ __all__ = [
     "DomQueryTool",
     "BrowserConsoleTool",
     "VisionAnalysisTool",
+    "BrowserAutomationTool",
+    "QAConsoleSweepTool",
     "WEB_TOOLS",
     "PLAYWRIGHT_AVAILABLE",
     "get_browser_manager",

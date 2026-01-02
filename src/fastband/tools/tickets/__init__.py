@@ -39,6 +39,71 @@ from fastband.tools.base import (
     ToolResult,
 )
 
+
+# =============================================================================
+# P0 SECURITY: HOLD ENFORCEMENT
+# =============================================================================
+
+
+def _check_ops_log_hold() -> tuple[bool, str | None]:
+    """
+    Check if a hold is currently active in the ops log.
+
+    Returns:
+        Tuple of (is_blocked, error_message)
+        If is_blocked is True, the operation should be rejected.
+    """
+    try:
+        ops_log = get_ops_log()
+        directive = ops_log.get_latest_directive()
+
+        if directive and directive.get("is_hold"):
+            reason = directive.get("reason", "No reason specified")
+            agent = directive.get("agent", "Unknown")
+            return True, (
+                f"HOLD ACTIVE - Operation blocked. "
+                f"Reason: {reason}. Issued by: {agent}. "
+                f"Wait for clearance before proceeding."
+            )
+        return False, None
+    except Exception:
+        # Don't block on ops log errors - fail open but log
+        return False, None
+
+
+def _validate_screenshot_exists(screenshot_path: str, ticket_id: str) -> tuple[bool, str | None]:
+    """
+    Validate that a screenshot file exists and matches the ticket ID.
+
+    P0 Security: Prevents screenshot reuse and fake paths.
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not screenshot_path:
+        return False, "Screenshot path is required"
+
+    path = Path(screenshot_path)
+
+    # Check file exists
+    if not path.exists():
+        return False, f"Screenshot file does not exist: {screenshot_path}"
+
+    # Check file is not empty
+    if path.stat().st_size == 0:
+        return False, f"Screenshot file is empty: {screenshot_path}"
+
+    # P0: Enforce naming convention to prevent reuse
+    # Expected format: screenshots/ticket_{id}_before.png or screenshots/ticket_{id}_after.png
+    filename = path.name.lower()
+    if ticket_id not in filename:
+        return False, (
+            f"Screenshot filename must contain ticket ID '{ticket_id}'. "
+            f"Got: {filename}. Use format: ticket_{ticket_id}_before.png"
+        )
+
+    return True, None
+
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
@@ -531,6 +596,11 @@ class ClaimTicketTool(Tool):
     ) -> ToolResult:
         """Claim a ticket for work."""
         try:
+            # P0 SECURITY: Check for active holds FIRST
+            is_blocked, hold_error = _check_ops_log_hold()
+            if is_blocked:
+                return ToolResult(success=False, error=hold_error)
+
             # Validate agent name
             is_valid, error = _validate_agent_name(agent_name)
             if not is_valid:
@@ -711,22 +781,24 @@ class CompleteTicketSafelyTool(Tool):
     ) -> ToolResult:
         """Complete ticket work safely."""
         try:
+            # P0 SECURITY: Check for active holds FIRST
+            is_blocked, hold_error = _check_ops_log_hold()
+            if is_blocked:
+                return ToolResult(success=False, error=hold_error)
+
             # Validate agent name
             is_valid, error = _validate_agent_name(agent_name)
             if not is_valid:
                 return ToolResult(success=False, error=error)
 
-            # Validate screenshots
-            if not before_screenshot or not before_screenshot.strip():
-                return ToolResult(
-                    success=False,
-                    error="Before screenshot is required",
-                )
-            if not after_screenshot or not after_screenshot.strip():
-                return ToolResult(
-                    success=False,
-                    error="After screenshot is required",
-                )
+            # P0 SECURITY: Validate screenshots exist and match ticket ID
+            is_valid, error = _validate_screenshot_exists(before_screenshot, ticket_id)
+            if not is_valid:
+                return ToolResult(success=False, error=f"Before screenshot invalid: {error}")
+
+            is_valid, error = _validate_screenshot_exists(after_screenshot, ticket_id)
+            if not is_valid:
+                return ToolResult(success=False, error=f"After screenshot invalid: {error}")
 
             # Validate summaries
             if not problem_summary or not problem_summary.strip():

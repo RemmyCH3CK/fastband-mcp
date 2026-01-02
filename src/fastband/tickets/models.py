@@ -550,8 +550,23 @@ class Ticket:
 
         Validates the transition and records history.
         Returns True if successful, False if transition not allowed.
+
+        P0 Security: RESOLVED status can ONLY be set by human actors.
+        This prevents agents from auto-resolving tickets.
         """
         if not self.status.can_transition_to(new_status):
+            return False
+
+        # P0 SECURITY: Block AI agents from setting RESOLVED status
+        # Only humans can resolve tickets - this is LAW 7 of the Agent Bible
+        if new_status == TicketStatus.RESOLVED and actor_type != "human":
+            # Log the blocked attempt for audit
+            self.add_history(
+                action="resolution_blocked",
+                actor=actor,
+                actor_type=actor_type,
+                message=f"BLOCKED: {actor_type} actor '{actor}' attempted to resolve ticket. Only humans can resolve.",
+            )
             return False
 
         old_status = self.status

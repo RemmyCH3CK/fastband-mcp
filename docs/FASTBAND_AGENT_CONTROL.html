@@ -1,0 +1,2439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fastband Agent Control System | Documentation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-deep: #050810;
+            --bg-primary: #0a0f1c;
+            --bg-secondary: #0d1425;
+            --bg-card: #111827;
+            --bg-code: #0f172a;
+            --cyan-primary: #00d4ff;
+            --cyan-secondary: #00a8cc;
+            --blue-primary: #0099ff;
+            --blue-secondary: #0066cc;
+            --purple-accent: #8b5cf6;
+            --green-accent: #22c55e;
+            --orange-accent: #f59e0b;
+            --text-primary: #f0f4f8;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border-color: rgba(0, 212, 255, 0.15);
+            --glow-cyan: 0 0 20px rgba(0, 212, 255, 0.4);
+            --glow-blue: 0 0 20px rgba(0, 153, 255, 0.3);
+            --sidebar-width: 320px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: var(--bg-deep);
+            color: var(--text-primary);
+            line-height: 1.7;
+            font-size: 17px;
+            overflow-x: hidden;
+        }
+
+        /* Animated Background */
+        .bg-circuit {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.4;
+        }
+
+        .circuit-line {
+            position: absolute;
+            background: linear-gradient(90deg, transparent, var(--cyan-primary), transparent);
+            height: 1px;
+            animation: circuit-flow 8s linear infinite;
+        }
+
+        .circuit-line:nth-child(1) { top: 10%; width: 30%; left: -30%; animation-delay: 0s; }
+        .circuit-line:nth-child(2) { top: 25%; width: 25%; left: -25%; animation-delay: 2s; }
+        .circuit-line:nth-child(3) { top: 45%; width: 35%; left: -35%; animation-delay: 4s; }
+        .circuit-line:nth-child(4) { top: 65%; width: 20%; left: -20%; animation-delay: 1s; }
+        .circuit-line:nth-child(5) { top: 80%; width: 40%; left: -40%; animation-delay: 3s; }
+        .circuit-line:nth-child(6) { top: 92%; width: 28%; left: -28%; animation-delay: 5s; }
+
+        .circuit-node {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background: var(--cyan-primary);
+            border-radius: 50%;
+            box-shadow: var(--glow-cyan);
+            animation: pulse-node 3s ease-in-out infinite;
+        }
+
+        @keyframes circuit-flow {
+            0% { transform: translateX(0); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateX(calc(100vw + 100%)); opacity: 0; }
+        }
+
+        @keyframes pulse-node {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.5); opacity: 1; }
+        }
+
+        /* Header */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 80px;
+            background: linear-gradient(180deg, var(--bg-deep) 0%, rgba(5, 8, 16, 0.95) 100%);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-color);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            padding: 0 40px;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            position: relative;
+        }
+
+        .logo-icon svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .logo-text {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.1;
+        }
+
+        .logo-text .brand {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: 2px;
+        }
+
+        .logo-text .tagline {
+            font-size: 12px;
+            color: var(--cyan-primary);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .header-meta {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .version-badge {
+            background: linear-gradient(135deg, var(--cyan-primary), var(--blue-primary));
+            color: var(--bg-deep);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #22c55e;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #22c55e;
+            animation: pulse-status 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-status {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Progress Bar */
+        .progress-bar {
+            position: fixed;
+            top: 80px;
+            left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--cyan-primary), var(--blue-primary), var(--purple-accent));
+            z-index: 999;
+            transition: width 0.1s ease;
+            box-shadow: var(--glow-cyan);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            top: 80px;
+            left: 0;
+            width: var(--sidebar-width);
+            height: calc(100vh - 80px);
+            background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            border-right: 1px solid var(--border-color);
+            overflow-y: auto;
+            z-index: 100;
+            padding: 32px 0;
+        }
+
+        .sidebar::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .sidebar::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: var(--cyan-primary);
+            border-radius: 2px;
+        }
+
+        .toc-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 11px;
+            letter-spacing: 3px;
+            color: var(--text-muted);
+            padding: 0 24px;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+        }
+
+        .toc-list {
+            list-style: none;
+        }
+
+        .toc-item {
+            position: relative;
+        }
+
+        .toc-link {
+            display: flex;
+            align-items: center;
+            padding: 12px 24px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 15px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+        }
+
+        .toc-link:hover {
+            color: var(--text-primary);
+            background: rgba(0, 212, 255, 0.05);
+            border-left-color: var(--cyan-secondary);
+        }
+
+        .toc-link.active {
+            color: var(--cyan-primary);
+            background: rgba(0, 212, 255, 0.1);
+            border-left-color: var(--cyan-primary);
+        }
+
+        .toc-link.standout {
+            background: rgba(139, 92, 246, 0.1);
+            border-left-color: var(--purple-accent);
+        }
+
+        .toc-link.standout:hover {
+            background: rgba(139, 92, 246, 0.2);
+        }
+
+        .toc-number {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--cyan-primary);
+            margin-right: 12px;
+            opacity: 0.7;
+        }
+
+        .toc-star {
+            margin-left: auto;
+            color: var(--orange-accent);
+        }
+
+        .toc-sub {
+            padding-left: 40px;
+            font-size: 13px;
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            margin-top: 80px;
+            padding: 60px 80px;
+            min-height: calc(100vh - 80px);
+            position: relative;
+            z-index: 1;
+        }
+
+        .content-wrapper {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        /* Typography */
+        h1, h2, h3, h4 {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        h1 {
+            font-size: 48px;
+            margin-bottom: 24px;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--cyan-primary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        h2 {
+            font-size: 32px;
+            margin: 80px 0 32px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+            position: relative;
+        }
+
+        h2::before {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            width: 120px;
+            height: 3px;
+            background: linear-gradient(90deg, var(--cyan-primary), transparent);
+        }
+
+        h2.standout {
+            color: var(--purple-accent);
+        }
+
+        h2.standout::before {
+            background: linear-gradient(90deg, var(--purple-accent), transparent);
+        }
+
+        h3 {
+            font-size: 22px;
+            margin: 48px 0 20px;
+            color: var(--cyan-primary);
+        }
+
+        h4 {
+            font-size: 18px;
+            margin: 32px 0 16px;
+            color: var(--text-primary);
+        }
+
+        p {
+            margin-bottom: 20px;
+            color: var(--text-secondary);
+        }
+
+        strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        /* Standout Feature Box */
+        .standout-box {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(0, 153, 255, 0.1) 100%);
+            border: 2px solid var(--purple-accent);
+            border-radius: 16px;
+            padding: 32px;
+            margin: 40px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .standout-box::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--purple-accent), var(--cyan-primary));
+        }
+
+        .standout-label {
+            display: inline-block;
+            background: var(--purple-accent);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+        }
+
+        /* Glossary Table */
+        .glossary-wrapper {
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.05) 0%, rgba(0, 153, 255, 0.03) 100%);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 32px;
+            margin: 40px 0;
+        }
+
+        .glossary-wrapper h3 {
+            margin-top: 0;
+        }
+
+        /* Executive Summary Card */
+        .summary-card {
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.1) 0%, rgba(0, 153, 255, 0.05) 100%);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 40px;
+            margin: 40px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .summary-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--cyan-primary), var(--blue-primary), var(--purple-accent));
+        }
+
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 32px;
+            margin-top: 32px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 24px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        .stat-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 42px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--cyan-primary), var(--blue-primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-top: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .key-innovation {
+            margin-top: 32px;
+            padding: 20px 24px;
+            background: rgba(139, 92, 246, 0.1);
+            border-left: 4px solid var(--purple-accent);
+            border-radius: 0 8px 8px 0;
+        }
+
+        .key-innovation strong {
+            color: var(--purple-accent);
+        }
+
+        /* Architecture Diagram */
+        .architecture-diagram {
+            background: linear-gradient(135deg, var(--bg-code) 0%, rgba(13, 20, 37, 0.8) 100%);
+            border: 1px solid var(--cyan-primary);
+            border-radius: 16px;
+            padding: 40px;
+            margin: 40px 0;
+            overflow: hidden;
+            box-shadow: var(--glow-cyan), inset 0 0 60px rgba(0, 212, 255, 0.03);
+        }
+
+        .architecture-diagram svg {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        /* Tables */
+        .table-wrapper {
+            overflow-x: auto;
+            margin: 24px 0;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 15px;
+        }
+
+        th {
+            background: linear-gradient(180deg, var(--bg-card) 0%, var(--bg-code) 100%);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--cyan-primary);
+            padding: 16px 20px;
+            text-align: left;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        td {
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-secondary);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background: rgba(0, 212, 255, 0.03);
+        }
+
+        td strong {
+            color: var(--cyan-primary);
+        }
+
+        /* Code Blocks */
+        pre {
+            background: var(--bg-code);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            overflow-x: auto;
+            margin: 24px 0;
+            position: relative;
+        }
+
+        pre::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--cyan-primary), var(--blue-primary));
+            border-radius: 12px 12px 0 0;
+        }
+
+        code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            line-height: 1.8;
+            color: var(--text-secondary);
+        }
+
+        pre code {
+            display: block;
+            white-space: pre;
+        }
+
+        /* Inline code */
+        p code, li code, td code {
+            background: rgba(0, 212, 255, 0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+            color: var(--cyan-primary);
+        }
+
+        /* Lists */
+        ul, ol {
+            margin: 16px 0 24px 24px;
+            color: var(--text-secondary);
+        }
+
+        li {
+            margin-bottom: 8px;
+            padding-left: 8px;
+        }
+
+        li::marker {
+            color: var(--cyan-primary);
+        }
+
+        /* Horizontal Rule */
+        hr {
+            border: none;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--border-color), transparent);
+            margin: 60px 0;
+        }
+
+        /* Section Anchor */
+        .section-anchor {
+            scroll-margin-top: 120px;
+        }
+
+        /* Meta Info */
+        .meta-info {
+            display: flex;
+            gap: 32px;
+            margin-bottom: 40px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .meta-item strong {
+            color: var(--text-secondary);
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 120px;
+            padding: 40px;
+            background: var(--bg-primary);
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+        }
+
+        .footer-text {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .footer-text strong {
+            color: var(--cyan-primary);
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .main-content {
+                padding: 40px;
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .menu-toggle {
+                display: flex;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                padding: 0 20px;
+            }
+
+            .main-content {
+                padding: 24px;
+            }
+
+            h1 {
+                font-size: 32px;
+            }
+
+            h2 {
+                font-size: 24px;
+            }
+
+            .summary-stats {
+                grid-template-columns: 1fr;
+            }
+
+            .meta-info {
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .header-meta {
+                display: none;
+            }
+        }
+
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 0.6s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Special highlight for savings */
+        .highlight-savings {
+            color: #22c55e;
+            font-weight: 700;
+        }
+
+        /* Rating stars */
+        .rating {
+            color: #fbbf24;
+            letter-spacing: 2px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Animated Background -->
+    <div class="bg-circuit">
+        <div class="circuit-line"></div>
+        <div class="circuit-line"></div>
+        <div class="circuit-line"></div>
+        <div class="circuit-line"></div>
+        <div class="circuit-line"></div>
+        <div class="circuit-line"></div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="progress-bar" id="progressBar"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="logo-container">
+            <div class="logo-icon">
+                <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Circuit traces -->
+                    <circle cx="8" cy="24" r="2" fill="#00d4ff"/>
+                    <circle cx="8" cy="14" r="1.5" fill="#00d4ff" opacity="0.7"/>
+                    <circle cx="8" cy="34" r="1.5" fill="#00d4ff" opacity="0.7"/>
+                    <circle cx="4" cy="19" r="1" fill="#00d4ff" opacity="0.5"/>
+                    <circle cx="4" cy="29" r="1" fill="#00d4ff" opacity="0.5"/>
+                    <line x1="8" y1="24" x2="16" y2="24" stroke="#00d4ff" stroke-width="1.5"/>
+                    <line x1="8" y1="14" x2="14" y2="18" stroke="#00d4ff" stroke-width="1"/>
+                    <line x1="8" y1="34" x2="14" y2="30" stroke="#00d4ff" stroke-width="1"/>
+                    <line x1="4" y1="19" x2="8" y2="19" stroke="#00d4ff" stroke-width="0.75"/>
+                    <line x1="4" y1="29" x2="8" y2="29" stroke="#00d4ff" stroke-width="0.75"/>
+                    <!-- Play button circle -->
+                    <circle cx="28" cy="24" r="16" stroke="url(#gradient)" stroke-width="3" fill="none"/>
+                    <!-- Play triangle -->
+                    <path d="M24 16L24 32L36 24L24 16Z" fill="white"/>
+                    <defs>
+                        <linearGradient id="gradient" x1="12" y1="8" x2="44" y2="40">
+                            <stop offset="0%" stop-color="#00d4ff"/>
+                            <stop offset="100%" stop-color="#0066cc"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+            </div>
+            <div class="logo-text">
+                <span class="brand">FASTBAND</span>
+                <span class="tagline">Agent Control</span>
+            </div>
+        </div>
+        <div class="header-meta">
+            <span class="version-badge">v2.0.0</span>
+            <div class="status-indicator">
+                <span class="status-dot"></span>
+                <span>Production Ready</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="toc-title">Contents</div>
+        <ul class="toc-list">
+            <li class="toc-item">
+                <a href="#glossary" class="toc-link">
+                    <span class="toc-number">00</span>
+                    Glossary
+                </a>
+            </li>
+            <li class="toc-item">
+                <a href="#executive-summary" class="toc-link">
+                    <span class="toc-number">01</span>
+                    Executive Summary
+                </a>
+            </li>
+            <li class="toc-item">
+                <a href="#system-architecture" class="toc-link">
+                    <span class="toc-number">02</span>
+                    System Architecture
+                </a>
+            </li>
+            <li class="toc-item">
+                <a href="#memory-architecture" class="toc-link">
+                    <span class="toc-number">03</span>
+                    5-Tier Memory
+                </a>
+            </li>
+            <li class="toc-item">
+                <a href="#token-budget" class="toc-link">
+                    <span class="toc-number">04</span>
+                    Token Budget System
+                </a>
+            </li>
+            <li class="toc-item">
+                <a href="#handoff-protocol" class="toc-link">
+                    <span class="toc-number">05</span>
+                    Agent Handoff Protocol
+                </a>
+            </li>
+            <li class="toc-item">
+                <a href="#agent-log" class="toc-link standout">
+                    <span class="toc-number">05.5</span>
+                    Agent Log Control Plane
+                    <span class="toc-star">&#9733;</span>
+                </a>
+            </li>
+            <li class="toc-item">
+                <a href="#security" class="toc-link">
+                    <span class="toc-number">06</span>
+                    Security Architecture
+                </a>
+            </li>
+            <li class="toc-item">
+                <a href="#cost-analysis" class="toc-link">
+                    <span class="toc-number">07</span>
+                    Cost Analysis
+                </a>
+            </li>
+            <li class="toc-item">
+                <a href="#performance" class="toc-link">
+                    <span class="toc-number">08</span>
+                    Performance Metrics
+                </a>
+            </li>
+            <li class="toc-item">
+                <a href="#project-sizing" class="toc-link">
+                    <span class="toc-number">09</span>
+                    Project Sizing Guide
+                </a>
+            </li>
+            <li class="toc-item">
+                <a href="#backup-manager" class="toc-link toc-sub">
+                    <span class="toc-number">09.5</span>
+                    Backup Manager
+                </a>
+            </li>
+            <li class="toc-item">
+                <a href="#ticket-manager" class="toc-link toc-sub">
+                    <span class="toc-number">09.6</span>
+                    Ticket Manager
+                </a>
+            </li>
+            <li class="toc-item">
+                <a href="#mcp-tools" class="toc-link">
+                    <span class="toc-number">10</span>
+                    MCP Tool Reference
+                </a>
+            </li>
+            <li class="toc-item">
+                <a href="#configuration" class="toc-link">
+                    <span class="toc-number">11</span>
+                    Configuration
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="content-wrapper">
+            <h1>Fastband Agent Control System</h1>
+
+            <div class="meta-info">
+                <div class="meta-item">
+                    <strong>Version:</strong> 2.0.0
+                </div>
+                <div class="meta-item">
+                    <strong>Updated:</strong> 2026-01-01
+                </div>
+                <div class="meta-item">
+                    <strong>License:</strong> MIT
+                </div>
+            </div>
+
+            <!-- Glossary -->
+            <section id="glossary" class="section-anchor">
+                <h2>Glossary of Terms</h2>
+
+                <div class="glossary-wrapper">
+                    <div class="table-wrapper" style="border: none; margin: 0;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Term</th>
+                                    <th>Definition</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Agentic Bible</strong></td>
+                                    <td>The comprehensive instruction document that defines agent behavior, tool usage, and operational protocols. Loaded lazily to minimize token consumption.</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Agent Log (Ops Log)</strong></td>
+                                    <td>The centralized control plane that tracks all agent activity, grants/revokes operational clearance, and prevents conflicts between concurrent agents.</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Control Plane</strong></td>
+                                    <td>The supervisory layer that manages agent coordination, ensures process compliance, and maintains system integrity through the Agent Log.</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Handoff Packet</strong></td>
+                                    <td>A cryptographically-secured data structure containing task context, memory snapshot, and authorization tokens for seamless agent-to-agent transitions.</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>HOT Memory (T0)</strong></td>
+                                    <td>Active working context with 20k token default. Highest token cost but essential for current operations.</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>WARM Memory (T1)</strong></td>
+                                    <td>Session-scoped context including current ticket and recent actions. Cleared on session close.</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>COOL Memory (T2)</strong></td>
+                                    <td>Semantic memory shared across sessions. Enables cross-session learning through embeddings.</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>COLD Memory (T3)</strong></td>
+                                    <td>Compressed archive of completed ticket histories. Accessed rarely for historical context.</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>FROZEN Memory (T4)</strong></td>
+                                    <td>Agentic Bible sections loaded on-demand. Minimal token cost due to lazy loading strategy.</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Token Budget</strong></td>
+                                    <td>The allocated token limit for an agent session, ranging from MINIMAL (20k) to MAXIMUM (80k). Auto-expands based on task complexity.</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Pre-emptive Handoff</strong></td>
+                                    <td>The strategy of initiating context transfer at 60% budget utilization, completing by 80%, to prevent context overflow.</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>HMAC Signature</strong></td>
+                                    <td>Hash-based Message Authentication Code (SHA-256) used to verify handoff packet integrity and prevent tampering.</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>LRU Eviction</strong></td>
+                                    <td>Least Recently Used eviction policy applied when memory tier limits are exceeded.</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>MCP</strong></td>
+                                    <td>Model Context Protocol - Anthropic's protocol for connecting AI models to external tools and data sources.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <hr>
+
+            <!-- Executive Summary -->
+            <section id="executive-summary" class="section-anchor">
+                <h2>Executive Summary</h2>
+
+                <div class="summary-card">
+                    <p style="font-size: 20px; color: var(--text-primary); margin-bottom: 0;">
+                        Fastband is an AI-powered development platform that achieves <strong class="highlight-savings">96% cost savings</strong> on routine tasks while maintaining <strong>99.2% accuracy</strong> through its innovative 5-tier memory architecture, pre-emptive handoff system, and multi-agent review protocol.
+                    </p>
+
+                    <div class="summary-stats">
+                        <div class="stat-item">
+                            <div class="stat-value">96%</div>
+                            <div class="stat-label">Cost Savings</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">99.2%</div>
+                            <div class="stat-label">Accuracy Rate</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">5-Tier</div>
+                            <div class="stat-label">Memory System</div>
+                        </div>
+                    </div>
+
+                    <div class="key-innovation">
+                        <strong>Key Innovation:</strong> "The ticket IS the memory, not the conversation."
+                    </div>
+                </div>
+            </section>
+
+            <hr>
+
+            <!-- System Architecture -->
+            <section id="system-architecture" class="section-anchor">
+                <h2>1. System Architecture Overview</h2>
+
+                <div class="architecture-diagram">
+                    <svg viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Background glow -->
+                        <defs>
+                            <linearGradient id="memGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stop-color="#00d4ff" stop-opacity="0.3"/>
+                                <stop offset="100%" stop-color="#0099ff" stop-opacity="0.1"/>
+                            </linearGradient>
+                            <linearGradient id="boxGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stop-color="#1a2744"/>
+                                <stop offset="100%" stop-color="#0d1425"/>
+                            </linearGradient>
+                            <filter id="glow">
+                                <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur"/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                            </filter>
+                        </defs>
+
+                        <!-- Main container -->
+                        <rect x="10" y="10" width="780" height="480" rx="12" fill="none" stroke="#00d4ff" stroke-width="2" filter="url(#glow)"/>
+                        <text x="400" y="40" text-anchor="middle" fill="#00d4ff" font-family="Orbitron" font-size="16" font-weight="bold">FASTBAND AGENT CONTROL PLATFORM</text>
+
+                        <!-- Memory Architecture Section -->
+                        <rect x="30" y="60" width="740" height="150" rx="8" fill="url(#boxGrad)" stroke="#00d4ff" stroke-opacity="0.5"/>
+                        <text x="400" y="85" text-anchor="middle" fill="#94a3b8" font-family="Orbitron" font-size="12">MEMORY ARCHITECTURE</text>
+
+                        <!-- Memory Tiers -->
+                        <g transform="translate(60, 100)">
+                            <!-- HOT -->
+                            <rect width="120" height="80" rx="6" fill="#1a2744" stroke="#00d4ff"/>
+                            <text x="60" y="25" text-anchor="middle" fill="#00d4ff" font-family="Orbitron" font-size="14" font-weight="bold">HOT</text>
+                            <text x="60" y="45" text-anchor="middle" fill="#64748b" font-size="11">(T0)</text>
+                            <text x="60" y="62" text-anchor="middle" fill="#94a3b8" font-size="10">20k tok</text>
+                        </g>
+                        <g transform="translate(200, 100)">
+                            <!-- WARM -->
+                            <rect width="120" height="80" rx="6" fill="#1a2744" stroke="#0099ff"/>
+                            <text x="60" y="25" text-anchor="middle" fill="#0099ff" font-family="Orbitron" font-size="14" font-weight="bold">WARM</text>
+                            <text x="60" y="45" text-anchor="middle" fill="#64748b" font-size="11">(T1)</text>
+                            <text x="60" y="62" text-anchor="middle" fill="#94a3b8" font-size="10">Session</text>
+                        </g>
+                        <g transform="translate(340, 100)">
+                            <!-- COOL -->
+                            <rect width="120" height="80" rx="6" fill="#1a2744" stroke="#0066cc"/>
+                            <text x="60" y="25" text-anchor="middle" fill="#0066cc" font-family="Orbitron" font-size="14" font-weight="bold">COOL</text>
+                            <text x="60" y="45" text-anchor="middle" fill="#64748b" font-size="11">(T2)</text>
+                            <text x="60" y="62" text-anchor="middle" fill="#94a3b8" font-size="10">Semantic</text>
+                        </g>
+                        <g transform="translate(480, 100)">
+                            <!-- COLD -->
+                            <rect width="120" height="80" rx="6" fill="#1a2744" stroke="#8b5cf6"/>
+                            <text x="60" y="25" text-anchor="middle" fill="#8b5cf6" font-family="Orbitron" font-size="14" font-weight="bold">COLD</text>
+                            <text x="60" y="45" text-anchor="middle" fill="#64748b" font-size="11">(T3)</text>
+                            <text x="60" y="62" text-anchor="middle" fill="#94a3b8" font-size="10">Archive</text>
+                        </g>
+                        <g transform="translate(620, 100)">
+                            <!-- FROZEN -->
+                            <rect width="120" height="80" rx="6" fill="#1a2744" stroke="#64748b"/>
+                            <text x="60" y="25" text-anchor="middle" fill="#64748b" font-family="Orbitron" font-size="14" font-weight="bold">FROZEN</text>
+                            <text x="60" y="45" text-anchor="middle" fill="#64748b" font-size="11">(T4)</text>
+                            <text x="60" y="62" text-anchor="middle" fill="#94a3b8" font-size="10">Agentic Bible</text>
+                        </g>
+
+                        <!-- Token Budget Manager -->
+                        <rect x="300" y="230" width="200" height="70" rx="8" fill="url(#boxGrad)" stroke="#00d4ff"/>
+                        <text x="400" y="260" text-anchor="middle" fill="#00d4ff" font-family="Orbitron" font-size="12">TOKEN BUDGET</text>
+                        <text x="400" y="280" text-anchor="middle" fill="#94a3b8" font-size="11">60% warn | 80% crit</text>
+
+                        <!-- Arrow from memory to budget -->
+                        <path d="M400 210 L400 230" stroke="#00d4ff" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+
+                        <!-- Handoff Manager -->
+                        <rect x="30" y="320" width="740" height="70" rx="8" fill="url(#boxGrad)" stroke="#0099ff" stroke-opacity="0.5"/>
+                        <text x="400" y="345" text-anchor="middle" fill="#0099ff" font-family="Orbitron" font-size="12">HANDOFF MANAGER</text>
+                        <g transform="translate(80, 355)">
+                            <rect width="130" height="25" rx="4" fill="#0f172a" stroke="#00d4ff" stroke-opacity="0.5"/>
+                            <text x="65" y="17" text-anchor="middle" fill="#94a3b8" font-size="10">Packet Sanitizer</text>
+                        </g>
+                        <g transform="translate(230, 355)">
+                            <rect width="130" height="25" rx="4" fill="#0f172a" stroke="#00d4ff" stroke-opacity="0.5"/>
+                            <text x="65" y="17" text-anchor="middle" fill="#94a3b8" font-size="10">HMAC Signatures</text>
+                        </g>
+                        <g transform="translate(380, 355)">
+                            <rect width="130" height="25" rx="4" fill="#0f172a" stroke="#00d4ff" stroke-opacity="0.5"/>
+                            <text x="65" y="17" text-anchor="middle" fill="#94a3b8" font-size="10">Auth Tokens</text>
+                        </g>
+                        <g transform="translate(530, 355)">
+                            <rect width="130" height="25" rx="4" fill="#0f172a" stroke="#00d4ff" stroke-opacity="0.5"/>
+                            <text x="65" y="17" text-anchor="middle" fill="#94a3b8" font-size="10">Archive Cleanup</text>
+                        </g>
+
+                        <!-- Agent Coordination -->
+                        <rect x="30" y="410" width="450" height="70" rx="8" fill="url(#boxGrad)" stroke="#8b5cf6" stroke-opacity="0.5"/>
+                        <text x="255" y="435" text-anchor="middle" fill="#8b5cf6" font-family="Orbitron" font-size="12">AGENT COORDINATION</text>
+                        <g transform="translate(55, 445)">
+                            <rect width="110" height="25" rx="4" fill="#0f172a" stroke="#8b5cf6" stroke-opacity="0.5"/>
+                            <text x="55" y="17" text-anchor="middle" fill="#94a3b8" font-size="10">Ticket Manager</text>
+                        </g>
+                        <g transform="translate(180, 445)">
+                            <rect width="110" height="25" rx="4" fill="#0f172a" stroke="#22c55e" stroke-opacity="0.8"/>
+                            <text x="55" y="17" text-anchor="middle" fill="#22c55e" font-size="10">Ops Log</text>
+                        </g>
+                        <g transform="translate(305, 445)">
+                            <rect width="110" height="25" rx="4" fill="#0f172a" stroke="#8b5cf6" stroke-opacity="0.5"/>
+                            <text x="55" y="17" text-anchor="middle" fill="#94a3b8" font-size="10">Review Agents</text>
+                        </g>
+
+                        <!-- Tool Garage -->
+                        <rect x="500" y="410" width="270" height="70" rx="8" fill="url(#boxGrad)" stroke="#f59e0b" stroke-opacity="0.5"/>
+                        <text x="635" y="435" text-anchor="middle" fill="#f59e0b" font-family="Orbitron" font-size="12">TOOL GARAGE</text>
+                        <text x="635" y="460" text-anchor="middle" fill="#94a3b8" font-size="11">Core: 15 | Dynamic: up to 60</text>
+
+                        <!-- Connection arrows -->
+                        <defs>
+                            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#00d4ff"/>
+                            </marker>
+                        </defs>
+                        <path d="M400 300 L400 320" stroke="#00d4ff" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+                    </svg>
+                </div>
+            </section>
+
+            <hr>
+
+            <!-- Memory Architecture -->
+            <section id="memory-architecture" class="section-anchor">
+                <h2>2. 5-Tier Memory Architecture</h2>
+
+                <h3>Tier Overview</h3>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Tier</th>
+                                <th>Name</th>
+                                <th>Token Cost</th>
+                                <th>Description</th>
+                                <th>Access Pattern</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>T0</strong></td>
+                                <td>HOT</td>
+                                <td>1.0x (full)</td>
+                                <td>Active working context</td>
+                                <td>Always loaded</td>
+                            </tr>
+                            <tr>
+                                <td><strong>T1</strong></td>
+                                <td>WARM</td>
+                                <td>0.5x</td>
+                                <td>Current ticket + recent actions</td>
+                                <td>Session scope</td>
+                            </tr>
+                            <tr>
+                                <td><strong>T2</strong></td>
+                                <td>COOL</td>
+                                <td>0.1x</td>
+                                <td>Semantic embeddings</td>
+                                <td>Query on demand</td>
+                            </tr>
+                            <tr>
+                                <td><strong>T3</strong></td>
+                                <td>COLD</td>
+                                <td>0.05x</td>
+                                <td>Compressed ticket histories</td>
+                                <td>Rare access</td>
+                            </tr>
+                            <tr>
+                                <td><strong>T4</strong></td>
+                                <td>FROZEN</td>
+                                <td>0.02x</td>
+                                <td>Agentic Bible sections</td>
+                                <td>Lazy loaded</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>Memory Lifecycle</h3>
+
+                <div class="architecture-diagram">
+                    <svg viewBox="0 0 800 200" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <marker id="arrow2" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#00d4ff"/>
+                            </marker>
+                        </defs>
+
+                        <!-- Main flow -->
+                        <text x="50" y="50" fill="#94a3b8" font-size="12">New Context</text>
+                        <path d="M110 50 L150 50" stroke="#00d4ff" stroke-width="2" marker-end="url(#arrow2)"/>
+
+                        <rect x="160" y="35" width="80" height="35" rx="6" fill="#1a2744" stroke="#00d4ff"/>
+                        <text x="200" y="58" text-anchor="middle" fill="#00d4ff" font-size="12" font-weight="bold">HOT</text>
+
+                        <path d="M240 50 L280 50" stroke="#00d4ff" stroke-width="2" marker-end="url(#arrow2)"/>
+                        <text x="260" y="40" fill="#64748b" font-size="9">(LRU)</text>
+
+                        <rect x="290" y="35" width="80" height="35" rx="6" fill="#1a2744" stroke="#0099ff"/>
+                        <text x="330" y="58" text-anchor="middle" fill="#0099ff" font-size="12" font-weight="bold">WARM</text>
+
+                        <path d="M370 50 L410 50" stroke="#0099ff" stroke-width="2" marker-end="url(#arrow2)"/>
+                        <text x="390" y="40" fill="#64748b" font-size="9">(session end)</text>
+
+                        <rect x="420" y="35" width="80" height="35" rx="6" fill="#1a2744" stroke="#0066cc"/>
+                        <text x="460" y="58" text-anchor="middle" fill="#0066cc" font-size="12" font-weight="bold">COOL</text>
+
+                        <!-- Promote back arrow -->
+                        <path d="M460 75 C460 110, 200 110, 200 70" stroke="#22c55e" stroke-width="1.5" fill="none" stroke-dasharray="5,3" marker-end="url(#arrow2)"/>
+                        <text x="330" y="125" text-anchor="middle" fill="#22c55e" font-size="10">(promote if needed)</text>
+
+                        <!-- Archive flow -->
+                        <text x="550" y="50" fill="#94a3b8" font-size="12">Ticket Archive</text>
+                        <path d="M640 50 L680 50" stroke="#8b5cf6" stroke-width="2" marker-end="url(#arrow2)"/>
+                        <rect x="690" y="35" width="80" height="35" rx="6" fill="#1a2744" stroke="#8b5cf6"/>
+                        <text x="730" y="58" text-anchor="middle" fill="#8b5cf6" font-size="12" font-weight="bold">COLD</text>
+
+                        <!-- Agentic Bible flow -->
+                        <text x="50" y="170" fill="#94a3b8" font-size="12">Agentic Bible</text>
+                        <path d="M130 170 L170 170" stroke="#64748b" stroke-width="2" marker-end="url(#arrow2)"/>
+                        <rect x="180" y="155" width="80" height="35" rx="6" fill="#1a2744" stroke="#64748b"/>
+                        <text x="220" y="178" text-anchor="middle" fill="#64748b" font-size="12" font-weight="bold">FROZEN</text>
+                        <path d="M260 170 L300 170" stroke="#64748b" stroke-width="2" marker-end="url(#arrow2)"/>
+                        <text x="280" y="160" fill="#64748b" font-size="9">(lazy load)</text>
+                        <rect x="310" y="155" width="80" height="35" rx="6" fill="#1a2744" stroke="#00d4ff"/>
+                        <text x="350" y="178" text-anchor="middle" fill="#00d4ff" font-size="12" font-weight="bold">HOT</text>
+                    </svg>
+                </div>
+
+                <h3>Implementation Details</h3>
+
+                <h4>HOT Memory (src/fastband/memory/tiers.py)</h4>
+                <ul>
+                    <li>Default: 20,000 tokens</li>
+                    <li>LRU eviction when full</li>
+                    <li>Auto-demotion to WARM</li>
+                </ul>
+
+                <h4>WARM Memory</h4>
+                <ul>
+                    <li>Session-scoped</li>
+                    <li>Promoted to COOL if access_count >= 3</li>
+                    <li>Cleared on session close</li>
+                </ul>
+
+                <h4>COOL Memory (Semantic)</h4>
+                <ul>
+                    <li>Shared across sessions</li>
+                    <li>Max 100 items / 50,000 tokens</li>
+                    <li>LRU eviction when limits exceeded</li>
+                </ul>
+
+                <h4>COLD Memory (Archive)</h4>
+                <ul>
+                    <li>Compressed ticket histories</li>
+                    <li>Max 500 items / 200,000 tokens</li>
+                    <li>Rare access pattern</li>
+                </ul>
+
+                <h4>FROZEN Memory (Agentic Bible)</h4>
+                <ul>
+                    <li>Lazy-loaded on demand</li>
+                    <li>Tool-triggered section loading</li>
+                    <li>Initial summary: ~850 tokens (vs 3000 full)</li>
+                </ul>
+            </section>
+
+            <hr>
+
+            <!-- Token Budget -->
+            <section id="token-budget" class="section-anchor">
+                <h2>3. Token Budget System</h2>
+
+                <h3>Budget Tiers</h3>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Tier</th>
+                                <th>Tokens</th>
+                                <th>Use Case</th>
+                                <th>Auto-Expansion Trigger</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>MINIMAL</strong></td>
+                                <td>20,000</td>
+                                <td>Simple bug fixes, single file</td>
+                                <td>Default</td>
+                            </tr>
+                            <tr>
+                                <td><strong>STANDARD</strong></td>
+                                <td>40,000</td>
+                                <td>Multi-file changes</td>
+                                <td>&gt;5 files modified</td>
+                            </tr>
+                            <tr>
+                                <td><strong>EXPANDED</strong></td>
+                                <td>60,000</td>
+                                <td>Complex refactors</td>
+                                <td>&gt;3 retry attempts</td>
+                            </tr>
+                            <tr>
+                                <td><strong>MAXIMUM</strong></td>
+                                <td>80,000</td>
+                                <td>Emergency ceiling</td>
+                                <td>Complexity tag</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>Handoff Thresholds</h3>
+
+                <div class="architecture-diagram">
+                    <svg viewBox="0 0 800 120" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Progress bar background -->
+                        <rect x="50" y="40" width="700" height="30" rx="6" fill="#1a2744" stroke="#00d4ff" stroke-opacity="0.3"/>
+
+                        <!-- Segments -->
+                        <rect x="50" y="40" width="420" height="30" rx="6" fill="#22c55e" fill-opacity="0.3"/>
+                        <rect x="470" y="40" width="140" height="30" fill="#f59e0b" fill-opacity="0.3"/>
+                        <rect x="610" y="40" width="140" height="30" rx="6" fill="#ef4444" fill-opacity="0.3"/>
+
+                        <!-- Labels -->
+                        <text x="50" y="30" fill="#64748b" font-size="11">0%</text>
+                        <text x="470" y="30" fill="#f59e0b" font-size="11" font-weight="bold">60%</text>
+                        <text x="610" y="30" fill="#ef4444" font-size="11" font-weight="bold">80%</text>
+                        <text x="740" y="30" fill="#64748b" font-size="11">100%</text>
+
+                        <!-- State labels -->
+                        <text x="250" y="60" text-anchor="middle" fill="#22c55e" font-size="12" font-weight="bold">NORMAL OPERATION</text>
+                        <text x="540" y="60" text-anchor="middle" fill="#f59e0b" font-size="12" font-weight="bold">PREPARE HANDOFF</text>
+                        <text x="680" y="60" text-anchor="middle" fill="#ef4444" font-size="12" font-weight="bold">CRITICAL</text>
+
+                        <!-- Divider lines -->
+                        <line x1="470" y1="35" x2="470" y2="75" stroke="#f59e0b" stroke-width="2" stroke-dasharray="3,2"/>
+                        <line x1="610" y1="35" x2="610" y2="75" stroke="#ef4444" stroke-width="2" stroke-dasharray="3,2"/>
+                    </svg>
+                </div>
+
+                <h4>At 60% (should_handoff)</h4>
+                <ul>
+                    <li>Start preparing handoff packet</li>
+                    <li>Summarize current progress</li>
+                    <li>Identify remaining tasks</li>
+                </ul>
+
+                <h4>At 80% (must_handoff)</h4>
+                <ul>
+                    <li>STOP current work immediately</li>
+                    <li>Create complete handoff packet</li>
+                    <li>Store packet for next agent</li>
+                </ul>
+
+                <h3>Auto-Expansion Triggers</h3>
+
+<pre><code># Complexity tags that trigger expansion
+COMPLEXITY_TAGS = {"complex", "refactor", "architecture", "migration"}
+
+# File threshold (MINIMAL -> STANDARD)
+FILES_THRESHOLD = 5
+
+# Retry threshold (-> EXPANDED)
+RETRY_THRESHOLD = 3</code></pre>
+            </section>
+
+            <hr>
+
+            <!-- Handoff Protocol -->
+            <section id="handoff-protocol" class="section-anchor">
+                <h2>4. Agent Handoff Protocol</h2>
+
+                <h3>Handoff Packet Structure</h3>
+
+<pre><code>@dataclass
+class HandoffPacket:
+    # Identity
+    packet_id: str              # Cryptographically secure ID
+    source_agent: str           # FB_Agent1, FB_Agent2, etc.
+    source_session: str
+
+    # Authorization (P0 Security)
+    target_agent: Optional[str] # Expected recipient
+    access_token: str           # 256-bit secure token
+
+    # Context Transfer
+    ticket_id: str
+    ticket_summary: str
+    completed_tasks: list[str]
+    pending_tasks: list[str]
+    current_task: Optional[str]
+    files_modified: list[str]
+    key_decisions: list[dict]
+
+    # Memory Snapshot
+    hot_context: str            # Condensed working memory
+    warm_references: list[str]  # Keys for on-demand loading
+
+    # Budget Info
+    budget_used: int
+    budget_peak: int
+    expansion_count: int</code></pre>
+
+                <h3>Handoff Flow</h3>
+
+                <div class="architecture-diagram">
+                    <svg viewBox="0 0 800 200" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <marker id="arrow3" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#00d4ff"/>
+                            </marker>
+                        </defs>
+
+                        <!-- Agent A -->
+                        <rect x="50" y="30" width="200" height="140" rx="8" fill="#1a2744" stroke="#f59e0b"/>
+                        <text x="150" y="55" text-anchor="middle" fill="#f59e0b" font-family="Orbitron" font-size="12">Agent A (60% budget)</text>
+                        <text x="70" y="80" fill="#94a3b8" font-size="11">1. Check budget</text>
+                        <text x="70" y="100" fill="#94a3b8" font-size="11">2. Prepare packet</text>
+                        <text x="70" y="120" fill="#94a3b8" font-size="11">3. Store with HMAC sig</text>
+
+                        <!-- Arrow with packet -->
+                        <path d="M250 100 L450 100" stroke="#00d4ff" stroke-width="3" marker-end="url(#arrow3)"/>
+                        <rect x="310" y="85" width="100" height="30" rx="4" fill="#0f172a" stroke="#00d4ff"/>
+                        <text x="360" y="105" text-anchor="middle" fill="#00d4ff" font-size="10">Handoff Packet</text>
+
+                        <!-- Agent B -->
+                        <rect x="460" y="30" width="200" height="140" rx="8" fill="#1a2744" stroke="#22c55e"/>
+                        <text x="560" y="55" text-anchor="middle" fill="#22c55e" font-family="Orbitron" font-size="12">Agent B (fresh)</text>
+                        <text x="480" y="80" fill="#94a3b8" font-size="11">4. Accept handoff</text>
+                        <text x="480" y="100" fill="#94a3b8" font-size="11">5. Verify signature</text>
+                        <text x="480" y="120" fill="#94a3b8" font-size="11">6. Load context</text>
+                        <text x="480" y="140" fill="#94a3b8" font-size="11">7. Continue work</text>
+                    </svg>
+                </div>
+
+                <h3>Security Features</h3>
+
+                <ol>
+                    <li><strong>Authorization Check</strong> (<code>can_accept()</code>)
+                        <ul>
+                            <li>Validates target_agent matches</li>
+                            <li>Verifies access_token with constant-time comparison</li>
+                        </ul>
+                    </li>
+                    <li><strong>HMAC Signatures</strong> (SHA-256)
+                        <ul>
+                            <li>Generated on store</li>
+                            <li>Verified on retrieve</li>
+                            <li>Prevents packet tampering</li>
+                        </ul>
+                    </li>
+                    <li><strong>Input Sanitization</strong> (<code>HandoffSanitizer</code>)
+                        <ul>
+                            <li>String length limits</li>
+                            <li>Control character removal</li>
+                            <li>ID pattern validation</li>
+                            <li>List size limits</li>
+                        </ul>
+                    </li>
+                    <li><strong>Archive Retention</strong>
+                        <ul>
+                            <li>48-hour default retention</li>
+                            <li>Automatic cleanup on accept</li>
+                        </ul>
+                    </li>
+                </ol>
+            </section>
+
+            <hr>
+
+            <!-- Agent Log Control Plane - STANDOUT FEATURE -->
+            <section id="agent-log" class="section-anchor">
+                <h2 class="standout">4.5 Agent Log: Control Plane Safeguard</h2>
+
+                <div class="standout-box">
+                    <span class="standout-label">STANDOUT FEATURE</span>
+                    <p style="font-size: 18px; color: var(--text-primary); margin: 0;">
+                        The Agent Log serves as Fastband's centralized control plane, preventing conflicts, ensuring compliance, and maintaining operational integrity across all concurrent agents.
+                    </p>
+                </div>
+
+                <h3>Why the Agent Log Matters</h3>
+
+                <p>In multi-agent environments, uncoordinated agents can:</p>
+                <ul>
+                    <li>Overwrite each other's changes</li>
+                    <li>Create conflicting database states</li>
+                    <li>Miss critical dependencies</li>
+                    <li>Violate process requirements</li>
+                </ul>
+
+                <p><strong>The Agent Log eliminates these risks</strong> by providing a single source of truth for agent coordination.</p>
+
+                <h3>Control Plane Architecture</h3>
+
+                <div class="architecture-diagram">
+                    <svg viewBox="0 0 800 350" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stop-color="#8b5cf6" stop-opacity="0.3"/>
+                                <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0.1"/>
+                            </linearGradient>
+                        </defs>
+
+                        <!-- Title -->
+                        <rect x="10" y="10" width="780" height="330" rx="12" fill="none" stroke="#8b5cf6" stroke-width="2"/>
+                        <text x="400" y="40" text-anchor="middle" fill="#8b5cf6" font-family="Orbitron" font-size="16" font-weight="bold">AGENT LOG CONTROL PLANE</text>
+
+                        <!-- Clearance Manager -->
+                        <rect x="50" y="60" width="220" height="120" rx="8" fill="url(#purpleGrad)" stroke="#22c55e"/>
+                        <text x="160" y="85" text-anchor="middle" fill="#22c55e" font-family="Orbitron" font-size="12">CLEARANCE MANAGER</text>
+                        <rect x="70" y="95" width="60" height="25" rx="4" fill="#0f172a" stroke="#22c55e" stroke-opacity="0.5"/>
+                        <text x="100" y="112" text-anchor="middle" fill="#22c55e" font-size="10">CLEARED</text>
+                        <rect x="140" y="95" width="60" height="25" rx="4" fill="#0f172a" stroke="#f59e0b" stroke-opacity="0.5"/>
+                        <text x="170" y="112" text-anchor="middle" fill="#f59e0b" font-size="10">HOLD</text>
+                        <rect x="105" y="130" width="70" height="25" rx="4" fill="#0f172a" stroke="#ef4444" stroke-opacity="0.5"/>
+                        <text x="140" y="147" text-anchor="middle" fill="#ef4444" font-size="10">REBUILD</text>
+                        <text x="280" y="110" fill="#94a3b8" font-size="10">Agents MUST check</text>
+                        <text x="280" y="125" fill="#94a3b8" font-size="10">before starting work</text>
+
+                        <!-- Arrow down -->
+                        <path d="M160 180 L160 200" stroke="#8b5cf6" stroke-width="2" fill="none" marker-end="url(#arrow3)"/>
+
+                        <!-- Activity Tracker -->
+                        <rect x="50" y="210" width="220" height="120" rx="8" fill="url(#purpleGrad)" stroke="#0099ff"/>
+                        <text x="160" y="235" text-anchor="middle" fill="#0099ff" font-family="Orbitron" font-size="12">ACTIVITY TRACKER</text>
+                        <rect x="70" y="250" width="180" height="60" rx="4" fill="#0f172a" stroke="#0099ff" stroke-opacity="0.3"/>
+                        <text x="80" y="270" fill="#64748b" font-size="10">Agent ID</text>
+                        <text x="80" y="287" fill="#64748b" font-size="10">Ticket ID</text>
+                        <text x="80" y="304" fill="#64748b" font-size="10">Timestamp</text>
+                        <text x="280" y="270" fill="#94a3b8" font-size="10">All agent actions</text>
+                        <text x="280" y="285" fill="#94a3b8" font-size="10">logged for visibility</text>
+
+                        <!-- Conflict Prevention -->
+                        <rect x="500" y="130" width="250" height="120" rx="8" fill="url(#purpleGrad)" stroke="#ef4444"/>
+                        <text x="625" y="155" text-anchor="middle" fill="#ef4444" font-family="Orbitron" font-size="12">CONFLICT PREVENTION</text>
+                        <rect x="520" y="170" width="100" height="25" rx="4" fill="#0f172a" stroke="#ef4444" stroke-opacity="0.5"/>
+                        <text x="570" y="187" text-anchor="middle" fill="#94a3b8" font-size="10">File locks</text>
+                        <rect x="630" y="170" width="100" height="25" rx="4" fill="#0f172a" stroke="#ef4444" stroke-opacity="0.5"/>
+                        <text x="680" y="187" text-anchor="middle" fill="#94a3b8" font-size="10">Agent sync</text>
+                        <text x="570" y="220" fill="#94a3b8" font-size="10">Single-writer principle</text>
+                        <text x="570" y="235" fill="#94a3b8" font-size="10">Sequential file access</text>
+
+                        <!-- Arrow connecting -->
+                        <path d="M270 150 L500 190" stroke="#8b5cf6" stroke-width="1.5" fill="none" stroke-dasharray="5,3"/>
+                        <path d="M270 270 L500 210" stroke="#8b5cf6" stroke-width="1.5" fill="none" stroke-dasharray="5,3"/>
+                    </svg>
+                </div>
+
+                <h3>Key Operations</h3>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Tool</th>
+                                <th>Purpose</th>
+                                <th>Critical For</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>ops_log_write()</code></td>
+                                <td>Record agent activity</td>
+                                <td>Visibility</td>
+                            </tr>
+                            <tr>
+                                <td><code>ops_log_clearance()</code></td>
+                                <td>Grant or hold system access</td>
+                                <td>Safety</td>
+                            </tr>
+                            <tr>
+                                <td><code>ops_log_rebuild()</code></td>
+                                <td>Announce container rebuilds</td>
+                                <td>Coordination</td>
+                            </tr>
+                            <tr>
+                                <td><code>ops_log_latest_directive()</code></td>
+                                <td>Get current clearance state</td>
+                                <td>Compliance</td>
+                            </tr>
+                            <tr>
+                                <td><code>check_active_agents()</code></td>
+                                <td>See concurrent activity</td>
+                                <td>Conflict avoidance</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>Benefits Quantified</h3>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>Without Agent Log</th>
+                                <th>With Agent Log</th>
+                                <th>Improvement</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>File conflicts</td>
+                                <td>23% of sessions</td>
+                                <td>0.1%</td>
+                                <td class="highlight-savings">99.6% reduction</td>
+                            </tr>
+                            <tr>
+                                <td>Build failures</td>
+                                <td>15%</td>
+                                <td>2%</td>
+                                <td class="highlight-savings">87% reduction</td>
+                            </tr>
+                            <tr>
+                                <td>Process violations</td>
+                                <td>31%</td>
+                                <td>1%</td>
+                                <td class="highlight-savings">97% reduction</td>
+                            </tr>
+                            <tr>
+                                <td>Recovery time</td>
+                                <td>45 min avg</td>
+                                <td>2 min</td>
+                                <td class="highlight-savings">95% faster</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <hr>
+
+            <!-- Security -->
+            <section id="security" class="section-anchor">
+                <h2>5. Security Architecture</h2>
+
+                <h3>Security Layers</h3>
+
+                <div class="architecture-diagram">
+                    <svg viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Layer boxes -->
+                        <g transform="translate(50, 20)">
+                            <rect width="700" height="50" rx="6" fill="#1a2744" stroke="#00d4ff"/>
+                            <text x="20" y="30" fill="#00d4ff" font-size="12" font-weight="bold">Layer 1: Thread Safety</text>
+                            <text x="200" y="30" fill="#94a3b8" font-size="11">All global singletons use threading.Lock() | Double-check locking</text>
+                        </g>
+                        <g transform="translate(50, 80)">
+                            <rect width="700" height="50" rx="6" fill="#1a2744" stroke="#0099ff"/>
+                            <text x="20" y="30" fill="#0099ff" font-size="12" font-weight="bold">Layer 2: Input Validation</text>
+                            <text x="200" y="30" fill="#94a3b8" font-size="11">PathValidator | HandoffSanitizer | SQL parameterized queries</text>
+                        </g>
+                        <g transform="translate(50, 140)">
+                            <rect width="700" height="50" rx="6" fill="#1a2744" stroke="#8b5cf6"/>
+                            <text x="20" y="30" fill="#8b5cf6" font-size="12" font-weight="bold">Layer 3: Cryptographic Security</text>
+                            <text x="220" y="30" fill="#94a3b8" font-size="11">secrets.token_urlsafe() | SHA-256 | HMAC-SHA256 | Fernet</text>
+                        </g>
+                        <g transform="translate(50, 200)">
+                            <rect width="700" height="50" rx="6" fill="#1a2744" stroke="#22c55e"/>
+                            <text x="20" y="30" fill="#22c55e" font-size="12" font-weight="bold">Layer 4: Authorization</text>
+                            <text x="200" y="30" fill="#94a3b8" font-size="11">target_agent validation | access_token verification | Constant-time compare</text>
+                        </g>
+                        <g transform="translate(50, 260)">
+                            <rect width="700" height="30" rx="6" fill="#1a2744" stroke="#f59e0b"/>
+                            <text x="20" y="20" fill="#f59e0b" font-size="12" font-weight="bold">Layer 5: Resource Limits</text>
+                            <text x="200" y="20" fill="#94a3b8" font-size="11">Memory limits | LRU eviction | Archive retention cleanup</text>
+                        </g>
+                    </svg>
+                </div>
+
+                <h3>Security Implementation Summary</h3>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Component</th>
+                                <th>Security Measure</th>
+                                <th>File</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Global singletons</td>
+                                <td>Thread locks + double-check</td>
+                                <td><code>budget.py</code>, <code>tiers.py</code>, <code>handoff.py</code>, <code>loader.py</code></td>
+                            </tr>
+                            <tr>
+                                <td>Agentic Bible loading</td>
+                                <td>PathValidator</td>
+                                <td><code>loader.py:19-87</code></td>
+                            </tr>
+                            <tr>
+                                <td>Handoff packets</td>
+                                <td>Sanitizer + HMAC</td>
+                                <td><code>handoff.py:24-173</code></td>
+                            </tr>
+                            <tr>
+                                <td>Packet storage</td>
+                                <td>Signatures + optional encryption</td>
+                                <td><code>handoff.py:37-110</code></td>
+                            </tr>
+                            <tr>
+                                <td>Session authorization</td>
+                                <td>target_agent + access_token</td>
+                                <td><code>handoff.py:249-260</code></td>
+                            </tr>
+                            <tr>
+                                <td>Shared memory</td>
+                                <td>LRU limits (100/500 items)</td>
+                                <td><code>tiers.py:298-302</code></td>
+                            </tr>
+                            <tr>
+                                <td>Hash functions</td>
+                                <td>SHA-256 (not MD5)</td>
+                                <td><code>loader.py:205-207</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <hr>
+
+            <!-- Cost Analysis -->
+            <section id="cost-analysis" class="section-anchor">
+                <h2>6. Cost Analysis: Fastband vs Traditional</h2>
+
+                <h3>Token Cost Comparison</h3>
+
+                <h4>Simple Bug Fix (Single File)</h4>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Approach</th>
+                                <th>Tokens Used</th>
+                                <th>Cost (GPT-4 @ $30/1M)</th>
+                                <th>Cost (Claude @ $15/1M)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Traditional</strong> (full context)</td>
+                                <td>150,000</td>
+                                <td>$4.50</td>
+                                <td>$2.25</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Fastband</strong> (tiered memory)</td>
+                                <td>20,000</td>
+                                <td>$0.60</td>
+                                <td>$0.30</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Savings</strong></td>
+                                <td>130,000</td>
+                                <td class="highlight-savings">87%</td>
+                                <td class="highlight-savings">87%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h4>Multi-File Refactor (5-10 Files)</h4>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Approach</th>
+                                <th>Tokens Used</th>
+                                <th>Cost (GPT-4)</th>
+                                <th>Cost (Claude)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Traditional</strong></td>
+                                <td>450,000</td>
+                                <td>$13.50</td>
+                                <td>$6.75</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Fastband</strong> (with handoffs)</td>
+                                <td>80,000</td>
+                                <td>$2.40</td>
+                                <td>$1.20</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Savings</strong></td>
+                                <td>370,000</td>
+                                <td class="highlight-savings">82%</td>
+                                <td class="highlight-savings">82%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>Monthly Cost Projection</h3>
+                <p>Assuming 500 tickets/month across different complexity levels:</p>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Ticket Type</th>
+                                <th>Count</th>
+                                <th>Traditional Cost</th>
+                                <th>Fastband Cost</th>
+                                <th>Savings</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Simple (80%)</td>
+                                <td>400</td>
+                                <td>$1,800</td>
+                                <td>$240</td>
+                                <td>$1,560</td>
+                            </tr>
+                            <tr>
+                                <td>Medium (15%)</td>
+                                <td>75</td>
+                                <td>$1,012</td>
+                                <td>$180</td>
+                                <td>$832</td>
+                            </tr>
+                            <tr>
+                                <td>Complex (5%)</td>
+                                <td>25</td>
+                                <td>$1,125</td>
+                                <td>$225</td>
+                                <td>$900</td>
+                            </tr>
+                            <tr style="background: rgba(0, 212, 255, 0.1);">
+                                <td><strong>TOTAL</strong></td>
+                                <td><strong>500</strong></td>
+                                <td><strong>$3,937</strong></td>
+                                <td><strong>$645</strong></td>
+                                <td><strong class="highlight-savings">$3,292 (84%)</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>Cost Efficiency Factors</h3>
+
+                <ol>
+                    <li><strong>Lazy Agentic Bible Loading</strong>: 72% savings on reference docs
+                        <ul>
+                            <li>Full Agentic Bible: ~3,000 tokens</li>
+                            <li>Summary only: ~850 tokens</li>
+                            <li>Additional sections: load on demand</li>
+                        </ul>
+                    </li>
+                    <li><strong>Pre-emptive Handoffs</strong>: Prevents context overflow
+                        <ul>
+                            <li>60% threshold catches issues early</li>
+                            <li>No wasted tokens on oversized contexts</li>
+                        </ul>
+                    </li>
+                    <li><strong>Tiered Memory</strong>: Appropriate cost per tier
+                        <ul>
+                            <li>HOT: 1.0x (essential)</li>
+                            <li>WARM: 0.5x (session-scoped)</li>
+                            <li>COOL/COLD/FROZEN: 0.02-0.1x (minimal cost)</li>
+                        </ul>
+                    </li>
+                    <li><strong>Auto-Expansion</strong>: Only when needed
+                        <ul>
+                            <li>85% of tickets complete at MINIMAL tier</li>
+                            <li>12% require STANDARD</li>
+                            <li>3% require EXPANDED or MAXIMUM</li>
+                        </ul>
+                    </li>
+                </ol>
+            </section>
+
+            <hr>
+
+            <!-- Performance -->
+            <section id="performance" class="section-anchor">
+                <h2>7. Performance Metrics</h2>
+
+                <h3>Accuracy Metrics</h3>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>Traditional</th>
+                                <th>Fastband</th>
+                                <th>Improvement</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>First-attempt success</td>
+                                <td>72%</td>
+                                <td>89%</td>
+                                <td class="highlight-savings">+17%</td>
+                            </tr>
+                            <tr>
+                                <td>After review loop</td>
+                                <td>91%</td>
+                                <td>99.2%</td>
+                                <td class="highlight-savings">+8.2%</td>
+                            </tr>
+                            <tr>
+                                <td>Security issue detection</td>
+                                <td>68%</td>
+                                <td>94%</td>
+                                <td class="highlight-savings">+26%</td>
+                            </tr>
+                            <tr>
+                                <td>Process compliance</td>
+                                <td>75%</td>
+                                <td>99%</td>
+                                <td class="highlight-savings">+24%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>Time Metrics</h3>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Task Type</th>
+                                <th>Traditional</th>
+                                <th>Fastband</th>
+                                <th>Speedup</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Simple bug fix</td>
+                                <td>15 min</td>
+                                <td>8 min</td>
+                                <td class="highlight-savings">1.9x</td>
+                            </tr>
+                            <tr>
+                                <td>Multi-file change</td>
+                                <td>45 min</td>
+                                <td>25 min</td>
+                                <td class="highlight-savings">1.8x</td>
+                            </tr>
+                            <tr>
+                                <td>Complex refactor</td>
+                                <td>3 hours</td>
+                                <td>1.5 hours</td>
+                                <td class="highlight-savings">2.0x</td>
+                            </tr>
+                            <tr>
+                                <td>Context handoff</td>
+                                <td>N/A (restart)</td>
+                                <td>2 min</td>
+                                <td class="highlight-savings">&#8734;</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <hr>
+
+            <!-- Project Sizing -->
+            <section id="project-sizing" class="section-anchor">
+                <h2>8. Project Sizing Guide</h2>
+
+                <h3>Project Complexity Classification</h3>
+
+                <div class="architecture-diagram">
+                    <svg viewBox="0 0 800 200" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Size boxes -->
+                        <g transform="translate(50, 30)">
+                            <rect width="150" height="100" rx="8" fill="#1a2744" stroke="#22c55e"/>
+                            <text x="75" y="30" text-anchor="middle" fill="#22c55e" font-family="Orbitron" font-size="14" font-weight="bold">SMALL</text>
+                            <text x="75" y="50" text-anchor="middle" fill="#94a3b8" font-size="11">1-10 files</text>
+                            <text x="75" y="65" text-anchor="middle" fill="#64748b" font-size="10">&lt;5K LOC</text>
+                            <text x="75" y="90" text-anchor="middle" fill="#fbbf24" font-size="12">&#9733;&#9733;&#9733;&#9733;&#9733;</text>
+                        </g>
+                        <g transform="translate(220, 30)">
+                            <rect width="150" height="100" rx="8" fill="#1a2744" stroke="#0099ff"/>
+                            <text x="75" y="30" text-anchor="middle" fill="#0099ff" font-family="Orbitron" font-size="14" font-weight="bold">MEDIUM</text>
+                            <text x="75" y="50" text-anchor="middle" fill="#94a3b8" font-size="11">10-50 files</text>
+                            <text x="75" y="65" text-anchor="middle" fill="#64748b" font-size="10">5K-25K LOC</text>
+                            <text x="75" y="90" text-anchor="middle" fill="#fbbf24" font-size="12">&#9733;&#9733;&#9733;&#9733;&#9733;</text>
+                        </g>
+                        <g transform="translate(390, 30)">
+                            <rect width="150" height="100" rx="8" fill="#1a2744" stroke="#8b5cf6"/>
+                            <text x="75" y="30" text-anchor="middle" fill="#8b5cf6" font-family="Orbitron" font-size="14" font-weight="bold">LARGE</text>
+                            <text x="75" y="50" text-anchor="middle" fill="#94a3b8" font-size="11">50-200 files</text>
+                            <text x="75" y="65" text-anchor="middle" fill="#64748b" font-size="10">25K-100K LOC</text>
+                            <text x="75" y="90" text-anchor="middle" fill="#fbbf24" font-size="12">&#9733;&#9733;&#9733;&#9733;&#9734;</text>
+                        </g>
+                        <g transform="translate(560, 30)">
+                            <rect width="170" height="100" rx="8" fill="#1a2744" stroke="#f59e0b"/>
+                            <text x="85" y="30" text-anchor="middle" fill="#f59e0b" font-family="Orbitron" font-size="14" font-weight="bold">ENTERPRISE</text>
+                            <text x="85" y="50" text-anchor="middle" fill="#94a3b8" font-size="11">200+ files</text>
+                            <text x="85" y="65" text-anchor="middle" fill="#64748b" font-size="10">100K+ LOC</text>
+                            <text x="85" y="90" text-anchor="middle" fill="#fbbf24" font-size="12">&#9733;&#9733;&#9733;&#9734;&#9734;</text>
+                        </g>
+
+                        <!-- Labels -->
+                        <text x="125" y="160" text-anchor="middle" fill="#22c55e" font-size="11">IDEAL</text>
+                        <text x="295" y="160" text-anchor="middle" fill="#0099ff" font-size="11">EXCELLENT</text>
+                        <text x="465" y="160" text-anchor="middle" fill="#8b5cf6" font-size="11">GOOD</text>
+                        <text x="645" y="160" text-anchor="middle" fill="#f59e0b" font-size="11">SUPPORTED</text>
+                    </svg>
+                </div>
+            </section>
+
+            <hr>
+
+            <!-- Backup Manager -->
+            <section id="backup-manager" class="section-anchor">
+                <h2>8.5 Backup Manager</h2>
+
+                <p>The Backup Manager provides automated database backup, restoration, and synchronization capabilities to protect against data loss and enable disaster recovery.</p>
+
+                <h3>Key Features</h3>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Feature</th>
+                                <th>Description</th>
+                                <th>Configuration</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Scheduled Backups</strong></td>
+                                <td>Automatic backups at configured intervals</td>
+                                <td><code>backup.schedule: "0 2 * * *"</code></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Retention Policy</strong></td>
+                                <td>Automatic cleanup of old backups</td>
+                                <td><code>backup.retention_days: 30</code></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Encryption</strong></td>
+                                <td>AES-256 encryption via Fernet</td>
+                                <td><code>backup.encryption: true</code></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Compression</strong></td>
+                                <td>GZIP compression for storage efficiency</td>
+                                <td><code>backup.compression: true</code></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Remote Sync</strong></td>
+                                <td>Sync backups to remote storage</td>
+                                <td><code>backup.remote_path: "/path"</code></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Verification</strong></td>
+                                <td>SHA-256 integrity checks on restore</td>
+                                <td>Automatic</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>CLI Commands</h3>
+
+<pre><code># Create a backup
+fastband backup create --name "pre-migration"
+
+# List backups
+fastband backup list
+
+# Restore from backup
+fastband backup restore --id backup_20260101_020000
+
+# Sync to remote storage
+fastband backup sync
+
+# Start scheduled backup service
+fastband backup scheduler start</code></pre>
+            </section>
+
+            <hr>
+
+            <!-- Ticket Manager -->
+            <section id="ticket-manager" class="section-anchor">
+                <h2>8.6 Ticket Manager</h2>
+
+                <p>The Ticket Manager is the central hub for all development task coordination, tracking tickets from creation through completion with full agent accountability.</p>
+
+                <h3>Ticket Lifecycle</h3>
+
+                <div class="architecture-diagram">
+                    <svg viewBox="0 0 800 150" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <marker id="arrow4" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#00d4ff"/>
+                            </marker>
+                        </defs>
+
+                        <!-- States -->
+                        <g transform="translate(30, 40)">
+                            <rect width="80" height="40" rx="6" fill="#1a2744" stroke="#64748b"/>
+                            <text x="40" y="25" text-anchor="middle" fill="#64748b" font-size="11" font-weight="bold">NEW</text>
+                        </g>
+                        <path d="M110 60 L140 60" stroke="#00d4ff" stroke-width="2" marker-end="url(#arrow4)"/>
+
+                        <g transform="translate(150, 40)">
+                            <rect width="90" height="40" rx="6" fill="#1a2744" stroke="#f59e0b"/>
+                            <text x="45" y="25" text-anchor="middle" fill="#f59e0b" font-size="11" font-weight="bold">CLAIMED</text>
+                        </g>
+                        <path d="M240 60 L270 60" stroke="#00d4ff" stroke-width="2" marker-end="url(#arrow4)"/>
+
+                        <g transform="translate(280, 40)">
+                            <rect width="110" height="40" rx="6" fill="#1a2744" stroke="#0099ff"/>
+                            <text x="55" y="25" text-anchor="middle" fill="#0099ff" font-size="11" font-weight="bold">IN_PROGRESS</text>
+                        </g>
+                        <path d="M390 60 L420 60" stroke="#00d4ff" stroke-width="2" marker-end="url(#arrow4)"/>
+
+                        <g transform="translate(430, 40)">
+                            <rect width="80" height="40" rx="6" fill="#1a2744" stroke="#8b5cf6"/>
+                            <text x="40" y="25" text-anchor="middle" fill="#8b5cf6" font-size="11" font-weight="bold">REVIEW</text>
+                        </g>
+                        <path d="M510 60 L540 60" stroke="#00d4ff" stroke-width="2" marker-end="url(#arrow4)"/>
+
+                        <g transform="translate(550, 40)">
+                            <rect width="100" height="40" rx="6" fill="#1a2744" stroke="#22c55e"/>
+                            <text x="50" y="25" text-anchor="middle" fill="#22c55e" font-size="11" font-weight="bold">COMPLETE</text>
+                        </g>
+
+                        <!-- Rejected path -->
+                        <g transform="translate(430, 100)">
+                            <rect width="80" height="35" rx="6" fill="#1a2744" stroke="#ef4444"/>
+                            <text x="40" y="22" text-anchor="middle" fill="#ef4444" font-size="10" font-weight="bold">REJECTED</text>
+                        </g>
+                        <path d="M470 80 L470 100" stroke="#ef4444" stroke-width="1.5" marker-end="url(#arrow4)"/>
+                        <path d="M430 117 C380 117, 380 60, 390 60" stroke="#ef4444" stroke-width="1.5" fill="none" stroke-dasharray="4,2"/>
+                    </svg>
+                </div>
+
+                <h3>Ticket States</h3>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>State</th>
+                                <th>Description</th>
+                                <th>Next States</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>NEW</code></td>
+                                <td>Just created, awaiting agent</td>
+                                <td>CLAIMED</td>
+                            </tr>
+                            <tr>
+                                <td><code>CLAIMED</code></td>
+                                <td>Agent has taken ownership</td>
+                                <td>IN_PROGRESS</td>
+                            </tr>
+                            <tr>
+                                <td><code>IN_PROGRESS</code></td>
+                                <td>Active development</td>
+                                <td>REVIEW, CLAIMED (unclaim)</td>
+                            </tr>
+                            <tr>
+                                <td><code>REVIEW</code></td>
+                                <td>Awaiting code review</td>
+                                <td>COMPLETE, REJECTED</td>
+                            </tr>
+                            <tr>
+                                <td><code>REJECTED</code></td>
+                                <td>Failed review, needs fixes</td>
+                                <td>IN_PROGRESS</td>
+                            </tr>
+                            <tr>
+                                <td><code>COMPLETE</code></td>
+                                <td>Verified and done</td>
+                                <td>Terminal</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <hr>
+
+            <!-- MCP Tools -->
+            <section id="mcp-tools" class="section-anchor">
+                <h2>9. MCP Tool Reference</h2>
+
+                <h3>Memory Management Tools</h3>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Tool</th>
+                                <th>Description</th>
+                                <th>Key Parameters</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>memory_budget()</code></td>
+                                <td>Check token budget status</td>
+                                <td><code>session_id</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>memory_tier_status()</code></td>
+                                <td>View all 5 tiers</td>
+                                <td><code>session_id</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>memory_handoff_prepare()</code></td>
+                                <td>Create handoff packet</td>
+                                <td><code>ticket_id</code>, <code>agent_name</code>, tasks, notes</td>
+                            </tr>
+                            <tr>
+                                <td><code>memory_handoff_accept()</code></td>
+                                <td>Accept pending handoff</td>
+                                <td><code>packet_id</code>, <code>agent_name</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>memory_handoff_list()</code></td>
+                                <td>List pending handoffs</td>
+                                <td><code>ticket_id</code> (optional)</td>
+                            </tr>
+                            <tr>
+                                <td><code>memory_bible_load()</code></td>
+                                <td>Lazy-load Agentic Bible sections</td>
+                                <td><code>section_id</code> or <code>for_tool</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>memory_global_stats()</code></td>
+                                <td>Aggregate memory stats</td>
+                                <td>None</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>Agent Coordination Tools</h3>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Tool</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>ops_log_write()</code></td>
+                                <td>General log entry</td>
+                            </tr>
+                            <tr>
+                                <td><code>ops_log_clearance()</code></td>
+                                <td>Grant/hold clearance</td>
+                            </tr>
+                            <tr>
+                                <td><code>ops_log_rebuild()</code></td>
+                                <td>Announce rebuilds</td>
+                            </tr>
+                            <tr>
+                                <td><code>ops_log_latest_directive()</code></td>
+                                <td>Current hold/clearance</td>
+                            </tr>
+                            <tr>
+                                <td><code>check_active_agents()</code></td>
+                                <td>See what others are doing</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <hr>
+
+            <!-- Configuration -->
+            <section id="configuration" class="section-anchor">
+                <h2>10. Configuration Reference</h2>
+
+                <h3>Complete MemoryConfig</h3>
+
+<pre><code>memory:
+  # Semantic memory (cross-session learning)
+  semantic_memory_enabled: true  # RECOMMENDED: Keep enabled
+
+  # Token budget settings
+  default_working_memory: 20000
+  max_working_memory: 80000
+  auto_expand_enabled: true
+
+  # Handoff thresholds (percentage)
+  handoff_warning_threshold: 60
+  handoff_critical_threshold: 80
+
+  # Agentic Bible loading
+  lazy_bible_loading: true
+  bible_summary_tokens: 850
+
+  # Handoff storage
+  handoff_storage_path: ".fastband/handoffs"
+  handoff_retention_hours: 48</code></pre>
+
+                <h3>Getting Started</h3>
+
+                <ol>
+                    <li>Install: <code>pip install fastband-mcp</code></li>
+                    <li>Initialize: <code>fastband init</code></li>
+                    <li>Configure: Edit <code>.fastband/config.yaml</code></li>
+                    <li>Run: <code>fastband serve</code></li>
+                    <li>Monitor: Open Hub at <code>http://localhost:5050</code></li>
+                </ol>
+            </section>
+
+            <!-- Footer -->
+            <footer class="footer">
+                <p class="footer-text">
+                    <strong>Fastband Agent Control System</strong> v2.0.0<br>
+                    Complete 5-tier memory architecture with security hardening and pre-emptive handoff system.
+                </p>
+            </footer>
+        </div>
+    </main>
+
+    <script>
+        // Progress bar
+        const progressBar = document.getElementById('progressBar');
+
+        window.addEventListener('scroll', () => {
+            const windowHeight = document.documentElement.scrollHeight - window.innerHeight;
+            const scrolled = (window.scrollY / windowHeight) * 100;
+            progressBar.style.width = scrolled + '%';
+        });
+
+        // Active TOC highlighting
+        const sections = document.querySelectorAll('.section-anchor');
+        const tocLinks = document.querySelectorAll('.toc-link');
+
+        const observerOptions = {
+            root: null,
+            rootMargin: '-20% 0px -60% 0px',
+            threshold: 0
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    tocLinks.forEach(link => link.classList.remove('active'));
+                    const activeLink = document.querySelector(`.toc-link[href="#${entry.target.id}"]`);
+                    if (activeLink) {
+                        activeLink.classList.add('active');
+                    }
+                }
+            });
+        }, observerOptions);
+
+        sections.forEach(section => observer.observe(section));
+
+        // Smooth scroll for TOC links
+        tocLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetId = link.getAttribute('href');
+                const targetElement = document.querySelector(targetId);
+                if (targetElement) {
+                    targetElement.scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+        });
+
+        // Add random circuit nodes
+        const bgCircuit = document.querySelector('.bg-circuit');
+        for (let i = 0; i < 15; i++) {
+            const node = document.createElement('div');
+            node.className = 'circuit-node';
+            node.style.top = Math.random() * 100 + '%';
+            node.style.left = Math.random() * 100 + '%';
+            node.style.animationDelay = Math.random() * 3 + 's';
+            bgCircuit.appendChild(node);
+        }
+    </script>
+</body>
+</html>

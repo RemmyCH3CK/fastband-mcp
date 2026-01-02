@@ -403,6 +403,8 @@ class ReviewManager:
 
         This is called by review agents to submit their assessment.
 
+        P0 Security: Prevents self-review (reviewer cannot be the ticket assignee).
+
         Args:
             ticket_id: Ticket being reviewed
             reviewer_name: Name of the reviewer
@@ -417,6 +419,18 @@ class ReviewManager:
             return {
                 "success": False,
                 "error": f"Ticket {ticket_id} not found",
+            }
+
+        # P0 SECURITY: Block self-review
+        # The agent who worked on the ticket cannot review their own work
+        if ticket.assigned_to and reviewer_name == ticket.assigned_to:
+            return {
+                "success": False,
+                "error": (
+                    f"SELF-REVIEW BLOCKED: Reviewer '{reviewer_name}' cannot review "
+                    f"their own work. Ticket is assigned to '{ticket.assigned_to}'. "
+                    f"A different agent must perform the review."
+                ),
             }
 
         # Verify ticket is in review

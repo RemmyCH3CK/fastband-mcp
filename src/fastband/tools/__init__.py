@@ -102,6 +102,41 @@ def _register_builtin_tools() -> None:
     for name, class_name in agent_tools:
         registry.register_lazy(name, "fastband.tools.agents", class_name, ToolCategory.CORE)
 
+    # Web tools (browser automation, QA, screenshots)
+    web_tools = [
+        ("screenshot", "ScreenshotTool"),
+        ("http_request", "HttpRequestTool"),
+        ("dom_query", "DomQueryTool"),
+        ("browser_console", "BrowserConsoleTool"),
+        ("analyze_screenshot_with_vision", "VisionAnalysisTool"),
+        ("browser_automation", "BrowserAutomationTool"),
+        ("qa_console_sweep", "QAConsoleSweepTool"),
+    ]
+    for name, class_name in web_tools:
+        registry.register_lazy(name, "fastband.tools.web", class_name, ToolCategory.WEB)
+
+    # Testing tools (E2E testing, validation)
+    testing_tools = [
+        ("agent_tester", "AgentTesterTool"),
+        ("screenshot_validator", "ScreenshotValidatorTool"),
+    ]
+    for name, class_name in testing_tools:
+        registry.register_lazy(name, "fastband.tools.testing", class_name, ToolCategory.TESTING)
+
+    # Memory tools (cross-session learning)
+    memory_tools = [
+        ("memory_query", "MemoryQueryTool"),
+        ("memory_start_session", "MemoryStartSessionTool"),
+        ("memory_add_discovery", "MemoryAddDiscoveryTool"),
+        ("memory_commit", "MemoryCommitTool"),
+        ("memory_get_patterns", "MemoryGetPatternsTool"),
+        ("memory_stats", "MemoryStatsTool"),
+        ("memory_extract_patterns", "MemoryExtractPatternsTool"),
+        ("memory_prune", "MemoryPruneTool"),
+    ]
+    for name, class_name in memory_tools:
+        registry.register_lazy(name, "fastband.tools.memory", class_name, ToolCategory.AI)
+
 
 # Register on import (but don't import tool modules yet)
 _register_builtin_tools()

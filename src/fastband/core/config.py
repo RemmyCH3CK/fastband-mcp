@@ -91,6 +91,39 @@ class GitHubConfig:
 
 
 @dataclass
+class MemoryConfig:
+    """
+    Memory architecture configuration.
+
+    Controls the 5-tier memory system and agent handoffs.
+    Semantic memory is ENABLED by default (recommended) - it provides
+    cross-session learning from resolved tickets to help agents solve
+    similar problems faster.
+    """
+
+    # Semantic memory (cross-session learning from past tickets)
+    # RECOMMENDED: Keep enabled for better agent performance
+    semantic_memory_enabled: bool = True
+
+    # Token budget settings
+    default_working_memory: int = 20_000  # Base working memory tokens
+    max_working_memory: int = 80_000  # Hard ceiling
+    auto_expand_enabled: bool = True  # Auto-expand on complexity
+
+    # Handoff thresholds (percentage of budget)
+    handoff_warning_threshold: int = 60  # Start preparing handoff
+    handoff_critical_threshold: int = 80  # Must handoff immediately
+
+    # Lazy Bible loading
+    lazy_bible_loading: bool = True  # Load sections on-demand
+    bible_summary_tokens: int = 850  # Tokens for initial summary
+
+    # Handoff storage
+    handoff_storage_path: str = ".fastband/handoffs"
+    handoff_retention_hours: int = 48  # Keep handoffs for 48 hours
+
+
+@dataclass
 class FastbandConfig:
     """
     Complete Fastband configuration.
@@ -119,6 +152,7 @@ class FastbandConfig:
     tickets: TicketsConfig = field(default_factory=TicketsConfig)
     backup: BackupConfig = field(default_factory=BackupConfig)
     github: GitHubConfig = field(default_factory=GitHubConfig)
+    memory: MemoryConfig = field(default_factory=MemoryConfig)
 
     # Storage
     storage_backend: str = "sqlite"  # sqlite, postgres, mysql, file
@@ -219,6 +253,21 @@ class FastbandConfig:
                 default_branch=g.get("default_branch", "main"),
             )
 
+        if "memory" in data:
+            m = data["memory"]
+            config.memory = MemoryConfig(
+                semantic_memory_enabled=m.get("semantic_memory_enabled", True),
+                default_working_memory=m.get("default_working_memory", 20_000),
+                max_working_memory=m.get("max_working_memory", 80_000),
+                auto_expand_enabled=m.get("auto_expand_enabled", True),
+                handoff_warning_threshold=m.get("handoff_warning_threshold", 60),
+                handoff_critical_threshold=m.get("handoff_critical_threshold", 80),
+                lazy_bible_loading=m.get("lazy_bible_loading", True),
+                bible_summary_tokens=m.get("bible_summary_tokens", 850),
+                handoff_storage_path=m.get("handoff_storage_path", ".fastband/handoffs"),
+                handoff_retention_hours=m.get("handoff_retention_hours", 48),
+            )
+
         if "storage" in data:
             s = data["storage"]
             config.storage_backend = s.get("backend", "sqlite")
@@ -294,6 +343,22 @@ class FastbandConfig:
             "enabled": self.github.enabled,
             "automation_level": self.github.automation_level,
             "default_branch": self.github.default_branch,
+        }
+
+        # Memory configuration with explanatory comments
+        result["fastband"]["memory"] = {
+            # Semantic memory learns from resolved tickets to help future agents
+            # RECOMMENDED: Keep enabled for better performance
+            "semantic_memory_enabled": self.memory.semantic_memory_enabled,
+            "default_working_memory": self.memory.default_working_memory,
+            "max_working_memory": self.memory.max_working_memory,
+            "auto_expand_enabled": self.memory.auto_expand_enabled,
+            "handoff_warning_threshold": self.memory.handoff_warning_threshold,
+            "handoff_critical_threshold": self.memory.handoff_critical_threshold,
+            "lazy_bible_loading": self.memory.lazy_bible_loading,
+            "bible_summary_tokens": self.memory.bible_summary_tokens,
+            "handoff_storage_path": self.memory.handoff_storage_path,
+            "handoff_retention_hours": self.memory.handoff_retention_hours,
         }
 
         result["fastband"]["storage"] = {

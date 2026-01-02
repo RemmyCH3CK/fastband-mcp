@@ -128,6 +128,7 @@ class OpsLog:
     - Entry expiration (TTL)
     - Conflict detection
     - Archive management
+    - P1 Security: Rate limiting per agent
     """
 
     # Log rotation thresholds
@@ -136,6 +137,10 @@ class OpsLog:
 
     # Default TTL for entries (7 days)
     DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60
+
+    # P1 Security: Rate limiting (100 entries per agent per minute)
+    RATE_LIMIT_ENTRIES = 100
+    RATE_LIMIT_WINDOW_SECONDS = 60
 
     def __init__(
         self,
@@ -166,6 +171,10 @@ class OpsLog:
             "created": datetime.utcnow().isoformat() + "Z",
             "last_rotation": None,
         }
+
+        # P1 Security: Rate limiting tracking per agent
+        # Maps agent_name -> list of timestamps of recent writes
+        self._rate_limit_tracker: dict[str, list[datetime]] = {}
 
         # Load existing log
         self._load()
@@ -282,6 +291,38 @@ class OpsLog:
 
             return archive_path
 
+    def _check_rate_limit(self, agent: str) -> tuple[bool, str | None]:
+        """
+        Check if agent has exceeded rate limit.
+
+        P1 Security: Prevents ops log spam attacks.
+
+        Returns:
+            Tuple of (is_allowed, error_message)
+        """
+        now = datetime.utcnow()
+        window_start = now - timedelta(seconds=self.RATE_LIMIT_WINDOW_SECONDS)
+
+        # Get agent's recent writes
+        if agent not in self._rate_limit_tracker:
+            self._rate_limit_tracker[agent] = []
+
+        # Clean old entries
+        self._rate_limit_tracker[agent] = [
+            ts for ts in self._rate_limit_tracker[agent]
+            if ts > window_start
+        ]
+
+        # Check limit
+        if len(self._rate_limit_tracker[agent]) >= self.RATE_LIMIT_ENTRIES:
+            return False, (
+                f"RATE LIMIT EXCEEDED: Agent '{agent}' has exceeded "
+                f"{self.RATE_LIMIT_ENTRIES} entries per {self.RATE_LIMIT_WINDOW_SECONDS} seconds. "
+                f"Wait before writing more entries."
+            )
+
+        return True, None
+
     def write_entry(
         self,
         agent: str,
@@ -294,6 +335,8 @@ class OpsLog:
         """
         Write a new entry to the log.
 
+        P1 Security: Enforces rate limiting to prevent ops log spam attacks.
+
         Args:
             agent: Agent name/identifier
             event_type: Type of event
@@ -304,8 +347,16 @@ class OpsLog:
 
         Returns:
             The created LogEntry
+
+        Raises:
+            ValueError: If rate limit is exceeded
         """
         with self._lock:
+            # P1 Security: Check rate limit
+            is_allowed, error = self._check_rate_limit(agent)
+            if not is_allowed:
+                raise ValueError(error)
+
             entry = LogEntry.create(
                 agent=agent,
                 event_type=event_type,
@@ -316,6 +367,10 @@ class OpsLog:
             )
 
             self._entries.append(entry)
+
+            # Track this write for rate limiting
+            self._rate_limit_tracker.setdefault(agent, []).append(datetime.utcnow())
+
             self._save()
 
             # Check if rotation needed
@@ -594,37 +649,51 @@ class OpsLog:
             },
         )
 
+    # P1 Security: Default hold expiration (30 minutes)
+    DEFAULT_HOLD_EXPIRATION_SECONDS = 30 * 60  # 30 minutes
+
     def issue_hold(
         self,
         agent: str,
         affected_agents: list[str],
         tickets: list[str] | None = None,
         reason: str = "Coordination required",
+        ttl_seconds: int | None = None,
     ) -> LogEntry:
         """
         Issue a hold directive.
+
+        P1 Security: Holds now have automatic expiration (default 30 min) to prevent
+        indefinite blocking of all agents by a single malicious/stuck agent.
 
         Args:
             agent: Agent issuing the hold
             affected_agents: Agents who should pause work
             tickets: Specific tickets affected (None = global hold)
             reason: Reason for the hold
+            ttl_seconds: Custom expiration time (default: 30 minutes)
 
         Returns:
             The created LogEntry
         """
+        # P1 Security: Enforce hold expiration
+        hold_ttl = ttl_seconds if ttl_seconds is not None else self.DEFAULT_HOLD_EXPIRATION_SECONDS
+
         ticket_info = f" on tickets {', '.join(tickets)}" if tickets else " (global)"
-        message = f"HOLD issued to {', '.join(affected_agents)}{ticket_info}: {reason}"
+        expiry_info = f" (expires in {hold_ttl // 60} minutes)"
+        message = f"HOLD issued to {', '.join(affected_agents)}{ticket_info}: {reason}{expiry_info}"
 
         return self.write_entry(
             agent=agent,
             event_type=EventType.HOLD,
             message=message,
+            ttl_seconds=hold_ttl,
             metadata={
                 "affected_agents": affected_agents,
                 "tickets": tickets or [],
                 "reason": reason,
                 "is_global": tickets is None or len(tickets) == 0,
+                "hold_expiration_seconds": hold_ttl,
             },
         )
 

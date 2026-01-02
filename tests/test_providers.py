@@ -586,7 +586,8 @@ class TestClaudeProviderExtended:
             response = await provider.complete_with_tools("Find info", tools)
 
             assert response.content == "Using tool"
-            assert response.raw_response["tool_calls"][0]["name"] == "search"
+            # Tool calls are in OpenAI-compatible format
+            assert response.raw_response["tool_calls"][0]["function"]["name"] == "search"
             assert response.raw_response["tool_calls"][0]["id"] == "tool_123"
 
     def test_convert_tools_openai_format(self, claude_config):
