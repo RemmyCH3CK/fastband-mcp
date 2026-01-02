@@ -18,6 +18,11 @@ and this project adheres to a hybrid versioning scheme: `vMAJOR.YYYY.MM.PATCH[-p
 - **Circuit Breakers** - Resilience pattern for AI provider failures with configurable thresholds
 - **Redis Session Store** - Horizontal scaling support with Redis-backed session management
 - **Alembic Migrations** - Database schema versioning with `fastband db` CLI commands
+- **Webhooks** - External event notifications with HMAC signatures and automatic retries
+  - Subscribe to ticket, agent, and build events
+  - Exponential backoff retry (10s, 60s, 300s)
+  - Delivery history and manual retry support
+  - Full CRUD API at `/api/webhooks`
 
 #### Infrastructure
 - **Kubernetes Health Probes** - `/api/health/live` and `/api/health/ready` endpoints
@@ -50,6 +55,7 @@ and this project adheres to a hybrid versioning scheme: `vMAJOR.YYYY.MM.PATCH[-p
 
 ### Fixed
 - Screenshot validation tests now use real temporary files
+- WebSocket mock fixture now correctly mocks headers attribute
 
 ## [1.2025.12.6] - 2025-12-30
 
