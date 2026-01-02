@@ -1,0 +1,52 @@
+name: Import Boundaries
+
+on:
+  push:
+    branches:
+      - dual-product-rearch
+    paths:
+      - 'packages/**'
+      - 'scripts/check-import-boundaries.py'
+      - '.github/workflows/import-boundaries.yml'
+  pull_request:
+    branches:
+      - dual-product-rearch
+    paths:
+      - 'packages/**'
+      - 'scripts/check-import-boundaries.py'
+      - '.github/workflows/import-boundaries.yml'
+
+jobs:
+  check-boundaries:
+    name: Check Import Boundaries
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run import boundary check
+        run: |
+          echo "Checking import boundaries..."
+          python scripts/check-import-boundaries.py
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Import Boundary Check" >> $GITHUB_STEP_SUMMARY
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "✅ All import boundaries respected" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Import boundary violations detected" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Rules" >> $GITHUB_STEP_SUMMARY
+            echo "- Core must not import Dev or Enterprise" >> $GITHUB_STEP_SUMMARY
+            echo "- Dev must not import Enterprise" >> $GITHUB_STEP_SUMMARY
+            echo "- Enterprise must not import Dev" >> $GITHUB_STEP_SUMMARY
+          fi
