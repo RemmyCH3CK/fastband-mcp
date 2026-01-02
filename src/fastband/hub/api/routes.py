@@ -3241,3 +3241,384 @@ async def get_home_directory():
 
     home = Path.home()
     return {"path": str(home)}
+
+
+# =============================================================================
+# WEBHOOK MANAGEMENT ENDPOINTS
+# =============================================================================
+
+
+class WebhookCreateRequest(BaseModel):
+    """Request to create a webhook subscription."""
+
+    url: str
+    events: list[str]
+    secret: str
+    name: str | None = None
+    description: str | None = None
+    metadata: dict[str, Any] | None = None
+
+
+class WebhookUpdateRequest(BaseModel):
+    """Request to update a webhook subscription."""
+
+    events: list[str] | None = None
+    active: bool | None = None
+    name: str | None = None
+    description: str | None = None
+
+
+class WebhookResponse(BaseModel):
+    """Webhook subscription response."""
+
+    id: str
+    url: str
+    events: list[str]
+    name: str | None
+    description: str | None
+    active: bool
+    created_at: str
+    updated_at: str
+    stats: dict[str, Any]
+
+
+class WebhookDeliveryResponse(BaseModel):
+    """Webhook delivery response."""
+
+    id: str
+    subscription_id: str
+    event: str
+    status: str
+    attempt: int
+    max_attempts: int
+    created_at: str
+    delivered_at: str | None
+    response: dict[str, Any]
+    error_message: str | None
+
+
+@router.get("/webhooks")
+async def list_webhooks(
+    active_only: bool = False,
+) -> list[WebhookResponse]:
+    """List all webhook subscriptions."""
+    from fastband.webhooks import get_webhook_service
+
+    service = get_webhook_service()
+    if not service._started:
+        await service.start()
+
+    subscriptions = await service.list_subscriptions(active_only=active_only)
+
+    return [
+        WebhookResponse(
+            id=sub.id,
+            url=sub.url,
+            events=[e.value for e in sub.events],
+            name=sub.name,
+            description=sub.description,
+            active=sub.active,
+            created_at=sub.created_at.isoformat() + "Z",
+            updated_at=sub.updated_at.isoformat() + "Z",
+            stats={
+                "total_deliveries": sub.total_deliveries,
+                "successful_deliveries": sub.successful_deliveries,
+                "failed_deliveries": sub.failed_deliveries,
+                "success_rate": (
+                    sub.successful_deliveries / sub.total_deliveries
+                    if sub.total_deliveries > 0
+                    else 0.0
+                ),
+                "last_delivery_at": (
+                    sub.last_delivery_at.isoformat() + "Z"
+                    if sub.last_delivery_at
+                    else None
+                ),
+                "last_error": sub.last_error,
+            },
+        )
+        for sub in subscriptions
+    ]
+
+
+@router.post("/webhooks")
+async def create_webhook(request: WebhookCreateRequest) -> WebhookResponse:
+    """Create a new webhook subscription."""
+    from fastapi import HTTPException
+
+    from fastband.webhooks import get_webhook_service
+
+    # Validate URL
+    if not request.url.startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="URL must start with http:// or https://")
+
+    # Validate secret
+    if len(request.secret) < 8:
+        raise HTTPException(status_code=400, detail="Secret must be at least 8 characters")
+
+    service = get_webhook_service()
+    if not service._started:
+        await service.start()
+
+    subscription = await service.register(
+        url=request.url,
+        events=request.events,
+        secret=request.secret,
+        name=request.name,
+        description=request.description,
+        metadata=request.metadata,
+    )
+
+    return WebhookResponse(
+        id=subscription.id,
+        url=subscription.url,
+        events=[e.value for e in subscription.events],
+        name=subscription.name,
+        description=subscription.description,
+        active=subscription.active,
+        created_at=subscription.created_at.isoformat() + "Z",
+        updated_at=subscription.updated_at.isoformat() + "Z",
+        stats={
+            "total_deliveries": 0,
+            "successful_deliveries": 0,
+            "failed_deliveries": 0,
+            "success_rate": 0.0,
+            "last_delivery_at": None,
+            "last_error": None,
+        },
+    )
+
+
+@router.get("/webhooks/{webhook_id}")
+async def get_webhook(webhook_id: str) -> WebhookResponse:
+    """Get a specific webhook subscription."""
+    from fastapi import HTTPException
+
+    from fastband.webhooks import get_webhook_service
+
+    service = get_webhook_service()
+    if not service._started:
+        await service.start()
+
+    subscription = await service.get_subscription(webhook_id)
+    if not subscription:
+        raise HTTPException(status_code=404, detail="Webhook not found")
+
+    return WebhookResponse(
+        id=subscription.id,
+        url=subscription.url,
+        events=[e.value for e in subscription.events],
+        name=subscription.name,
+        description=subscription.description,
+        active=subscription.active,
+        created_at=subscription.created_at.isoformat() + "Z",
+        updated_at=subscription.updated_at.isoformat() + "Z",
+        stats={
+            "total_deliveries": subscription.total_deliveries,
+            "successful_deliveries": subscription.successful_deliveries,
+            "failed_deliveries": subscription.failed_deliveries,
+            "success_rate": (
+                subscription.successful_deliveries / subscription.total_deliveries
+                if subscription.total_deliveries > 0
+                else 0.0
+            ),
+            "last_delivery_at": (
+                subscription.last_delivery_at.isoformat() + "Z"
+                if subscription.last_delivery_at
+                else None
+            ),
+            "last_error": subscription.last_error,
+        },
+    )
+
+
+@router.put("/webhooks/{webhook_id}")
+async def update_webhook(
+    webhook_id: str,
+    request: WebhookUpdateRequest,
+) -> WebhookResponse:
+    """Update a webhook subscription."""
+    from fastapi import HTTPException
+
+    from fastband.webhooks import get_webhook_service
+
+    service = get_webhook_service()
+    if not service._started:
+        await service.start()
+
+    subscription = await service.update_subscription(
+        webhook_id,
+        events=request.events,
+        active=request.active,
+        name=request.name,
+        description=request.description,
+    )
+
+    if not subscription:
+        raise HTTPException(status_code=404, detail="Webhook not found")
+
+    return WebhookResponse(
+        id=subscription.id,
+        url=subscription.url,
+        events=[e.value for e in subscription.events],
+        name=subscription.name,
+        description=subscription.description,
+        active=subscription.active,
+        created_at=subscription.created_at.isoformat() + "Z",
+        updated_at=subscription.updated_at.isoformat() + "Z",
+        stats={
+            "total_deliveries": subscription.total_deliveries,
+            "successful_deliveries": subscription.successful_deliveries,
+            "failed_deliveries": subscription.failed_deliveries,
+            "success_rate": (
+                subscription.successful_deliveries / subscription.total_deliveries
+                if subscription.total_deliveries > 0
+                else 0.0
+            ),
+            "last_delivery_at": (
+                subscription.last_delivery_at.isoformat() + "Z"
+                if subscription.last_delivery_at
+                else None
+            ),
+            "last_error": subscription.last_error,
+        },
+    )
+
+
+@router.delete("/webhooks/{webhook_id}")
+async def delete_webhook(webhook_id: str) -> dict[str, bool]:
+    """Delete a webhook subscription."""
+    from fastband.webhooks import get_webhook_service
+
+    service = get_webhook_service()
+    if not service._started:
+        await service.start()
+
+    deleted = await service.unregister(webhook_id)
+    return {"deleted": deleted}
+
+
+@router.get("/webhooks/{webhook_id}/deliveries")
+async def get_webhook_deliveries(
+    webhook_id: str,
+    status: str | None = None,
+    limit: int = 100,
+) -> list[WebhookDeliveryResponse]:
+    """Get delivery history for a webhook."""
+    from fastband.webhooks import DeliveryStatus, get_webhook_service
+
+    service = get_webhook_service()
+    if not service._started:
+        await service.start()
+
+    # Parse status filter
+    delivery_status = None
+    if status:
+        try:
+            delivery_status = DeliveryStatus(status)
+        except ValueError:
+            pass
+
+    deliveries = await service.get_deliveries(
+        subscription_id=webhook_id,
+        status=delivery_status,
+        limit=limit,
+    )
+
+    return [
+        WebhookDeliveryResponse(
+            id=d.id,
+            subscription_id=d.subscription_id,
+            event=d.event.value,
+            status=d.status.value,
+            attempt=d.attempt,
+            max_attempts=d.max_attempts,
+            created_at=d.created_at.isoformat() + "Z",
+            delivered_at=d.delivered_at.isoformat() + "Z" if d.delivered_at else None,
+            response={
+                "status": d.response_status,
+                "body": d.response_body,
+                "time_ms": d.response_time_ms,
+            },
+            error_message=d.error_message,
+        )
+        for d in deliveries
+    ]
+
+
+@router.post("/webhooks/{webhook_id}/test")
+async def test_webhook(webhook_id: str) -> dict[str, Any]:
+    """Send a test event to a webhook."""
+    from datetime import datetime, timezone
+
+    from fastapi import HTTPException
+
+    from fastband.webhooks import WebhookEvent, get_webhook_service
+
+    service = get_webhook_service()
+    if not service._started:
+        await service.start()
+
+    subscription = await service.get_subscription(webhook_id)
+    if not subscription:
+        raise HTTPException(status_code=404, detail="Webhook not found")
+
+    # Send a test event
+    test_payload = {
+        "type": "test",
+        "message": "This is a test webhook delivery from Fastband",
+        "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+    }
+
+    deliveries = await service.deliver(
+        WebhookEvent.ALL,  # Test event
+        test_payload,
+    )
+
+    # Find the delivery for this subscription
+    for delivery in deliveries:
+        if delivery.subscription_id == webhook_id:
+            return {
+                "success": delivery.status.value == "delivered",
+                "delivery_id": delivery.id,
+                "status": delivery.status.value,
+                "response_status": delivery.response_status,
+                "error": delivery.error_message,
+            }
+
+    return {"success": False, "error": "No delivery created"}
+
+
+@router.post("/webhooks/deliveries/{delivery_id}/retry")
+async def retry_webhook_delivery(delivery_id: str) -> dict[str, Any]:
+    """Retry a failed webhook delivery."""
+    from fastapi import HTTPException
+
+    from fastband.webhooks import get_webhook_service
+
+    service = get_webhook_service()
+    if not service._started:
+        await service.start()
+
+    delivery = await service.retry_delivery(delivery_id)
+    if not delivery:
+        raise HTTPException(status_code=404, detail="Delivery not found or not failed")
+
+    return {
+        "retried": True,
+        "delivery_id": delivery.id,
+        "status": delivery.status.value,
+        "attempt": delivery.attempt,
+    }
+
+
+@router.get("/webhooks/events/types")
+async def get_webhook_event_types() -> list[dict[str, str]]:
+    """Get available webhook event types."""
+    from fastband.webhooks import WebhookEvent
+
+    return [
+        {"value": e.value, "name": e.name}
+        for e in WebhookEvent
+        if e != WebhookEvent.ALL
+    ]
