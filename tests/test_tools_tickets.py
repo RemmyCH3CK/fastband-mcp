@@ -52,6 +52,31 @@ def temp_store_path():
 
 
 @pytest.fixture
+def screenshot_files():
+    """Create temporary screenshot files for testing."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        screenshots_dir = Path(tmpdir) / "screenshots"
+        screenshots_dir.mkdir()
+
+        # Create screenshots for ticket ID 100 (claimed ticket)
+        before_100 = screenshots_dir / "ticket_100_before.png"
+        before_100.write_bytes(b"PNG fake image data for before")
+        after_100 = screenshots_dir / "ticket_100_after.png"
+        after_100.write_bytes(b"PNG fake image data for after")
+
+        # Create screenshots for ticket ID 1 (open ticket)
+        before_1 = screenshots_dir / "ticket_1_before.png"
+        before_1.write_bytes(b"PNG fake image data for before")
+        after_1 = screenshots_dir / "ticket_1_after.png"
+        after_1.write_bytes(b"PNG fake image data for after")
+
+        yield {
+            "100": {"before": str(before_100), "after": str(after_100)},
+            "1": {"before": str(before_1), "after": str(after_1)},
+        }
+
+
+@pytest.fixture
 def store(temp_store_path):
     """Create a test ticket store."""
     return JSONTicketStore(temp_store_path, auto_save=True)
@@ -477,28 +502,41 @@ class TestCompleteTicketSafelyTool:
     @pytest.mark.asyncio
     async def test_complete_ticket_successfully(self, claimed_ticket_store):
         """Test completing a ticket with all required fields."""
-        tool = CompleteTicketSafelyTool(store=claimed_ticket_store)
-        result = await tool.execute(
-            ticket_id="100",
-            agent_name="TestAgent",
-            problem_summary="The button was broken",
-            solution_summary="Fixed the click handler",
-            files_modified=["app.py", "templates/button.html"],
-            before_screenshot="/screenshots/before.png",
-            after_screenshot="/screenshots/after.png",
-            testing_notes="Tested in Chrome and Firefox",
-        )
+        # Create actual screenshot files that follow the naming convention
+        with tempfile.TemporaryDirectory() as tmpdir:
+            screenshots_dir = Path(tmpdir) / "screenshots"
+            screenshots_dir.mkdir()
 
-        assert result.success is True
-        assert "Under Review" in result.data["status"]  # Status includes emoji prefix
-        assert "next_steps" in result.data
+            # Create before screenshot with ticket ID in filename
+            before_path = screenshots_dir / "ticket_100_before.png"
+            before_path.write_bytes(b"PNG fake image data for before")
 
-        # Verify ticket was updated
-        ticket = claimed_ticket_store.get("100")
-        assert ticket.status == TicketStatus.UNDER_REVIEW
-        assert ticket.problem_summary == "The button was broken"
-        assert ticket.solution_summary == "Fixed the click handler"
-        assert ticket.before_screenshot == "/screenshots/before.png"
+            # Create after screenshot with ticket ID in filename
+            after_path = screenshots_dir / "ticket_100_after.png"
+            after_path.write_bytes(b"PNG fake image data for after")
+
+            tool = CompleteTicketSafelyTool(store=claimed_ticket_store)
+            result = await tool.execute(
+                ticket_id="100",
+                agent_name="TestAgent",
+                problem_summary="The button was broken",
+                solution_summary="Fixed the click handler",
+                files_modified=["app.py", "templates/button.html"],
+                before_screenshot=str(before_path),
+                after_screenshot=str(after_path),
+                testing_notes="Tested in Chrome and Firefox",
+            )
+
+            assert result.success is True
+            assert "Under Review" in result.data["status"]  # Status includes emoji prefix
+            assert "next_steps" in result.data
+
+            # Verify ticket was updated
+            ticket = claimed_ticket_store.get("100")
+            assert ticket.status == TicketStatus.UNDER_REVIEW
+            assert ticket.problem_summary == "The button was broken"
+            assert ticket.solution_summary == "Fixed the click handler"
+            assert ticket.before_screenshot == str(before_path)
 
     @pytest.mark.asyncio
     async def test_complete_ticket_missing_before_screenshot(self, claimed_ticket_store):
@@ -520,22 +558,30 @@ class TestCompleteTicketSafelyTool:
     @pytest.mark.asyncio
     async def test_complete_ticket_missing_after_screenshot(self, claimed_ticket_store):
         """Test completing without after screenshot."""
-        tool = CompleteTicketSafelyTool(store=claimed_ticket_store)
-        result = await tool.execute(
-            ticket_id="100",
-            agent_name="TestAgent",
-            problem_summary="Problem",
-            solution_summary="Solution",
-            files_modified=["file.py"],
-            before_screenshot="/before.png",
-            after_screenshot="",
-        )
+        # Create a valid before screenshot so we can test after screenshot validation
+        with tempfile.TemporaryDirectory() as tmpdir:
+            screenshots_dir = Path(tmpdir) / "screenshots"
+            screenshots_dir.mkdir()
 
-        assert result.success is False
-        assert "after screenshot" in result.error.lower()
+            before_path = screenshots_dir / "ticket_100_before.png"
+            before_path.write_bytes(b"PNG fake image data")
+
+            tool = CompleteTicketSafelyTool(store=claimed_ticket_store)
+            result = await tool.execute(
+                ticket_id="100",
+                agent_name="TestAgent",
+                problem_summary="Problem",
+                solution_summary="Solution",
+                files_modified=["file.py"],
+                before_screenshot=str(before_path),
+                after_screenshot="",  # Missing after screenshot
+            )
+
+            assert result.success is False
+            assert "after screenshot" in result.error.lower()
 
     @pytest.mark.asyncio
-    async def test_complete_ticket_missing_problem_summary(self, claimed_ticket_store):
+    async def test_complete_ticket_missing_problem_summary(self, claimed_ticket_store, screenshot_files):
         """Test completing without problem summary."""
         tool = CompleteTicketSafelyTool(store=claimed_ticket_store)
         result = await tool.execute(
@@ -544,15 +590,15 @@ class TestCompleteTicketSafelyTool:
             problem_summary="",
             solution_summary="Solution",
             files_modified=["file.py"],
-            before_screenshot="/before.png",
-            after_screenshot="/after.png",
+            before_screenshot=screenshot_files["100"]["before"],
+            after_screenshot=screenshot_files["100"]["after"],
         )
 
         assert result.success is False
         assert "problem summary" in result.error.lower()
 
     @pytest.mark.asyncio
-    async def test_complete_ticket_wrong_agent(self, claimed_ticket_store):
+    async def test_complete_ticket_wrong_agent(self, claimed_ticket_store, screenshot_files):
         """Test completing by wrong agent."""
         tool = CompleteTicketSafelyTool(store=claimed_ticket_store)
         result = await tool.execute(
@@ -561,15 +607,15 @@ class TestCompleteTicketSafelyTool:
             problem_summary="Problem",
             solution_summary="Solution",
             files_modified=["file.py"],
-            before_screenshot="/before.png",
-            after_screenshot="/after.png",
+            before_screenshot=screenshot_files["100"]["before"],
+            after_screenshot=screenshot_files["100"]["after"],
         )
 
         assert result.success is False
         assert "TestAgent" in result.error  # Should mention assigned agent
 
     @pytest.mark.asyncio
-    async def test_complete_open_ticket_fails(self, store_with_tickets):
+    async def test_complete_open_ticket_fails(self, store_with_tickets, screenshot_files):
         """Test completing an open ticket fails."""
         tool = CompleteTicketSafelyTool(store=store_with_tickets)
         result = await tool.execute(
@@ -578,15 +624,15 @@ class TestCompleteTicketSafelyTool:
             problem_summary="Problem",
             solution_summary="Solution",
             files_modified=["file.py"],
-            before_screenshot="/before.png",
-            after_screenshot="/after.png",
+            before_screenshot=screenshot_files["1"]["before"],
+            after_screenshot=screenshot_files["1"]["after"],
         )
 
         assert result.success is False
         assert "IN_PROGRESS" in result.error or "In Progress" in result.error
 
     @pytest.mark.asyncio
-    async def test_complete_ticket_updates_agent_stats(self, claimed_ticket_store):
+    async def test_complete_ticket_updates_agent_stats(self, claimed_ticket_store, screenshot_files):
         """Test that completing updates agent stats."""
         tool = CompleteTicketSafelyTool(store=claimed_ticket_store)
         await tool.execute(
@@ -595,8 +641,8 @@ class TestCompleteTicketSafelyTool:
             problem_summary="Problem",
             solution_summary="Solution",
             files_modified=["file.py"],
-            before_screenshot="/before.png",
-            after_screenshot="/after.png",
+            before_screenshot=screenshot_files["100"]["before"],
+            after_screenshot=screenshot_files["100"]["after"],
         )
 
         agent = claimed_ticket_store.get_agent("TestAgent")
@@ -963,7 +1009,7 @@ class TestStatusTransitions:
         assert ticket.status == TicketStatus.IN_PROGRESS
 
     @pytest.mark.asyncio
-    async def test_in_progress_to_under_review(self, claimed_ticket_store):
+    async def test_in_progress_to_under_review(self, claimed_ticket_store, screenshot_files):
         """Test transition from IN_PROGRESS to UNDER_REVIEW."""
         tool = CompleteTicketSafelyTool(store=claimed_ticket_store)
         result = await tool.execute(
@@ -972,8 +1018,8 @@ class TestStatusTransitions:
             problem_summary="Problem",
             solution_summary="Solution",
             files_modified=["file.py"],
-            before_screenshot="/before.png",
-            after_screenshot="/after.png",
+            before_screenshot=screenshot_files["100"]["before"],
+            after_screenshot=screenshot_files["100"]["after"],
         )
 
         assert result.success is True
@@ -1063,19 +1109,27 @@ class TestIntegration:
         )
         assert update_result.success is True
 
-        # 5. Complete the ticket
-        complete_tool = CompleteTicketSafelyTool(store=store)
-        complete_result = await complete_tool.execute(
-            ticket_id=ticket_id,
-            agent_name="IntegrationTestAgent",
-            problem_summary="The integration needed testing",
-            solution_summary="Added comprehensive tests",
-            files_modified=["tests/integration.py"],
-            before_screenshot="/screenshots/before.png",
-            after_screenshot="/screenshots/after.png",
-            testing_notes="All tests pass",
-        )
-        assert complete_result.success is True
+        # 5. Complete the ticket (need real screenshot files)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            screenshots_dir = Path(tmpdir) / "screenshots"
+            screenshots_dir.mkdir()
+            before_path = screenshots_dir / f"ticket_{ticket_id}_before.png"
+            before_path.write_bytes(b"PNG fake image data for before")
+            after_path = screenshots_dir / f"ticket_{ticket_id}_after.png"
+            after_path.write_bytes(b"PNG fake image data for after")
+
+            complete_tool = CompleteTicketSafelyTool(store=store)
+            complete_result = await complete_tool.execute(
+                ticket_id=ticket_id,
+                agent_name="IntegrationTestAgent",
+                problem_summary="The integration needed testing",
+                solution_summary="Added comprehensive tests",
+                files_modified=["tests/integration.py"],
+                before_screenshot=str(before_path),
+                after_screenshot=str(after_path),
+                testing_notes="All tests pass",
+            )
+            assert complete_result.success is True
 
         # 6. Verify final state
         get_tool = GetTicketDetailsTool(store=store)
