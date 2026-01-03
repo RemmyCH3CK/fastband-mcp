@@ -10,6 +10,8 @@ package storage
 import (
 	"context"
 	"io"
+
+	"github.com/RemmyCH3CK/fastband-mcp/packages/enterprise/internal/models"
 )
 
 // Stores aggregates all storage backends.
@@ -74,10 +76,29 @@ type PostgresStore interface {
 	// Ping checks if the database connection is healthy.
 	Ping(ctx context.Context) error
 
-	// Ticket operations (to be expanded in Task 3.3)
-	// CreateTicket(ctx context.Context, ticket *models.Ticket) error
-	// GetTicket(ctx context.Context, id string) (*models.Ticket, error)
-	// ... etc
+	// Ticket operations
+	CreateTicket(ctx context.Context, ticket *models.Ticket) error
+	GetTicket(ctx context.Context, id string) (*models.Ticket, error)
+	UpdateTicket(ctx context.Context, ticket *models.Ticket) error
+	DeleteTicket(ctx context.Context, id string) error
+	ListTickets(ctx context.Context, filter models.TicketFilter) (*models.TicketList, error)
+
+	// Job operations
+	CreateJob(ctx context.Context, job *models.Job) error
+	GetJob(ctx context.Context, id string) (*models.Job, error)
+	UpdateJob(ctx context.Context, job *models.Job) error
+	ListJobs(ctx context.Context, filter models.JobFilter) (*models.JobList, error)
+
+	// Approval operations
+	CreateApproval(ctx context.Context, approval *models.Approval) error
+	GetApproval(ctx context.Context, id string) (*models.Approval, error)
+	UpdateApproval(ctx context.Context, approval *models.Approval) error
+	ListApprovals(ctx context.Context, filter models.ApprovalFilter) (*models.ApprovalList, error)
+
+	// Audit record operations (append-only: no Update or Delete)
+	CreateAuditRecord(ctx context.Context, record *models.AuditRecord) error
+	GetAuditRecord(ctx context.Context, id string) (*models.AuditRecord, error)
+	ListAuditRecords(ctx context.Context, filter models.AuditFilter) (*models.AuditList, error)
 }
 
 // RedisStore defines the interface for Redis storage operations.
@@ -101,6 +122,70 @@ type noopPostgres struct{}
 
 func (n *noopPostgres) Ping(ctx context.Context) error {
 	return nil
+}
+
+func (n *noopPostgres) CreateTicket(ctx context.Context, ticket *models.Ticket) error {
+	return nil
+}
+
+func (n *noopPostgres) GetTicket(ctx context.Context, id string) (*models.Ticket, error) {
+	return nil, nil
+}
+
+func (n *noopPostgres) UpdateTicket(ctx context.Context, ticket *models.Ticket) error {
+	return nil
+}
+
+func (n *noopPostgres) DeleteTicket(ctx context.Context, id string) error {
+	return nil
+}
+
+func (n *noopPostgres) ListTickets(ctx context.Context, filter models.TicketFilter) (*models.TicketList, error) {
+	return &models.TicketList{}, nil
+}
+
+func (n *noopPostgres) CreateJob(ctx context.Context, job *models.Job) error {
+	return nil
+}
+
+func (n *noopPostgres) GetJob(ctx context.Context, id string) (*models.Job, error) {
+	return nil, nil
+}
+
+func (n *noopPostgres) UpdateJob(ctx context.Context, job *models.Job) error {
+	return nil
+}
+
+func (n *noopPostgres) ListJobs(ctx context.Context, filter models.JobFilter) (*models.JobList, error) {
+	return &models.JobList{}, nil
+}
+
+func (n *noopPostgres) CreateApproval(ctx context.Context, approval *models.Approval) error {
+	return nil
+}
+
+func (n *noopPostgres) GetApproval(ctx context.Context, id string) (*models.Approval, error) {
+	return nil, nil
+}
+
+func (n *noopPostgres) UpdateApproval(ctx context.Context, approval *models.Approval) error {
+	return nil
+}
+
+func (n *noopPostgres) ListApprovals(ctx context.Context, filter models.ApprovalFilter) (*models.ApprovalList, error) {
+	return &models.ApprovalList{}, nil
+}
+
+func (n *noopPostgres) CreateAuditRecord(ctx context.Context, record *models.AuditRecord) error {
+	return nil
+}
+
+func (n *noopPostgres) GetAuditRecord(ctx context.Context, id string) (*models.AuditRecord, error) {
+	return nil, nil
+}
+
+func (n *noopPostgres) ListAuditRecords(ctx context.Context, filter models.AuditFilter) (*models.AuditList, error) {
+	return &models.AuditList{}, nil
 }
 
 // noopRedis is a no-op implementation of RedisStore.
