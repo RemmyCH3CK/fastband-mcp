@@ -117,17 +117,52 @@ func TestAPIEndpoints_WithValidAuth(t *testing.T) {
 		Stores:     storage.NewStores(),
 	})
 
-	// Test a few endpoints with valid auth - should return 501 Not Implemented (stub)
-	endpoints := []struct {
+	// Test implemented endpoints with valid auth - should return 200 OK
+	implementedEndpoints := []struct {
 		method string
 		path   string
 	}{
 		{http.MethodGet, "/v1/tickets"},
-		{http.MethodPost, "/v1/policy/check"},
 		{http.MethodGet, "/v1/audit"},
 	}
 
-	for _, ep := range endpoints {
+	for _, ep := range implementedEndpoints {
+		t.Run(ep.method+" "+ep.path, func(t *testing.T) {
+			req := httptest.NewRequest(ep.method, ep.path, nil)
+			req.Header.Set("Authorization", "Bearer "+secret)
+			rec := httptest.NewRecorder()
+
+			r.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusOK {
+				t.Errorf("expected status 200 for %s %s, got %d", ep.method, ep.path, rec.Code)
+			}
+
+			// Verify v1 success envelope format
+			var resp map[string]interface{}
+			if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+				t.Fatalf("failed to unmarshal response: %v", err)
+			}
+
+			if resp["success"] != true {
+				t.Error("expected success to be true")
+			}
+
+			if _, ok := resp["data"]; !ok {
+				t.Error("expected data field in response")
+			}
+		})
+	}
+
+	// Test stub endpoints with valid auth - should return 501 Not Implemented
+	stubEndpoints := []struct {
+		method string
+		path   string
+	}{
+		{http.MethodPost, "/v1/policy/check"},
+	}
+
+	for _, ep := range stubEndpoints {
 		t.Run(ep.method+" "+ep.path, func(t *testing.T) {
 			req := httptest.NewRequest(ep.method, ep.path, nil)
 			req.Header.Set("Authorization", "Bearer "+secret)
@@ -176,8 +211,18 @@ func TestAPIEndpoints_LegacyPath(t *testing.T) {
 
 	r.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusNotImplemented {
-		t.Errorf("expected status 501, got %d", rec.Code)
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", rec.Code)
+	}
+
+	// Verify v1 success envelope format
+	var resp map[string]interface{}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+
+	if resp["success"] != true {
+		t.Error("expected success to be true")
 	}
 }
 
