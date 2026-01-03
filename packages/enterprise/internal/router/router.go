@@ -78,11 +78,12 @@ func New(cfg Config) http.Handler {
 			r.Use(cfg.RateLimiter.Middleware)
 		}
 
-		r.Mount("/tickets", handlers.NewTicketHandler().Routes())
-		r.Mount("/jobs", handlers.NewJobHandler().Routes())
+		pg := cfg.Stores.Postgres()
+		r.Mount("/tickets", handlers.NewTicketsHandler(pg, logger).Routes())
+		r.Mount("/jobs", handlers.NewJobsHandler(pg, logger).Routes())
 		r.Mount("/policy", handlers.NewPolicyHandler().Routes())
-		r.Mount("/approvals", handlers.NewApprovalHandler().Routes())
-		r.Mount("/audit", handlers.NewAuditHandler().Routes())
+		r.Mount("/approvals", handlers.NewApprovalsHandler(pg, logger).Routes())
+		r.Mount("/audit", handlers.NewAuditHandler(pg, logger).Routes())
 		r.Mount("/events", handlers.NewEventHandler().Routes())
 	})
 
@@ -93,11 +94,12 @@ func New(cfg Config) http.Handler {
 			r.Use(cfg.RateLimiter.Middleware)
 		}
 
-		r.Mount("/tickets", handlers.NewTicketHandler().Routes())
-		r.Mount("/jobs", handlers.NewJobHandler().Routes())
+		pg := cfg.Stores.Postgres()
+		r.Mount("/tickets", handlers.NewTicketsHandler(pg, logger).Routes())
+		r.Mount("/jobs", handlers.NewJobsHandler(pg, logger).Routes())
 		r.Mount("/policy", handlers.NewPolicyHandler().Routes())
-		r.Mount("/approvals", handlers.NewApprovalHandler().Routes())
-		r.Mount("/audit", handlers.NewAuditHandler().Routes())
+		r.Mount("/approvals", handlers.NewApprovalsHandler(pg, logger).Routes())
+		r.Mount("/audit", handlers.NewAuditHandler(pg, logger).Routes())
 		r.Mount("/events", handlers.NewEventHandler().Routes())
 	})
 
